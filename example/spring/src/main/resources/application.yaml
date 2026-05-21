@@ -1,0 +1,10 @@
+bigdata:
+  test:
+    enabled: false
+    hive-metastore:
+      enabled: true
+    kafka:
+      enabled: true
+      schema-registry-enabled: true
+    localstack-s3:
+      enabled: true

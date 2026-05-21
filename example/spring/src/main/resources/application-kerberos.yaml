@@ -1,0 +1,17 @@
+bigdata:
+  test:
+    enabled: true
+    kerberos:
+      enabled: true
+      realm: EXAMPLE.COM
+      domain: example.com
+    hive-metastore:
+      enabled: true
+      kerberos-enabled: true
+    kafka:
+      enabled: true
+      kerberos-enabled: true
+      schema-registry-enabled: true
+      schema-registry-kerberos-enabled: true
+      kafka-ui-enabled: true
+      kafka-ui-kerberos-enabled: true
