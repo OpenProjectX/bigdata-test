@@ -132,7 +132,7 @@ GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:bootRun --args='--sprin
 
 The JUnit examples in `example/junit` are annotated with `@Disabled`; remove that annotation from an example class to start the configured stack.
 
-The Spark example in `example/spark` shows a JUnit test that creates a `SparkSession` from `BigDataTestKit` endpoints and configures HDFS, Hive Metastore, Kafka, S3A, and fake GCS settings. It is also disabled by default because it starts the full container stack:
+The Spark example in `example/spark` creates a `SparkSession` from `BigDataTestKit` endpoints, starts HDFS, Hive Metastore, Kafka, Schema Registry, LocalStack S3, and fake GCS, verifies HDFS and Hive Metastore connectivity, and configures Spark Kafka/S3/GCS settings:
 
 ```bash
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:test

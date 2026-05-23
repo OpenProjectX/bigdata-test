@@ -1,14 +1,16 @@
 package org.openprojectx.bigdata.test.example.spark
 
+import org.apache.hadoop.fs.FileSystem
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
-import org.junit.jupiter.api.Disabled
+import java.net.URI
+import java.nio.file.Files
 import org.junit.jupiter.api.Test
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.junit5.BigDataTest
 
-@Disabled("Example only. Remove @Disabled to start Spark against the configured Testcontainers stack.")
 @BigDataTest(
     hdfs = true,
     hiveMetastore = true,
@@ -16,7 +18,7 @@ import org.openprojectx.bigdata.test.junit5.BigDataTest
     schemaRegistry = true,
     localStackS3 = true,
     fakeGcs = true,
-    containerLogMode = ContainerLogMode.STDOUT
+    containerLogMode = ContainerLogMode.FILE
 )
 class SparkBigDataTestExample {
     @Test
@@ -28,11 +30,12 @@ class SparkBigDataTestExample {
         val s3 = kit.endpoint(BigDataService.LOCALSTACK_S3)
         val gcs = kit.endpoint(BigDataService.FAKE_GCS)
 
+        val warehouseDir = Files.createTempDirectory("bigdata-test-spark-warehouse-").toUri().toString()
         val spark = SparkSession.builder()
             .appName("bigdata-test-spark-example")
             .master("local[2]")
             .config("spark.ui.enabled", "false")
-            .config("spark.sql.warehouse.dir", "${hdfs.property("fs.defaultFS")}/user/hive/warehouse")
+            .config("spark.sql.warehouse.dir", warehouseDir)
             .config("hive.metastore.uris", hiveMetastore.property("hive.metastore.uris"))
             .config("spark.hadoop.fs.defaultFS", hdfs.property("fs.defaultFS"))
             .config("spark.hadoop.fs.s3a.endpoint", s3.property("aws.endpoint-url.s3"))
@@ -45,6 +48,9 @@ class SparkBigDataTestExample {
             .getOrCreate()
 
         spark.use { session ->
+            FileSystem.get(URI.create(hdfs.property("fs.defaultFS")), session.sparkContext().hadoopConfiguration())
+                .use { fs -> check(fs.exists(Path("/"))) }
+
             session.sql("CREATE DATABASE IF NOT EXISTS bigdata_test_example")
             session.sql("CREATE TABLE IF NOT EXISTS bigdata_test_example.spark_smoke (id INT, name STRING) USING parquet")
             session.sql("INSERT INTO bigdata_test_example.spark_smoke VALUES (1, 'spark')")

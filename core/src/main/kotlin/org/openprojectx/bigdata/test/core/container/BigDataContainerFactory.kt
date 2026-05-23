@@ -112,7 +112,8 @@ internal class BigDataContainerFactory(
             .withNetwork(network)
             .withNetworkAliases("hdfs", "hdfs.example.com")
             .withExposedPorts(hdfs.nameNodePort, hdfs.webPort)
-            .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(3)))
+            .withCommand("sh", "-lc", hdfsStartupCommand(hdfs.nameNodePort, hdfs.webPort))
+            .waitingFor(Wait.forHttp("/").forPort(hdfs.webPort).withStartupTimeout(Duration.ofMinutes(3)))
         if (hdfs.kerberos.enabled) {
             mountKerberos(container)
             container
@@ -399,6 +400,31 @@ internal class BigDataContainerFactory(
 
     private fun sanitizeLogName(name: String): String =
         name.replace(Regex("[^A-Za-z0-9._-]"), "_")
+
+    private fun hdfsStartupCommand(nameNodePort: Int, webPort: Int): String =
+        """
+        set -eu
+        cat > "${'$'}HADOOP_CONF_DIR/core-site.xml" <<EOF
+        <configuration>
+          <property><name>fs.defaultFS</name><value>hdfs://hdfs:$nameNodePort</value></property>
+        </configuration>
+        EOF
+        cat > "${'$'}HADOOP_CONF_DIR/hdfs-site.xml" <<EOF
+        <configuration>
+          <property><name>dfs.replication</name><value>1</value></property>
+          <property><name>dfs.permissions.enabled</name><value>false</value></property>
+          <property><name>dfs.namenode.name.dir</name><value>file:///tmp/hadoop-name</value></property>
+          <property><name>dfs.datanode.data.dir</name><value>file:///tmp/hadoop-data</value></property>
+          <property><name>dfs.namenode.rpc-bind-host</name><value>0.0.0.0</value></property>
+          <property><name>dfs.namenode.http-address</name><value>0.0.0.0:$webPort</value></property>
+          <property><name>dfs.namenode.http-bind-host</name><value>0.0.0.0</value></property>
+        </configuration>
+        EOF
+        hdfs namenode -format -force -nonInteractive
+        hdfs namenode &
+        hdfs datanode &
+        wait
+        """.trimIndent()
 
     private fun encodeConfigKey(key: String): String =
         key.lowercase(Locale.ROOT)
