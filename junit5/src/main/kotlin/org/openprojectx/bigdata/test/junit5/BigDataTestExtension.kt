@@ -8,6 +8,8 @@ import org.junit.jupiter.api.extension.ParameterResolver
 import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.BigDataTestKit
+import org.openprojectx.bigdata.test.core.ContainerLogMode
+import org.openprojectx.bigdata.test.core.ContainerLogOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 
@@ -36,6 +38,14 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
 
     private fun kitFrom(annotation: BigDataTest): BigDataTestKit {
         val builder = BigDataTestKit.builder()
+        if (annotation.containerLogMode != ContainerLogMode.NONE) {
+            builder.withContainerLogs(
+                ContainerLogOptions(
+                    mode = annotation.containerLogMode,
+                    directory = annotation.containerLogDirectory,
+                ),
+            )
+        }
         if (annotation.kerberos) builder.withKerberos()
         if (annotation.hdfs || annotation.hdfsKerberos) {
             builder.withHdfs(

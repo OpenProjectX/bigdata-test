@@ -13,10 +13,8 @@ class BigDataTestExampleApplication {
     fun printBigDataEndpoints(kitProvider: ObjectProvider<BigDataTestKit>): ApplicationRunner =
         ApplicationRunner {
             val kit = kitProvider.getIfAvailable()
-            if (kit != null) {
-                kit.springProperties().forEach { (key, value) ->
-                    println("$key=$value")
-                }
+            kit?.springProperties()?.forEach { (key, value) ->
+                println("$key=$value")
             }
         }
 }

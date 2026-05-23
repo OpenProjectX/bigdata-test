@@ -16,6 +16,17 @@ allprojects {
 subprojects {
     tasks.register<DependencyReportTask>("allDependencies") {}
 
+    val testcontainersBomConfigurations = setOf(
+        "api",
+        "implementation",
+        "testImplementation",
+        "kapt",
+        "kaptTest",
+    )
+    configurations.matching { it.name in testcontainersBomConfigurations }.all {
+        project.dependencies.add(name, project.dependencies.enforcedPlatform(libs.testcontainersBom))
+    }
+
     if (path.startsWith(":example:")) {
         return@subprojects
     }

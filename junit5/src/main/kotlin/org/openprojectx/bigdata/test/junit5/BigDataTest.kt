@@ -1,6 +1,7 @@
 package org.openprojectx.bigdata.test.junit5
 
 import org.junit.jupiter.api.extension.ExtendWith
+import org.openprojectx.bigdata.test.core.ContainerLogMode
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
@@ -19,4 +20,6 @@ annotation class BigDataTest(
     val kafkaUiKerberos: Boolean = false,
     val localStackS3: Boolean = false,
     val fakeGcs: Boolean = false,
+    val containerLogMode: ContainerLogMode = ContainerLogMode.NONE,
+    val containerLogDirectory: String = "build/bigdata-test-container-logs",
 )

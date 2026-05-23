@@ -8,6 +8,7 @@ data class BigDataTestKitOptions(
     val kafka: KafkaOptions = KafkaOptions(),
     val localStackS3: ObjectStoreOptions = ObjectStoreOptions(),
     val fakeGcs: ObjectStoreOptions = ObjectStoreOptions(image = "fsouza/fake-gcs-server:1.54"),
+    val containerLogs: ContainerLogOptions = ContainerLogOptions(),
 )
 
 data class KerberosOptions(
@@ -83,4 +84,16 @@ data class KafkaOptions(
 data class ObjectStoreOptions(
     val enabled: Boolean = false,
     val image: String = "localstack/localstack:4.14.0",
+)
+
+
+enum class ContainerLogMode {
+    NONE,
+    STDOUT,
+    FILE,
+}
+
+data class ContainerLogOptions(
+    val mode: ContainerLogMode = ContainerLogMode.NONE,
+    val directory: String = "build/bigdata-test-container-logs",
 )

@@ -3,16 +3,23 @@ package org.openprojectx.bigdata.test.core.container
 import org.openprojectx.bigdata.test.core.BigDataEndpoint
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKitOptions
+import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.testcontainers.containers.BindMode
+import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.Network
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.containers.wait.strategy.Wait
+import org.testcontainers.containers.output.OutputFrame
 import org.testcontainers.images.builder.Transferable
 import org.testcontainers.lifecycle.Startable
 import org.testcontainers.utility.DockerImageName
+import java.io.OutputStreamWriter
+import java.io.Closeable
 import java.nio.file.Files
+import java.nio.charset.StandardCharsets
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.time.Duration
 import java.util.Locale
 
@@ -21,6 +28,7 @@ internal class BigDataContainerFactory(
 ) : AutoCloseable {
     private val network = Network.newNetwork()
     private val supportContainers = mutableListOf<Startable>()
+    private val logConsumers = mutableListOf<Closeable>()
     private val kerberosDir: Path? = if (kerberosRequired()) Files.createTempDirectory("bigdata-test-kerberos-") else null
 
     fun create(): List<BigDataServiceContainer> {
@@ -40,6 +48,7 @@ internal class BigDataContainerFactory(
 
     override fun close() {
         supportContainers.asReversed().forEach { it.stop() }
+        logConsumers.asReversed().forEach { it.close() }
         network.close()
     }
 
@@ -82,7 +91,7 @@ internal class BigDataContainerFactory(
             container.withEnv("KERBY_EXTRA_SERVICE_PRINCIPALS", servicePrincipals.joinToString(","))
         }
 
-        return BigDataServiceContainer(BigDataService.KERBEROS, container) {
+        return BigDataServiceContainer(BigDataService.KERBEROS, attachLogs("kerberos", container)) {
             BigDataEndpoint(
                 service = BigDataService.KERBEROS,
                 host = container.host,
@@ -114,7 +123,7 @@ internal class BigDataContainerFactory(
                 .withEnv("HDFS_NAMENODE_KEYTAB_FILE", hdfs.kerberos.keytabPath)
         }
 
-        return BigDataServiceContainer(BigDataService.HDFS, container) {
+        return BigDataServiceContainer(BigDataService.HDFS, attachLogs("hdfs", container)) {
             val nameNode = "${container.host}:${container.getMappedPort(hdfs.nameNodePort)}"
             BigDataEndpoint(
                 service = BigDataService.HDFS,
@@ -141,6 +150,7 @@ internal class BigDataContainerFactory(
             .withNetwork(network)
             .withNetworkAliases("hms-postgres")
         supportContainers += postgres
+        attachLogs("hive-metastore-postgres", postgres)
 
         val container = GenericBigDataContainer(hive.image)
             .withNetwork(network)
@@ -169,7 +179,7 @@ internal class BigDataContainerFactory(
             container.withEnv("HMS_CONF_${encodeConfigKey(key)}", value)
         }
 
-        return BigDataServiceContainer(BigDataService.HIVE_METASTORE, container) {
+        return BigDataServiceContainer(BigDataService.HIVE_METASTORE, attachLogs("hive-metastore", container)) {
             val thriftUri = "thrift://${container.host}:${container.getMappedPort(9083)}"
             BigDataEndpoint(
                 service = BigDataService.HIVE_METASTORE,
@@ -221,7 +231,7 @@ internal class BigDataContainerFactory(
                 )
         }
 
-        return BigDataServiceContainer(BigDataService.KAFKA, container) {
+        return BigDataServiceContainer(BigDataService.KAFKA, attachLogs("kafka", container)) {
             val bootstrapServers = "${container.host}:${container.getMappedPort(9092)}"
             BigDataEndpoint(
                 service = BigDataService.KAFKA,
@@ -259,7 +269,7 @@ internal class BigDataContainerFactory(
                 .withEnv("SCHEMA_REGISTRY_OPTS", "-Djava.security.krb5.conf=/kerby/client/krb5.conf")
         }
 
-        return BigDataServiceContainer(BigDataService.SCHEMA_REGISTRY, container) {
+        return BigDataServiceContainer(BigDataService.SCHEMA_REGISTRY, attachLogs("schema-registry", container)) {
             val url = "http://${container.host}:${container.getMappedPort(8085)}"
             BigDataEndpoint(
                 service = BigDataService.SCHEMA_REGISTRY,
@@ -291,7 +301,7 @@ internal class BigDataContainerFactory(
                 .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG", inlineJaas(kafka.kafkaUiKerberos))
         }
 
-        return BigDataServiceContainer(BigDataService.KAFKA_UI, container) {
+        return BigDataServiceContainer(BigDataService.KAFKA_UI, attachLogs("kafka-ui", container)) {
             val url = "http://${container.host}:${container.getMappedPort(8080)}"
             BigDataEndpoint(
                 service = BigDataService.KAFKA_UI,
@@ -311,7 +321,7 @@ internal class BigDataContainerFactory(
             .withEnv("SERVICES", "s3")
             .waitingFor(Wait.forHttp("/_localstack/health").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(3)))
 
-        return BigDataServiceContainer(BigDataService.LOCALSTACK_S3, container) {
+        return BigDataServiceContainer(BigDataService.LOCALSTACK_S3, attachLogs("localstack-s3", container)) {
             val endpoint = "http://${container.host}:${container.getMappedPort(4566)}"
             BigDataEndpoint(
                 service = BigDataService.LOCALSTACK_S3,
@@ -337,7 +347,7 @@ internal class BigDataContainerFactory(
             .withCommand("-scheme", "http", "-port", "4443")
             .waitingFor(Wait.forHttp("/storage/v1/b").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(2)))
 
-        return BigDataServiceContainer(BigDataService.FAKE_GCS, container) {
+        return BigDataServiceContainer(BigDataService.FAKE_GCS, attachLogs("fake-gcs", container)) {
             val endpoint = "http://${container.host}:${container.getMappedPort(4443)}"
             BigDataEndpoint(
                 service = BigDataService.FAKE_GCS,
@@ -350,6 +360,45 @@ internal class BigDataContainerFactory(
             )
         }
     }
+
+
+    private fun <T : GenericContainer<*>> attachLogs(name: String, container: T): T {
+        when (options.containerLogs.mode) {
+            ContainerLogMode.NONE -> Unit
+            ContainerLogMode.STDOUT -> container.withLogConsumer { frame -> writeConsoleFrame(name, frame) }
+            ContainerLogMode.FILE -> {
+                val logDir = Files.createDirectories(Path.of(options.containerLogs.directory))
+                val writer = OutputStreamWriter(
+                    Files.newOutputStream(
+                        logDir.resolve("${sanitizeLogName(name)}.log"),
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND,
+                    ),
+                    StandardCharsets.UTF_8,
+                )
+                logConsumers += writer
+                container.withLogConsumer { frame -> writeFileFrame(writer, frame) }
+            }
+        }
+        return container
+    }
+
+    private fun writeConsoleFrame(name: String, frame: OutputFrame) {
+        val text = frame.utf8String.removeSuffix("\n")
+        if (text.isEmpty()) return
+        val stream = if (frame.type == OutputFrame.OutputType.STDERR) System.err else System.out
+        text.lineSequence().forEach { line -> stream.println("[$name] $line") }
+    }
+
+    private fun writeFileFrame(writer: OutputStreamWriter, frame: OutputFrame) {
+        synchronized(writer) {
+            writer.write(frame.utf8String)
+            writer.flush()
+        }
+    }
+
+    private fun sanitizeLogName(name: String): String =
+        name.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
     private fun encodeConfigKey(key: String): String =
         key.lowercase(Locale.ROOT)

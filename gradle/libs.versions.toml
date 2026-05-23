@@ -8,7 +8,8 @@ kotlinxDatetime = "0.7.1"
 kotlinxSerializationJSON = "1.9.0"
 kotlinxCoroutines = "1.10.2"
 springBoot = "4.0.5"
-testcontainers = "1.21.3"
+testcontainers = "2.0.4"
+spark = "3.5.7"
 junitJupiter = "5.14.1"
 junitPlatform = "1.14.1"
 
@@ -19,9 +20,14 @@ kotlinSpringPlugin = { module = "org.jetbrains.kotlin.plugin.spring:org.jetbrain
 kotlinxDatetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
 kotlinxSerialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJSON" }
 kotlinxCoroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
-testcontainers = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
-testcontainersPostgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
-testcontainersJunitJupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
+testcontainersBom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+testcontainers = { module = "org.testcontainers:testcontainers" }
+testcontainersPostgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+testcontainersJunitJupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
+sparkSql = { module = "org.apache.spark:spark-sql_2.12", version.ref = "spark" }
+sparkHive = { module = "org.apache.spark:spark-hive_2.12", version.ref = "spark" }
+sparkSqlKafka = { module = "org.apache.spark:spark-sql-kafka-0-10_2.12", version.ref = "spark" }
+hadoopAws = { module = "org.apache.hadoop:hadoop-aws", version = "3.3.4" }
 junitJupiterApi = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }
 junitJupiterEngine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiter" }
 junitPlatformLauncher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }

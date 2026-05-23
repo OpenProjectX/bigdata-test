@@ -10,6 +10,7 @@ Composable Testcontainers-based fixtures for local big-data integration tests.
 - `bigdata-test-spring-boot-starter`: starter that brings in the auto-configuration
 - `example:spring`: Spring Boot local-development example
 - `example:junit`: JUnit 5 integration-test examples
+- `example:spark`: Spark + JUnit 5 example that wires Spark to the container endpoints
 
 ## Core Usage
 
@@ -27,6 +28,24 @@ kit.use {
 }
 ```
 
+Container logs are disabled by default. Enable them when a container fails to start or you need service-side troubleshooting output:
+
+```kotlin
+val kit = BigDataTestKit.builder()
+    .withKafka()
+    .withContainerLogsToStdout()
+    .build()
+```
+
+or write one file per service:
+
+```kotlin
+val kit = BigDataTestKit.builder()
+    .withHiveMetastore()
+    .withContainerLogsToDirectory("build/container-logs")
+    .build()
+```
+
 ## JUnit 5
 
 ```kotlin
@@ -39,11 +58,13 @@ class MyIntegrationTest {
 }
 ```
 
-Kerberos can be enabled per service:
+Kerberos can be enabled per service. Hadoop/HDFS, Hive Metastore, Kafka, Schema Registry, and Kafka UI expose dedicated Kerberos switches; set `kerberos = true` to start the shared KDC and then enable auth for the services that should use it.
 
 ```kotlin
 @BigDataTest(
     kerberos = true,
+    hdfs = true,
+    hdfsKerberos = true,
     hiveMetastore = true,
     hiveMetastoreKerberos = true,
     kafka = true,
@@ -53,6 +74,20 @@ Kerberos can be enabled per service:
 )
 class MyKerberosIntegrationTest
 ```
+
+JUnit tests can also route container logs to the main test process console or to files:
+
+```kotlin
+@BigDataTest(
+    kafka = true,
+    schemaRegistry = true,
+    containerLogMode = ContainerLogMode.FILE,
+    containerLogDirectory = "build/container-logs",
+)
+class MyTroubleshootingTest
+```
+
+`ContainerLogMode.STDOUT` prefixes each line with the service name. `ContainerLogMode.FILE` writes files such as `kafka.log`, `schema-registry.log`, `hive-metastore.log`, and `hive-metastore-postgres.log`.
 
 ## Spring Boot
 
@@ -75,6 +110,12 @@ bigdata:
 
 The auto-configuration exposes a started `BigDataTestKit` bean and closes it with the application context.
 
+## Dependency Management
+
+The build uses the Testcontainers BOM `org.testcontainers:testcontainers-bom:2.0.4`. In this repository it is applied once from the root `subprojects` block, so individual modules and examples should depend on Testcontainers modules without repeating the BOM.
+
+For external consumers, import the same BOM in your own dependency-management setup before adding `bigdata-test` and any direct Testcontainers dependencies. With Testcontainers 2.x, module coordinates use the `testcontainers-` prefix, for example `org.testcontainers:testcontainers-junit-jupiter` and `org.testcontainers:testcontainers-postgresql`.
+
 ## Examples
 
 Run the Spring example without starting containers:
@@ -90,3 +131,9 @@ GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:bootRun --args='--sprin
 ```
 
 The JUnit examples in `example/junit` are annotated with `@Disabled`; remove that annotation from an example class to start the configured stack.
+
+The Spark example in `example/spark` shows a JUnit test that creates a `SparkSession` from `BigDataTestKit` endpoints and configures HDFS, Hive Metastore, Kafka, S3A, and fake GCS settings. It is also disabled by default because it starts the full container stack:
+
+```bash
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:test
+```
