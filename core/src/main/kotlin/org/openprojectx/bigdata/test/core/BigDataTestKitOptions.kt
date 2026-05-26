@@ -8,6 +8,7 @@ data class BigDataTestKitOptions(
     val kafka: KafkaOptions = KafkaOptions(),
     val localStackS3: ObjectStoreOptions = ObjectStoreOptions(),
     val fakeGcs: ObjectStoreOptions = ObjectStoreOptions(image = "fsouza/fake-gcs-server:1.54"),
+    val portBindings: PortBindingOptions = PortBindingOptions(),
     val containerLogs: ContainerLogOptions = ContainerLogOptions(),
 )
 
@@ -86,6 +87,19 @@ data class ObjectStoreOptions(
     val image: String = "localstack/localstack:4.14.0",
 )
 
+
+
+data class PortBindingOptions(
+    val kerberosKdc: Int = 0,
+    val hdfsNameNode: Int = 0,
+    val hdfsWeb: Int = 0,
+    val hiveMetastore: Int = 0,
+    val kafka: Int = 0,
+    val schemaRegistry: Int = 0,
+    val kafkaUi: Int = 0,
+    val localStackS3: Int = 0,
+    val fakeGcs: Int = 0,
+)
 
 enum class ContainerLogMode {
     NONE,

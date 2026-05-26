@@ -52,6 +52,7 @@ class BigDataTestKit private constructor(
         private var kafka = KafkaOptions()
         private var localStackS3 = ObjectStoreOptions()
         private var fakeGcs = ObjectStoreOptions(image = "fsouza/fake-gcs-server:1.54")
+        private var portBindings = PortBindingOptions()
         private var containerLogs = ContainerLogOptions()
 
         fun withKerberos(options: KerberosOptions = KerberosOptions(enabled = true)): Builder =
@@ -75,6 +76,9 @@ class BigDataTestKit private constructor(
         fun withFakeGcs(options: ObjectStoreOptions = ObjectStoreOptions(enabled = true, image = "fsouza/fake-gcs-server:1.54")): Builder =
             apply { fakeGcs = options.copy(enabled = true) }
 
+        fun withPortBindings(options: PortBindingOptions): Builder =
+            apply { portBindings = options }
+
         fun withContainerLogs(options: ContainerLogOptions): Builder =
             apply { containerLogs = options }
 
@@ -94,6 +98,7 @@ class BigDataTestKit private constructor(
                     kafka = kafka,
                     localStackS3 = localStackS3,
                     fakeGcs = fakeGcs,
+                    portBindings = portBindings,
                     containerLogs = containerLogs,
                 ),
             )

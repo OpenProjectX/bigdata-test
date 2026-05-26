@@ -12,6 +12,7 @@ import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerLogOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
+import org.openprojectx.bigdata.test.core.PortBindingOptions
 
 class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResolver {
     override fun beforeAll(context: ExtensionContext) {
@@ -38,6 +39,19 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
 
     private fun kitFrom(annotation: BigDataTest): BigDataTestKit {
         val builder = BigDataTestKit.builder()
+            .withPortBindings(
+                PortBindingOptions(
+                    kerberosKdc = annotation.kerberosKdcPort,
+                    hdfsNameNode = annotation.hdfsNameNodePort,
+                    hdfsWeb = annotation.hdfsWebPort,
+                    hiveMetastore = annotation.hiveMetastorePort,
+                    kafka = annotation.kafkaPort,
+                    schemaRegistry = annotation.schemaRegistryPort,
+                    kafkaUi = annotation.kafkaUiPort,
+                    localStackS3 = annotation.localStackS3Port,
+                    fakeGcs = annotation.fakeGcsPort,
+                ),
+            )
         if (annotation.containerLogMode != ContainerLogMode.NONE) {
             builder.withContainerLogs(
                 ContainerLogOptions(

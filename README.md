@@ -89,6 +89,22 @@ class MyTroubleshootingTest
 
 `ContainerLogMode.STDOUT` prefixes each line with the service name. `ContainerLogMode.FILE` writes files such as `kafka.log`, `schema-registry.log`, `hive-metastore.log`, and `hive-metastore-postgres.log`.
 
+JUnit host ports are random by default. Leave port fields at `0` for Testcontainers dynamic port mapping, or set a positive value when a local tool needs a stable host port:
+
+```kotlin
+@BigDataTest(
+    hdfs = true,
+    kafka = true,
+    hdfsNameNodePort = 18020,
+    hdfsWebPort = 19870,
+    kafkaPort = 19092,
+)
+class MyFixedPortTest
+```
+
+Available JUnit port fields are `kerberosKdcPort`, `hdfsNameNodePort`, `hdfsWebPort`, `hiveMetastorePort`, `kafkaPort`, `schemaRegistryPort`, `kafkaUiPort`, `localStackS3Port`, and `fakeGcsPort`. Endpoint properties still use the actual mapped host ports returned by Testcontainers.
+
+
 ## Spring Boot
 
 Add the starter and enable the kit in local-development or test configuration:
