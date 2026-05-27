@@ -27,6 +27,7 @@ dependencies {
     testImplementation(libs.sparkAvro)
     testImplementation(libs.hadoopAws)
     testImplementation(libs.hadoopClientApi)
+    testImplementation(libs.hadoopClientRuntime)
     testImplementation(libs.icebergSparkRuntime)
     testImplementation(libs.icebergAwsBundle)
     testImplementation(libs.gcsConnector)
@@ -42,6 +43,8 @@ dependencies {
 
 
 tasks.withType<Test>().configureEach {
+    minHeapSize = "2048m"
+    maxHeapSize = "8192m"
     jvmArgs(
         "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED",
         "--add-opens=java.base/java.nio=ALL-UNNAMED",
