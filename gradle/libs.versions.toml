@@ -10,8 +10,14 @@ kotlinxCoroutines = "1.10.2"
 springBoot = "4.0.5"
 testcontainers = "2.0.4"
 spark = "3.5.7"
+hadoop = "3.3.6"
 junitJupiter = "5.14.1"
 junitPlatform = "1.14.1"
+iceberg = "1.11.0"
+confluent = "8.2.1"
+avro = "1.12.1"
+gcsConnector = "3.1.17"
+gcsio = "3.1.17"
 
 [libraries]
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -23,11 +29,23 @@ kotlinxCoroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", 
 testcontainersBom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers = { module = "org.testcontainers:testcontainers" }
 testcontainersPostgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+testcontainersKafka = { module = "org.testcontainers:testcontainers-kafka" }
 testcontainersJunitJupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 sparkSql = { module = "org.apache.spark:spark-sql_2.12", version.ref = "spark" }
 sparkHive = { module = "org.apache.spark:spark-hive_2.12", version.ref = "spark" }
 sparkSqlKafka = { module = "org.apache.spark:spark-sql-kafka-0-10_2.12", version.ref = "spark" }
-hadoopAws = { module = "org.apache.hadoop:hadoop-aws", version = "3.3.4" }
+hadoopAws = { module = "org.apache.hadoop:hadoop-aws", version.ref = "hadoop" }
+hadoopClientApi = { module = "org.apache.hadoop:hadoop-client-api", version.ref = "hadoop" }
+
+sparkAvro = { module = "org.apache.spark:spark-avro_2.12", version.ref = "spark" }
+icebergSparkRuntime = { module = "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12", version.ref = "iceberg" }
+icebergAwsBundle = { module = "org.apache.iceberg:iceberg-aws-bundle", version.ref = "iceberg" }
+gcsConnector = { module = "com.google.cloud.bigdataoss:gcs-connector", version.ref = "gcsConnector" }
+gcsio = { module = "com.google.cloud.bigdataoss:gcsio", version.ref = "gcsio" }
+gcsUtilHadoop = { module = "com.google.cloud.bigdataoss:util-hadoop", version.ref = "gcsConnector" }
+kafkaAvroSerializer = { module = "io.confluent:kafka-avro-serializer", version.ref = "confluent" }
+kafkaSchemaRegistryClient = { module = "io.confluent:kafka-schema-registry-client", version.ref = "confluent" }
+avro = { module = "org.apache.avro:avro", version.ref = "avro" }
 junitJupiterApi = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }
 junitJupiterEngine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiter" }
 junitPlatformLauncher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }

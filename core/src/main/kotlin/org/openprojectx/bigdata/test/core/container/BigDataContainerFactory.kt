@@ -5,11 +5,13 @@ import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKitOptions
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
+import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.testcontainers.containers.BindMode
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.Network
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.containers.wait.strategy.Wait
+import org.testcontainers.kafka.KafkaContainer
 import org.testcontainers.containers.output.OutputFrame
 import org.testcontainers.images.builder.Transferable
 import org.testcontainers.lifecycle.Startable
@@ -197,6 +199,8 @@ internal class BigDataContainerFactory(
 
     private fun kafka(): BigDataServiceContainer {
         val kafka = options.kafka
+        if (!kafka.kerberos.enabled) return plaintextKafka(kafka)
+
         val container = GenericBigDataContainer(kafka.image)
             .withNetwork(network)
             .withNetworkAliases("kafka", "broker1.example.com")
@@ -214,24 +218,22 @@ internal class BigDataContainerFactory(
             .withEnv("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", "1")
             .withEnv("CLUSTER_ID", kafka.clusterId)
             .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(3)))
-        if (kafka.kerberos.enabled) {
-            mountKerberos(container)
-            container
-                .withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "CONTROLLER:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT")
-                .withEnv("KAFKA_ADVERTISED_LISTENERS", "SASL_PLAINTEXT://broker1.example.com:9092")
-                .withEnv("KAFKA_LISTENERS", "SASL_PLAINTEXT://broker1.example.com:9092,CONTROLLER://broker1.example.com:29093")
-                .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@broker1.example.com:29093")
-                .withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "SASL_PLAINTEXT")
-                .withEnv("KAFKA_SASL_ENABLED_MECHANISMS", "GSSAPI")
-                .withEnv("KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL", "GSSAPI")
-                .withEnv("KAFKA_SASL_KERBEROS_SERVICE_NAME", kafka.kerberos.servicePrincipal.substringBefore("/"))
-                .withEnv("KAFKA_OPTS", "-Djava.security.krb5.conf=/kerby/client/krb5.conf -Djava.security.auth.login.config=/etc/kafka/kerberos/kafka_server_jaas.conf")
-                .withEnv("KRB5_CONFIG", "/kerby/client/krb5.conf")
-                .withCopyToContainer(
-                    Transferable.of(kafkaJaas(kafka.kerberos)),
-                    "/etc/kafka/kerberos/kafka_server_jaas.conf",
-                )
-        }
+        mountKerberos(container)
+        container
+            .withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "CONTROLLER:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT")
+            .withEnv("KAFKA_ADVERTISED_LISTENERS", "SASL_PLAINTEXT://broker1.example.com:9092")
+            .withEnv("KAFKA_LISTENERS", "SASL_PLAINTEXT://broker1.example.com:9092,CONTROLLER://broker1.example.com:29093")
+            .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@broker1.example.com:29093")
+            .withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "SASL_PLAINTEXT")
+            .withEnv("KAFKA_SASL_ENABLED_MECHANISMS", "GSSAPI")
+            .withEnv("KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL", "GSSAPI")
+            .withEnv("KAFKA_SASL_KERBEROS_SERVICE_NAME", kafka.kerberos.servicePrincipal.substringBefore("/"))
+            .withEnv("KAFKA_OPTS", "-Djava.security.krb5.conf=/kerby/client/krb5.conf -Djava.security.auth.login.config=/etc/kafka/kerberos/kafka_server_jaas.conf")
+            .withEnv("KRB5_CONFIG", "/kerby/client/krb5.conf")
+            .withCopyToContainer(
+                Transferable.of(kafkaJaas(kafka.kerberos)),
+                "/etc/kafka/kerberos/kafka_server_jaas.conf",
+            )
 
         return BigDataServiceContainer(BigDataService.KAFKA, attachLogs("kafka", container)) {
             val bootstrapServers = "${container.host}:${container.getMappedPort(9092)}"
@@ -247,6 +249,28 @@ internal class BigDataContainerFactory(
         }
     }
 
+    private fun plaintextKafka(kafka: KafkaOptions): BigDataServiceContainer {
+        val container = KafkaContainer(DockerImageName.parse(kafka.image))
+            .withNetwork(network)
+            .withNetworkAliases("kafka")
+            .withListener("kafka:19092")
+            .withStartupTimeout(Duration.ofMinutes(3))
+
+        return BigDataServiceContainer(BigDataService.KAFKA, attachLogs("kafka", container)) {
+            val bootstrapServers = container.bootstrapServers
+            BigDataEndpoint(
+                service = BigDataService.KAFKA,
+                host = container.host,
+                ports = mapOf("bootstrap" to container.getMappedPort(9092)),
+                properties = mapOf(
+                    "bootstrap.servers" to bootstrapServers,
+                    "spring.kafka.bootstrap-servers" to bootstrapServers,
+                    "bootstrap.servers.internal" to "kafka:19092",
+                ),
+            )
+        }
+    }
+
     private fun schemaRegistry(): BigDataServiceContainer {
         val kafka = options.kafka
         val container = GenericBigDataContainer(kafka.schemaRegistryImage)
@@ -255,7 +279,7 @@ internal class BigDataContainerFactory(
             .withServicePort(8085, options.portBindings.schemaRegistry)
             .withEnv("SCHEMA_REGISTRY_HOST_NAME", "schema-registry")
             .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:8085")
-            .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
+            .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:19092")
             .waitingFor(Wait.forHttp("/subjects").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(3)))
         if (kafka.schemaRegistryKerberos.enabled || kafka.kerberos.enabled) {
             mountKerberos(container)
