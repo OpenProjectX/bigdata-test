@@ -1,22 +1,10 @@
 package org.openprojectx.bigdata.test.example.spark
 
-import io.confluent.kafka.serializers.KafkaAvroSerializer
-import org.apache.avro.Schema
-import org.apache.avro.generic.GenericData
-import org.apache.avro.generic.GenericRecord
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.FileSystem
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.security.alias.CredentialProviderFactory
-import org.apache.kafka.clients.admin.AdminClient
-import org.apache.kafka.clients.admin.NewTopic
-import org.apache.kafka.clients.producer.KafkaProducer
-import org.apache.kafka.clients.producer.ProducerConfig
-import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.errors.TopicExistsException
-import org.apache.kafka.common.serialization.StringSerializer
 import org.apache.spark.sql.SparkSession
 import org.junit.jupiter.api.Test
+import org.openprojectx.bigdata.test.addons.hadoop.HadoopCredentialProviders
+import org.openprojectx.bigdata.test.addons.kafka.AvroKafkaRecord
+import org.openprojectx.bigdata.test.addons.kafka.KafkaAvroProducers
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.ContainerLogMode
@@ -28,7 +16,6 @@ import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.time.Duration
-import java.util.Properties
 
 @BigDataTest(
     hdfs = true,
@@ -53,16 +40,18 @@ class SparkBigDataTestExample {
         val topic = "spark-avro-events-$runId"
         val s3Bucket = "spark-iceberg-s3-$runId"
         val gcsBucket = "spark-iceberg-gcs-$runId"
-        val hdfsConfigDir = Path("/bigdata-test/spark/$runId")
-        val s3CredentialProviderPath = "jceks://hdfs${hdfsConfigDir}/s3.jceks"
+        val hdfsConfigDir = "/bigdata-test/spark/$runId"
+        val s3CredentialProviderPath = HadoopCredentialProviders.hdfsJceksPath(hdfsConfigDir, "s3.jceks")
         createS3Bucket(s3.property("aws.endpoint-url.s3"), s3Bucket)
         createGcsBucket(gcs.property("google.cloud.storage.host"), gcsBucket)
-        createS3CredentialProvider(
+        HadoopCredentialProviders.createHdfsJceks(
             hdfsUri = hdfs.property("fs.defaultFS"),
             configDir = hdfsConfigDir,
             providerPath = s3CredentialProviderPath,
-            accessKey = s3.property("aws.accessKeyId"),
-            secretKey = s3.property("aws.secretAccessKey"),
+            credentials = mapOf(
+                "fs.s3a.access.key" to s3.property("aws.accessKeyId"),
+                "fs.s3a.secret.key" to s3.property("aws.secretAccessKey"),
+            ),
         )
         produceAvroEvents(
             bootstrapServers = kafka.property("bootstrap.servers"),
@@ -137,9 +126,10 @@ class SparkBigDataTestExample {
             .enableHiveSupport()
             .getOrCreate()
 
-    private fun assertHdfsConfigStore(spark: SparkSession, hdfsUri: String, configDir: Path) {
-        FileSystem.get(URI.create(hdfsUri), spark.sparkContext().hadoopConfiguration())
-            .use { fs -> check(fs.exists(Path(configDir, "s3.jceks"))) }
+    private fun assertHdfsConfigStore(spark: SparkSession, hdfsUri: String, configDir: String) {
+        check(HadoopCredentialProviders.exists(hdfsUri, "$configDir/s3.jceks")) {
+            "Expected S3 JCEKS file in HDFS for ${spark.sparkContext().appName()}"
+        }
     }
 
     private fun assertKafkaAvroInput(spark: SparkSession, bootstrapServers: String, topic: String) {
@@ -179,34 +169,12 @@ class SparkBigDataTestExample {
     }
 
 
-    private fun createS3CredentialProvider(
-        hdfsUri: String,
-        configDir: Path,
-        providerPath: String,
-        accessKey: String,
-        secretKey: String,
-    ) {
-        val conf = Configuration(false)
-        conf.set("fs.defaultFS", hdfsUri)
-        conf.set(CredentialProviderFactory.CREDENTIAL_PROVIDER_PATH, providerPath)
-        FileSystem.get(URI.create(hdfsUri), conf).use { fs -> fs.mkdirs(configDir) }
-        val provider = CredentialProviderFactory.getProviders(conf).single()
-        provider.createCredentialEntry("fs.s3a.access.key", accessKey.toCharArray())
-        provider.createCredentialEntry("fs.s3a.secret.key", secretKey.toCharArray())
-        provider.flush()
-    }
-
     private fun produceAvroEvents(bootstrapServers: String, schemaRegistryUrl: String, topic: String) {
-        AdminClient.create(mapOf(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG to bootstrapServers)).use { admin ->
-            try {
-                admin.createTopics(listOf(NewTopic(topic, 1, 1))).all().get()
-            } catch (ex: Exception) {
-                if (ex.cause !is TopicExistsException) throw ex
-            }
-        }
-
-        val schema = Schema.Parser().parse(
-            """
+        KafkaAvroProducers.produce(
+            bootstrapServers = bootstrapServers,
+            schemaRegistryUrl = schemaRegistryUrl,
+            topic = topic,
+            schemaJson = """
             {
               "type": "record",
               "name": "SparkEvent",
@@ -217,23 +185,11 @@ class SparkBigDataTestExample {
               ]
             }
             """.trimIndent(),
+            records = listOf(
+                AvroKafkaRecord("alpha", mapOf("id" to 1, "name" to "alpha")),
+                AvroKafkaRecord("beta", mapOf("id" to 2, "name" to "beta")),
+            ),
         )
-        val props = Properties().apply {
-            put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
-            put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer::class.java.name)
-            put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer::class.java.name)
-            put("schema.registry.url", schemaRegistryUrl)
-        }
-        KafkaProducer<String, GenericRecord>(props).use { producer ->
-            listOf("alpha", "beta").forEachIndexed { index, name ->
-                val record = GenericData.Record(schema).apply {
-                    put("id", index + 1)
-                    put("name", name)
-                }
-                producer.send(ProducerRecord(topic, name, record)).get()
-            }
-            producer.flush()
-        }
     }
 
     private fun createS3Bucket(endpoint: String, bucket: String) {

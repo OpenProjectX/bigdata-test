@@ -6,6 +6,7 @@ Composable Testcontainers-based fixtures for local big-data integration tests.
 
 - `core`: container builder and endpoint/property model
 - `junit5`: `@BigDataTest` extension for JUnit 5 tests
+- `addons`: optional Hadoop, Kafka, and Avro helpers for integration-test setup
 - `bigdata-test-spring-boot-autoconfigure`: Spring Boot auto-configuration
 - `bigdata-test-spring-boot-starter`: starter that brings in the auto-configuration
 - `example:spring`: Spring Boot local-development example
@@ -44,6 +45,36 @@ val kit = BigDataTestKit.builder()
     .withHiveMetastore()
     .withContainerLogsToDirectory("build/container-logs")
     .build()
+```
+
+## Addons
+
+`core` and `junit5` intentionally stay clean of Hadoop, Spark, and storage-client dependencies. Put optional test setup helpers behind `addons` when they need heavier runtime libraries. The current addon module includes:
+
+- `HadoopCredentialProviders`: creates HDFS-backed JCEKS files, useful for S3A credentials such as `fs.s3a.access.key` and `fs.s3a.secret.key`.
+- `KafkaAvroProducers`: creates a topic when needed and produces Avro records through Schema Registry.
+
+```kotlin
+val configDir = "/bigdata-test/spark/$runId"
+val providerPath = HadoopCredentialProviders.hdfsJceksPath(configDir, "s3.jceks")
+
+HadoopCredentialProviders.createHdfsJceks(
+    hdfsUri = hdfs.property("fs.defaultFS"),
+    configDir = configDir,
+    providerPath = providerPath,
+    credentials = mapOf(
+        "fs.s3a.access.key" to s3.property("aws.accessKeyId"),
+        "fs.s3a.secret.key" to s3.property("aws.secretAccessKey"),
+    ),
+)
+
+KafkaAvroProducers.produce(
+    bootstrapServers = kafka.property("bootstrap.servers"),
+    schemaRegistryUrl = schemaRegistry.property("schema.registry.url"),
+    topic = "events",
+    schemaJson = schemaJson,
+    records = listOf(AvroKafkaRecord("key-1", mapOf("id" to 1))),
+)
 ```
 
 ## JUnit 5
@@ -148,7 +179,7 @@ GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:bootRun --args='--sprin
 
 The JUnit examples in `example/junit` are annotated with `@Disabled`; remove that annotation from an example class to start the configured stack.
 
-The Spark example in `example/spark` creates a `SparkSession` from `BigDataTestKit` endpoints, starts HDFS, Hive Metastore, Kafka, Schema Registry, LocalStack S3, and fake GCS, verifies HDFS and Hive Metastore connectivity, and configures Spark Kafka/S3/GCS settings:
+The Spark example in `example/spark` creates a `SparkSession` from `BigDataTestKit` endpoints, starts HDFS, Hive Metastore, Kafka, Schema Registry, LocalStack S3, and fake GCS, then uses `addons` to create the S3 JCEKS file on HDFS and produce Avro records to Kafka. HDFS is used as the config store for the JCEKS file; S3 and GCS are the object stores used by the Iceberg smoke checks.
 
 ```bash
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:test
