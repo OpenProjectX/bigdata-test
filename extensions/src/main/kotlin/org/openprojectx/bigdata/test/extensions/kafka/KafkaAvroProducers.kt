@@ -1,4 +1,4 @@
-package org.openprojectx.bigdata.test.addons.kafka
+package org.openprojectx.bigdata.test.extensions.kafka
 
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import org.apache.avro.Schema

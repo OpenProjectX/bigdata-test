@@ -20,22 +20,18 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             ?: return
         val kit = kitFrom(annotation)
         kit.start()
-        context.store.put(BigDataTestKit::class.java.name, kit)
+        BigDataTestKitStore.put(context, kit)
     }
 
     override fun afterAll(context: ExtensionContext) {
-        context.store.remove(BigDataTestKit::class.java.name, BigDataTestKit::class.java)?.close()
+        BigDataTestKitStore.remove(context)?.close()
     }
 
     override fun supportsParameter(parameterContext: ParameterContext, extensionContext: ExtensionContext): Boolean =
         parameterContext.parameter.type == BigDataTestKit::class.java
 
     override fun resolveParameter(parameterContext: ParameterContext, extensionContext: ExtensionContext): Any =
-        extensionContext.store.get(BigDataTestKit::class.java.name, BigDataTestKit::class.java)
-            ?: error("BigDataTestKit has not been started")
-
-    private val ExtensionContext.store: ExtensionContext.Store
-        get() = getStore(ExtensionContext.Namespace.create(BigDataTestExtension::class.java, requiredTestClass))
+        BigDataTestKitStore.get(extensionContext)
 
     private fun kitFrom(annotation: BigDataTest): BigDataTestKit {
         val builder = BigDataTestKit.builder()

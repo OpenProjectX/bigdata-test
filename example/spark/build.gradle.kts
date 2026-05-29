@@ -21,7 +21,7 @@ configurations.all {
 
 dependencies {
     testImplementation(project(":junit5"))
-    testImplementation(project(":addons"))
+    testImplementation(project(":extensions"))
     testImplementation(libs.sparkSql)
     testImplementation(libs.sparkHive)
     testImplementation(libs.sparkSqlKafka)

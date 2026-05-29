@@ -1,4 +1,4 @@
-package org.openprojectx.bigdata.test.addons.hadoop
+package org.openprojectx.bigdata.test.extensions.hadoop
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem

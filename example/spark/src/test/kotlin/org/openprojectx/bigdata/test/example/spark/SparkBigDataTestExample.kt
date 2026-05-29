@@ -2,12 +2,11 @@ package org.openprojectx.bigdata.test.example.spark
 
 import org.apache.spark.sql.SparkSession
 import org.junit.jupiter.api.Test
-import org.openprojectx.bigdata.test.addons.hadoop.HadoopCredentialProviders
-import org.openprojectx.bigdata.test.addons.kafka.AvroKafkaRecord
-import org.openprojectx.bigdata.test.addons.kafka.KafkaAvroProducers
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.ContainerLogMode
+import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionResult
+import org.openprojectx.bigdata.test.extensions.junit5.BigDataExtensions
 import org.openprojectx.bigdata.test.junit5.BigDataTest
 import java.net.URI
 import java.net.http.HttpClient
@@ -17,6 +16,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.time.Duration
 
+@BigDataExtensions("classpath:spark-bigdata-extensions.json")
 @BigDataTest(
     hdfs = true,
     hiveMetastore = true,
@@ -28,7 +28,7 @@ import java.time.Duration
 )
 class SparkBigDataTestExample {
     @Test
-    fun writesAvroKafkaEventsToIcebergOnObjectStorage(kit: BigDataTestKit) {
+    fun writesAvroKafkaEventsToIcebergOnObjectStorage(kit: BigDataTestKit, extensions: BigDataExtensionResult) {
         val hdfs = kit.endpoint(BigDataService.HDFS)
         val hiveMetastore = kit.endpoint(BigDataService.HIVE_METASTORE)
         val kafka = kit.endpoint(BigDataService.KAFKA)
@@ -37,27 +37,13 @@ class SparkBigDataTestExample {
         val gcs = kit.endpoint(BigDataService.FAKE_GCS)
 
         val runId = System.nanoTime().toString()
-        val topic = "spark-avro-events-$runId"
+        val topic = "spark-avro-events"
         val s3Bucket = "spark-iceberg-s3-$runId"
         val gcsBucket = "spark-iceberg-gcs-$runId"
-        val hdfsConfigDir = "/bigdata-test/spark/$runId"
-        val s3CredentialProviderPath = HadoopCredentialProviders.hdfsJceksPath(hdfsConfigDir, "s3.jceks")
+        val s3CredentialProviderPath = extensions.required("s3-jceks.credential-provider.path")
+        val s3CredentialProviderHdfsPath = extensions.required("s3-jceks.hdfs.path")
         createS3Bucket(s3.property("aws.endpoint-url.s3"), s3Bucket)
         createGcsBucket(gcs.property("google.cloud.storage.host"), gcsBucket)
-        HadoopCredentialProviders.createHdfsJceks(
-            hdfsUri = hdfs.property("fs.defaultFS"),
-            configDir = hdfsConfigDir,
-            providerPath = s3CredentialProviderPath,
-            credentials = mapOf(
-                "fs.s3a.access.key" to s3.property("aws.accessKeyId"),
-                "fs.s3a.secret.key" to s3.property("aws.secretAccessKey"),
-            ),
-        )
-        produceAvroEvents(
-            bootstrapServers = kafka.property("bootstrap.servers"),
-            schemaRegistryUrl = schemaRegistry.property("schema.registry.url"),
-            topic = topic,
-        )
 
         sparkSession(
             hdfsUri = hdfs.property("fs.defaultFS"),
@@ -68,7 +54,7 @@ class SparkBigDataTestExample {
             gcsEndpoint = gcs.property("google.cloud.storage.host"),
             gcsBucket = gcsBucket,
         ).use { spark ->
-            assertHdfsConfigStore(spark, hdfs.property("fs.defaultFS"), hdfsConfigDir)
+            assertHdfsConfigStore(spark, hdfs.property("fs.defaultFS"), s3CredentialProviderHdfsPath)
             assertKafkaAvroInput(spark, kafka.property("bootstrap.servers"), topic)
             assertIcebergTable(spark, catalog = "s3", namespace = "demo_$runId", table = "events_s3", storageName = "s3")
             assertIcebergTable(
@@ -126,10 +112,10 @@ class SparkBigDataTestExample {
             .enableHiveSupport()
             .getOrCreate()
 
-    private fun assertHdfsConfigStore(spark: SparkSession, hdfsUri: String, configDir: String) {
-        check(HadoopCredentialProviders.exists(hdfsUri, "$configDir/s3.jceks")) {
-            "Expected S3 JCEKS file in HDFS for ${spark.sparkContext().appName()}"
-        }
+    private fun assertHdfsConfigStore(spark: SparkSession, hdfsUri: String, hdfsPath: String) {
+        val exists = org.apache.hadoop.fs.FileSystem.get(URI.create(hdfsUri), spark.sparkContext().hadoopConfiguration())
+            .use { fs -> fs.exists(org.apache.hadoop.fs.Path(hdfsPath)) }
+        check(exists) { "Expected S3 JCEKS file in HDFS for ${spark.sparkContext().appName()}" }
     }
 
     private fun assertKafkaAvroInput(spark: SparkSession, bootstrapServers: String, topic: String) {
@@ -168,29 +154,6 @@ class SparkBigDataTestExample {
         check(count == 2L) { "Expected two Iceberg rows in $identifier" }
     }
 
-
-    private fun produceAvroEvents(bootstrapServers: String, schemaRegistryUrl: String, topic: String) {
-        KafkaAvroProducers.produce(
-            bootstrapServers = bootstrapServers,
-            schemaRegistryUrl = schemaRegistryUrl,
-            topic = topic,
-            schemaJson = """
-            {
-              "type": "record",
-              "name": "SparkEvent",
-              "namespace": "org.openprojectx.bigdata.test.example.spark",
-              "fields": [
-                {"name": "id", "type": "int"},
-                {"name": "name", "type": "string"}
-              ]
-            }
-            """.trimIndent(),
-            records = listOf(
-                AvroKafkaRecord("alpha", mapOf("id" to 1, "name" to "alpha")),
-                AvroKafkaRecord("beta", mapOf("id" to 2, "name" to "beta")),
-            ),
-        )
-    }
 
     private fun createS3Bucket(endpoint: String, bucket: String) {
         val request = HttpRequest.newBuilder(URI.create("$endpoint/$bucket"))
