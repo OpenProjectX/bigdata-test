@@ -324,6 +324,69 @@ class MyIntegrationTest {
 
 Extension output is exposed through `BigDataExtensionResult`.
 
+=== Programmatic Extension Declaration
+
+Use programmatic declaration when test data, topic names, paths, or custom extensions need to be generated at runtime. The JUnit extension combines TOML resources first, then programmatic declarations.
+
+[source,kotlin]
+----
+@BigDataExtensions
+@BigDataTest(
+    hdfs = true,
+    kafka = true,
+    schemaRegistry = true,
+    localStackS3 = true,
+)
+class MyIntegrationTest {
+    companion object : BigDataExtensionsConfigurer {
+        override fun configure(extensions: BigDataExtensionsBuilder) {
+            val suffix = System.nanoTime()
+
+            extensions.s3Jceks {
+                hdfsDir = "/bigdata-test/$suffix"
+                fileName = "s3.jceks"
+            }
+
+            extensions.kafkaAvro {
+                topic("events-$suffix", "classpath:schemas/event.avsc") {
+                    record("alpha", mapOf("id" to 1, "name" to "alpha"))
+                    record("beta", mapOf("id" to 2, "name" to "beta"))
+                }
+            }
+        }
+    }
+}
+----
+
+Programmatic declarations can be supplied in three ways:
+
+* A Kotlin companion object implementing `BigDataExtensionsConfigurer`.
+* The test instance implementing `BigDataExtensionsConfigurer`.
+* An explicit no-arg configurer class with `@BigDataExtensions(configurer = MyConfigurer::class)`.
+
+Java tests can use the same explicit configurer form. Kotlin's `KClass` annotation parameter is exposed to Java as a normal `.class` value.
+
+[source,java]
+----
+@BigDataExtensions(configurer = MyExtensionsConfigurer.class)
+@BigDataTest(kafka = true, schemaRegistry = true)
+class MyJavaIntegrationTest {
+}
+
+public final class MyExtensionsConfigurer implements BigDataExtensionsConfigurer {
+    @Override
+    public void configure(BigDataExtensionsBuilder extensions) {
+        extensions.kafkaAvro(kafka -> kafka.topic(
+            "events",
+            "classpath:schemas/event.avsc",
+            topic -> topic.record("alpha", Map.of("id", 1, "name", "alpha"))
+        ));
+    }
+}
+----
+
+Use `extensions.extension(...)` to add a custom `BigDataExtension` directly when the built-in builder methods are not enough.
+
 === S3 JCEKS Extension
 
 The `s3Jceks` extension creates a Hadoop credential provider file in HDFS and stores LocalStack S3 credentials in it.

@@ -5,7 +5,10 @@ import org.junit.jupiter.api.extension.BeforeTestExecutionCallback
 import org.junit.jupiter.api.extension.ExtensionContext
 import org.junit.jupiter.api.extension.ParameterContext
 import org.junit.jupiter.api.extension.ParameterResolver
+import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsBuilder
 import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsConfigLoader
+import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsConfigurer
+import org.openprojectx.bigdata.test.extensions.config.NoopBigDataExtensionsConfigurer
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionEvent
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionResult
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionRunner
@@ -36,7 +39,8 @@ class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback
         val annotation = context.requiredTestClass.getAnnotation(BigDataExtensions::class.java)
             ?: error("@BigDataExtensions is missing")
         val resources = BigDataExtensionResourceLoader(context.requiredTestClass.classLoader)
-        val extensions = BigDataExtensionsConfigLoader(resources).load(annotation.value.asIterable())
+        val extensions = BigDataExtensionsConfigLoader(resources).load(annotation.value.asIterable()) +
+            programmaticExtensions(annotation, context)
         val runner = BigDataExtensionRunner(extensions, resources)
         val kit = BigDataTestKitStore.get(context)
         val result = runner.fire(BigDataExtensionEvent.AFTER_KIT_START, kit)
@@ -45,6 +49,33 @@ class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback
         context.store.put(RESULT_KEY, result)
         return result
     }
+
+    private fun programmaticExtensions(
+        annotation: BigDataExtensions,
+        context: ExtensionContext,
+    ): List<org.openprojectx.bigdata.test.extensions.core.BigDataExtension> {
+        val builder = BigDataExtensionsBuilder()
+        explicitConfigurer(annotation)?.configure(builder)
+        companionConfigurer(context)?.configure(builder)
+        instanceConfigurer(context)?.configure(builder)
+        return builder.build()
+    }
+
+    private fun explicitConfigurer(annotation: BigDataExtensions): BigDataExtensionsConfigurer? {
+        val type = annotation.configurer.java
+        if (type == NoopBigDataExtensionsConfigurer::class.java) return null
+        return type.getDeclaredConstructor().also { it.isAccessible = true }.newInstance()
+    }
+
+    private fun companionConfigurer(context: ExtensionContext): BigDataExtensionsConfigurer? =
+        runCatching {
+            context.requiredTestClass.getDeclaredField("Companion")
+                .also { it.isAccessible = true }
+                .get(null) as? BigDataExtensionsConfigurer
+        }.getOrNull()
+
+    private fun instanceConfigurer(context: ExtensionContext): BigDataExtensionsConfigurer? =
+        context.testInstance.orElse(null) as? BigDataExtensionsConfigurer
 
     private val ExtensionContext.store: ExtensionContext.Store
         get() = getStore(ExtensionContext.Namespace.create(BigDataExtensionsExtension::class.java, requiredTestClass))

@@ -54,7 +54,7 @@ val kit = BigDataTestKit.builder()
 The built-in extensions currently support:
 
 - `s3Jceks`: creates an HDFS-backed JCEKS file from the LocalStack S3 endpoint credentials and exposes `s3-jceks.credential-provider.path`.
-- `kafkaAvro`: creates Kafka topics and produces Avro records through Schema Registry from inline JSON records or a records resource.
+- `kafkaAvro`: creates Kafka topics and produces Avro records through Schema Registry from inline TOML records or a records resource.
 
 JUnit usage is declaration-driven. The test declares the services with `@BigDataTest`, then points `@BigDataExtensions` at one or more TOML resources:
 
@@ -92,6 +92,48 @@ records = [
   { key = "alpha", value = { id = 1, name = "alpha" } },
   { key = "beta", value = { id = 2, name = "beta" } },
 ]
+```
+
+The same setup can be declared programmatically when names, records, or options need to be generated dynamically:
+
+```kotlin
+@BigDataExtensions
+@BigDataTest(kafka = true, schemaRegistry = true, localStackS3 = true, hdfs = true)
+class MyIntegrationTest {
+    companion object : BigDataExtensionsConfigurer {
+        override fun configure(extensions: BigDataExtensionsBuilder) {
+            val suffix = System.nanoTime()
+            extensions.s3Jceks {
+                hdfsDir = "/bigdata-test/$suffix"
+            }
+            extensions.kafkaAvro {
+                topic("events-$suffix", "classpath:schemas/event.avsc") {
+                    record("alpha", mapOf("id" to 1, "name" to "alpha"))
+                }
+            }
+        }
+    }
+}
+```
+
+Java tests can use the explicit configurer form:
+
+```java
+@BigDataExtensions(configurer = MyExtensionsConfigurer.class)
+@BigDataTest(kafka = true, schemaRegistry = true)
+class MyJavaIntegrationTest {
+}
+
+public final class MyExtensionsConfigurer implements BigDataExtensionsConfigurer {
+    @Override
+    public void configure(BigDataExtensionsBuilder extensions) {
+        extensions.kafkaAvro(kafka -> kafka.topic(
+            "events",
+            "classpath:schemas/event.avsc",
+            topic -> topic.record("alpha", Map.of("id", 1, "name", "alpha"))
+        ));
+    }
+}
 ```
 
 For future extension modules, implement `BigDataExtension` directly for programmatic use or publish a `BigDataExtensionProvider` via `ServiceLoader`. Providers are selected from config entries under `extensions` by `type`, and extensions can hook lifecycle events such as `AFTER_KIT_START`, `BEFORE_TEST_EXECUTION`, and `AFTER_ALL`.
