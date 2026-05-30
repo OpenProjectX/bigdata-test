@@ -7,6 +7,7 @@ import org.openprojectx.bigdata.test.core.ContainerLogMode
 @Retention(AnnotationRetention.RUNTIME)
 @ExtendWith(BigDataTestExtension::class)
 annotation class BigDataTest(
+    val config: Array<String> = [],
     val kerberos: Boolean = false,
     val kerberosClientPrincipal: String = "app_user@EXAMPLE.COM",
     val kerberosClientPassword: String = "app-user-secret",

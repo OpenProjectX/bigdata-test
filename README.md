@@ -78,6 +78,12 @@ class MyIntegrationTest {
 Example config:
 
 ```toml
+[images]
+hdfs = "apache/hadoop:3.5.0"
+kafka = "apache/kafka:4.1.2"
+schemaRegistry = "confluentinc/cp-schema-registry:7.8.0"
+localStackS3 = "localstack/localstack:4.14.0"
+
 [s3Jceks]
 enabled = true
 hdfsDir = "/bigdata-test/spark"
@@ -94,6 +100,8 @@ records = [
   { key = "beta", value = { id = 2, name = "beta" } },
 ]
 ```
+
+Image overrides are read before containers start. You can put `[images]` in the same TOML file referenced by `@BigDataExtensions`, or in files listed directly on `@BigDataTest(config = ["classpath:bigdata-test.toml"])`; direct `@BigDataTest` config files take priority when the same image key appears in both places.
 
 The same setup can be declared programmatically when names, records, or options need to be generated dynamically:
 

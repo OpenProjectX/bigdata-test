@@ -1,3 +1,14 @@
+[images]
+kerberos = "openprojectx/kerby-kdc:latest"
+hdfs = "apache/hadoop:3.5.0"
+hiveMetastore = "ghcr.io/openprojectx/cloudera-hms:0.1.16"
+hiveMetastoreApache = "apache/hive:3.1.3"
+kafka = "apache/kafka:4.1.2"
+schemaRegistry = "confluentinc/cp-schema-registry:7.8.0"
+kafkaUi = "ghcr.io/kafbat/kafka-ui:latest"
+localStackS3 = "localstack/localstack:4.14.0"
+fakeGcs = "fsouza/fake-gcs-server:1.54"
+
 [s3Jceks]
 enabled = true
 hdfsDir = "/bigdata-test/spark"
