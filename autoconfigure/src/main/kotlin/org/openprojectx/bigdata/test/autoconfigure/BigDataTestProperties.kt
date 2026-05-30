@@ -37,7 +37,7 @@ data class BigDataTestProperties(
 
     data class HiveMetastore(
         var enabled: Boolean = false,
-        var image: String = "ghcr.io/openprojectx/cloudera-hms:0.1.15",
+        var image: String = "ghcr.io/openprojectx/cloudera-hms:0.1.16",
         var databaseName: String = "metastore_db",
         var databaseUser: String = "hive",
         var databasePassword: String = "hive-password",

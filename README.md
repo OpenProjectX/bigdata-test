@@ -159,7 +159,7 @@ class MyFixedPortTest
 
 Available JUnit port fields are `kerberosKdcPort`, `hdfsNameNodePort`, `hdfsWebPort`, `hiveMetastorePort`, `kafkaPort`, `schemaRegistryPort`, `kafkaUiPort`, `localStackS3Port`, and `fakeGcsPort`. Endpoint properties still use the actual mapped host ports returned by Testcontainers.
 
-When Hive Metastore is started with LocalStack S3 or fake GCS, the kit also injects server-side Hadoop filesystem configuration into HMS. S3 external table DDL can validate `s3a://` locations against the internal LocalStack endpoint. GCS config is also injected, but HMS still needs a GCS connector jar in the HMS image before it can validate `gs://` locations.
+When Hive Metastore is started with LocalStack S3 or fake GCS, the kit also injects server-side Hadoop filesystem configuration into HMS. External table DDL can validate `s3a://` locations against the internal LocalStack endpoint and `gs://` locations against the internal fake GCS endpoint when the HMS image includes the matching filesystem connector.
 
 ## Spring Boot
 
@@ -204,7 +204,7 @@ GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:bootRun --args='--sprin
 
 The JUnit examples in `example/junit` are annotated with `@Disabled`; remove that annotation from an example class to start the configured stack.
 
-The Spark example in `example/spark` creates a `SparkSession` from `BigDataTestKit` endpoints, starts HDFS, Hive Metastore, Kafka, Schema Registry, LocalStack S3, and fake GCS, then uses `extensions` config to create the S3 JCEKS file on HDFS and produce Avro records to Kafka. HDFS is used as the config store for the JCEKS file; S3 and GCS are object-store Iceberg smoke checks through Hadoop catalogs. The example also creates an HMS-backed Iceberg table and a Hive external Parquet table stored on S3, then verifies the HMS database/table location and format metadata through `HiveMetaStoreClient`.
+The Spark example in `example/spark` creates a `SparkSession` from `BigDataTestKit` endpoints, starts HDFS, Hive Metastore, Kafka, Schema Registry, LocalStack S3, and fake GCS, then uses `extensions` config to create the S3 JCEKS file on HDFS and produce Avro records to Kafka. HDFS is used as the config store for the JCEKS file; S3 and GCS are object-store Iceberg smoke checks through Hadoop catalogs. The example also creates an HMS-backed Iceberg table and Hive external Parquet tables on S3 and GCS, then verifies the HMS database/table location and format metadata through `HiveMetaStoreClient`.
 
 ```bash
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:test

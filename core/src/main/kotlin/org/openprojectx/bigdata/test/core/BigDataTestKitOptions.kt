@@ -47,7 +47,7 @@ data class HdfsOptions(
 
 data class HiveMetastoreOptions(
     val enabled: Boolean = false,
-    val image: String = "ghcr.io/openprojectx/cloudera-hms:0.1.15",
+    val image: String = "ghcr.io/openprojectx/cloudera-hms:0.1.16",
     val apacheHiveImage: String = "apache/hive:3.1.3",
     val databaseName: String = "metastore_db",
     val databaseUser: String = "hive",

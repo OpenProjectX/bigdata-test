@@ -449,7 +449,7 @@ When Hive Metastore starts with fake GCS enabled, `bigdata-test` injects HMS-sid
 * `fs.gs.implicit.dir.repair.enable=false`
 * `fs.gs.hierarchical.namespace.folders.enable=false`
 
-This configuration does not fail HMS startup by itself. HMS can start with these keys even if the GCS connector jar is not present. Creating or validating a `gs://` Hive external table still requires the HMS image to include the GCS connector and its runtime dependencies.
+This configuration does not fail HMS startup by itself. HMS can start with these keys even if the GCS connector jar is not present. Creating or validating a `gs://` Hive external table requires the HMS image to include the GCS connector and its runtime dependencies. The default `ghcr.io/openprojectx/cloudera-hms` image includes those dependencies.
 
 == Spring Boot
 
@@ -506,7 +506,7 @@ The test demonstrates:
 * Reading Kafka data from Spark.
 * Writing Iceberg tables to S3 and GCS through Hadoop catalogs.
 * Creating an HMS-backed Iceberg table and asserting HMS metadata with `HiveMetaStoreClient`.
-* Creating a Hive external Parquet table stored on S3 and asserting HMS location and Parquet metadata.
+* Creating Hive external Parquet tables stored on S3 and GCS and asserting HMS location and Parquet metadata.
 
 Run it with:
 
@@ -532,7 +532,7 @@ The important distinction is where the path is resolved:
 
 === GCS Hive External Table Fails with `ClassNotFoundException`
 
-If HMS returns `ClassNotFoundException: com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem`, the HMS image does not include the GCS connector jar. The config can be present and HMS can still start, but the jar is required when HMS validates a `gs://` path.
+If HMS returns `ClassNotFoundException: com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem`, the HMS image does not include the GCS connector jar. The config can be present and HMS can still start, but the jar is required when HMS validates a `gs://` path. Use the default `ghcr.io/openprojectx/cloudera-hms` image or another HMS image that includes the GCS connector and runtime dependencies.
 
 === Container Startup Failures
 

@@ -42,6 +42,7 @@ class SparkBigDataTestExample {
         val topic = "spark-avro-events"
         val s3Bucket = "spark-iceberg-s3-$runId"
         val gcsBucket = "spark-iceberg-gcs-$runId"
+        val gcsIcebergDataPath = "gs://$gcsBucket/data/demo_$runId/events_gcs"
         val s3CredentialProviderPath = extensions.required("s3-jceks.credential-provider.path")
         val s3CredentialProviderHdfsPath = extensions.required("s3-jceks.hdfs.path")
         createS3Bucket(s3.property("aws.endpoint-url.s3"), s3Bucket)
@@ -65,7 +66,7 @@ class SparkBigDataTestExample {
                 namespace = "demo_$runId",
                 table = "events_gcs",
                 storageName = "gcs",
-                dataPath = "gs://$gcsBucket/data/demo_$runId/events_gcs",
+                dataPath = gcsIcebergDataPath,
             )
             assertIcebergTable(spark, catalog = "hms", namespace = "hms_demo_$runId", table = "events_hms", storageName = "hms")
             assertHiveMetastoreTable(
@@ -80,6 +81,15 @@ class SparkBigDataTestExample {
                 table = "events_parquet_s3",
                 location = "s3a://$s3Bucket/hive-parquet/events_parquet_s3",
                 storageName = "hive-s3-parquet",
+            )
+            assertHiveExternalParquetTable(
+                spark = spark,
+                hiveMetastoreUri = hiveMetastore.property("hive.metastore.uris"),
+                database = "hive_gcs_demo_$runId",
+                table = "events_parquet_gcs",
+                location = gcsIcebergDataPath,
+                storageName = "gcs",
+                seedData = false,
             )
         }
     }
@@ -203,9 +213,19 @@ class SparkBigDataTestExample {
         table: String,
         location: String,
         storageName: String,
+        seedData: Boolean = true,
     ) {
         val identifier = "$database.$table"
         spark.sql("CREATE DATABASE IF NOT EXISTS $database")
+        if (seedData) {
+            spark.sql(
+                """
+                SELECT 1 AS id, 'alpha' AS name, '$storageName' AS storage
+                UNION ALL
+                SELECT 2 AS id, 'beta' AS name, '$storageName' AS storage
+                """.trimIndent(),
+            ).write().mode("overwrite").parquet(location)
+        }
         spark.sql(
             """
             CREATE EXTERNAL TABLE $identifier (
@@ -216,7 +236,6 @@ class SparkBigDataTestExample {
             LOCATION '$location'
             """.trimIndent(),
         )
-        spark.sql("INSERT INTO $identifier VALUES (1, 'alpha', '$storageName'), (2, 'beta', '$storageName')")
         val count = spark.table(identifier).where("storage = '$storageName'").count()
         check(count == 2L) { "Expected two Hive external Parquet rows in $identifier" }
         assertParquetFiles(spark, location)
