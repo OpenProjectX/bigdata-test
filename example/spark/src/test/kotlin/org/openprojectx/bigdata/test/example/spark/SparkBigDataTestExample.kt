@@ -73,12 +73,13 @@ class SparkBigDataTestExample {
                 database = "hms_demo_$runId",
                 table = "events_hms",
             )
-            assertHiveS3ParquetTable(
+            assertHiveExternalParquetTable(
                 spark = spark,
                 hiveMetastoreUri = hiveMetastore.property("hive.metastore.uris"),
                 database = "hive_s3_demo_$runId",
                 table = "events_parquet_s3",
                 location = "s3a://$s3Bucket/hive-parquet/events_parquet_s3",
+                storageName = "hive-s3-parquet",
             )
         }
     }
@@ -195,39 +196,40 @@ class SparkBigDataTestExample {
         }
     }
 
-    private fun assertHiveS3ParquetTable(
+    private fun assertHiveExternalParquetTable(
         spark: SparkSession,
         hiveMetastoreUri: String,
         database: String,
         table: String,
         location: String,
+        storageName: String,
     ) {
         val identifier = "$database.$table"
         spark.sql("CREATE DATABASE IF NOT EXISTS $database")
         spark.sql(
             """
-            CREATE TABLE $identifier (
+            CREATE EXTERNAL TABLE $identifier (
                 id INT,
                 name STRING,
                 storage STRING
-            ) USING PARQUET
+            ) STORED AS PARQUET
             LOCATION '$location'
             """.trimIndent(),
         )
-        spark.sql("INSERT INTO $identifier VALUES (1, 'alpha', 'hive-s3-parquet'), (2, 'beta', 'hive-s3-parquet')")
-        val count = spark.table(identifier).where("storage = 'hive-s3-parquet'").count()
-        check(count == 2L) { "Expected two Hive S3 Parquet rows in $identifier" }
-        assertS3ParquetFiles(spark, location)
-        assertHiveMetastoreParquetS3Table(hiveMetastoreUri, database, table)
+        spark.sql("INSERT INTO $identifier VALUES (1, 'alpha', '$storageName'), (2, 'beta', '$storageName')")
+        val count = spark.table(identifier).where("storage = '$storageName'").count()
+        check(count == 2L) { "Expected two Hive external Parquet rows in $identifier" }
+        assertParquetFiles(spark, location)
+        assertHiveMetastoreExternalParquetTable(hiveMetastoreUri, database, table, location)
     }
 
-    private fun assertS3ParquetFiles(spark: SparkSession, location: String) {
+    private fun assertParquetFiles(spark: SparkSession, location: String) {
         val files = org.apache.hadoop.fs.FileSystem.get(URI.create(location), spark.sparkContext().hadoopConfiguration())
             .use { fs -> fs.listStatus(org.apache.hadoop.fs.Path(location)).map { it.path.name } }
         check(files.any { it.endsWith(".parquet") }) { "Expected Parquet files under $location, got $files" }
     }
 
-    private fun assertHiveMetastoreParquetS3Table(hiveMetastoreUri: String, database: String, table: String) {
+    private fun assertHiveMetastoreExternalParquetTable(hiveMetastoreUri: String, database: String, table: String, location: String) {
         val conf = HiveConf()
         conf.setVar(HiveConf.ConfVars.METASTOREURIS, hiveMetastoreUri)
         val client = HiveMetaStoreClient(conf)
@@ -235,9 +237,11 @@ class SparkBigDataTestExample {
             val hmsTable = client.getTable(database, table)
             check(hmsTable.dbName == database) { "Expected HMS table $database.$table, got ${hmsTable.dbName}.${hmsTable.tableName}" }
             check(hmsTable.tableName == table) { "Expected HMS table $database.$table, got ${hmsTable.dbName}.${hmsTable.tableName}" }
-            val provider = hmsTable.parameters["spark.sql.sources.provider"] ?: hmsTable.parameters["provider"]
-            check(provider.equals("parquet", ignoreCase = true) || hmsTable.sd.inputFormat.contains("Parquet")) {
-                "Expected HMS table $database.$table to be Parquet, parameters=${hmsTable.parameters}, inputFormat=${hmsTable.sd.inputFormat}"
+            check(hmsTable.sd.location == location) {
+                "Expected HMS table $database.$table location $location, got ${hmsTable.sd.location}"
+            }
+            check(hmsTable.sd.inputFormat.contains("Parquet")) {
+                "Expected HMS table $database.$table to be Parquet, inputFormat=${hmsTable.sd.inputFormat}"
             }
         } finally {
             client.close()

@@ -37,14 +37,14 @@ internal class BigDataContainerFactory(
         val containers = mutableListOf<BigDataServiceContainer>()
         if (kerberosRequired()) containers += kerberos()
         if (options.hdfs.enabled) containers += hdfs()
+        if (options.localStackS3.enabled) containers += localStackS3()
+        if (options.fakeGcs.enabled) containers += fakeGcs()
         if (options.hiveMetastore.enabled) containers += hiveMetastore()
         if (options.kafka.enabled) {
             containers += kafka()
             if (options.kafka.schemaRegistryEnabled) containers += schemaRegistry()
             if (options.kafka.kafkaUiEnabled) containers += kafkaUi()
         }
-        if (options.localStackS3.enabled) containers += localStackS3()
-        if (options.fakeGcs.enabled) containers += fakeGcs()
         return containers
     }
 
@@ -179,6 +179,9 @@ internal class BigDataContainerFactory(
                 .withEnv("HMS_CONF_HADOOP_SECURITY_AUTHENTICATION", "kerberos")
         }
 
+        hiveMetastoreObjectStoreConfiguration().forEach { (key, value) ->
+            container.withEnv("HMS_CONF_${encodeConfigKey(key)}", value)
+        }
         hive.extraConfiguration.forEach { (key, value) ->
             container.withEnv("HMS_CONF_${encodeConfigKey(key)}", value)
         }
@@ -386,6 +389,33 @@ internal class BigDataContainerFactory(
             )
         }
     }
+
+
+    private fun hiveMetastoreObjectStoreConfiguration(): Map<String, String> =
+        buildMap {
+            if (options.localStackS3.enabled) {
+                put("fs.s3a.endpoint", "http://localstack:4566")
+                put("fs.s3a.endpoint.region", "us-east-1")
+                put("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
+                put("fs.s3a.access.key", "test")
+                put("fs.s3a.secret.key", "test")
+                put("fs.s3a.path.style.access", "true")
+                put("fs.s3a.connection.ssl.enabled", "false")
+                put("fs.s3a.change.detection.mode", "none")
+            }
+            if (options.fakeGcs.enabled) {
+                put("fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
+                put("fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS")
+                put("fs.gs.project.id", "bigdata-test")
+                put("fs.gs.storage.root.url", "http://fake-gcs:4443/")
+                put("fs.gs.storage.service.path", "storage/v1/")
+                put("fs.gs.client.type", "HTTP_API_CLIENT")
+                put("fs.gs.auth.type", "UNAUTHENTICATED")
+                put("fs.gs.create.items.conflict.check.enable", "false")
+                put("fs.gs.implicit.dir.repair.enable", "false")
+                put("fs.gs.hierarchical.namespace.folders.enable", "false")
+            }
+        }
 
 
     private fun <T : GenericContainer<*>> attachLogs(name: String, container: T): T {
