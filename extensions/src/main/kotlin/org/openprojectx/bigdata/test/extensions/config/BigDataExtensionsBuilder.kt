@@ -10,6 +10,8 @@ import org.openprojectx.bigdata.test.extensions.hadoop.S3JceksExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroRecordSeed
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroSeedExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroTopicSeed
+import org.openprojectx.bigdata.test.extensions.objectstore.GcsBucketExtension
+import org.openprojectx.bigdata.test.extensions.objectstore.S3BucketExtension
 import java.util.function.Consumer
 
 class BigDataExtensionsBuilder {
@@ -33,6 +35,26 @@ class BigDataExtensionsBuilder {
 
     fun kafkaAvro(configure: Consumer<KafkaAvroBuilder>) {
         extensions += KafkaAvroBuilder().also { configure.accept(it) }.build()
+    }
+
+    fun s3Bucket(bucket: String, id: String = "s3-bucket-$bucket") {
+        extensions += S3BucketExtension(id = id, bucket = bucket)
+    }
+
+    fun s3Bucket(bucket: String) {
+        s3Bucket(bucket = bucket, id = "s3-bucket-$bucket")
+    }
+
+    fun gcsBucket(bucket: String, id: String = "gcs-bucket-$bucket", project: String = "bigdata-test") {
+        extensions += GcsBucketExtension(id = id, bucket = bucket, project = project)
+    }
+
+    fun gcsBucket(bucket: String) {
+        gcsBucket(bucket = bucket, id = "gcs-bucket-$bucket", project = "bigdata-test")
+    }
+
+    fun gcsBucket(bucket: String, id: String) {
+        gcsBucket(bucket = bucket, id = id, project = "bigdata-test")
     }
 
     internal fun build(): List<BigDataExtension> = extensions.toList()

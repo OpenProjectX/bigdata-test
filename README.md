@@ -55,6 +55,7 @@ The built-in extensions currently support:
 
 - `s3Jceks`: creates an HDFS-backed JCEKS file from the LocalStack S3 endpoint credentials and exposes `s3-jceks.credential-provider.path`.
 - `kafkaAvro`: creates Kafka topics and produces Avro records through Schema Registry from inline TOML records or a records resource.
+- `s3Bucket` / `gcsBucket`: creates LocalStack S3 and fake-gcs-server buckets and exposes their bucket names and storage URIs.
 
 JUnit usage is declaration-driven. The test declares the services with `@BigDataTest`, then points `@BigDataExtensions` at one or more TOML resources:
 
@@ -111,6 +112,8 @@ class MyIntegrationTest {
                     record("alpha", mapOf("id" to 1, "name" to "alpha"))
                 }
             }
+            extensions.s3Bucket("spark-iceberg-s3-$suffix", id = "spark-s3-bucket")
+            extensions.gcsBucket("spark-iceberg-gcs-$suffix", id = "spark-gcs-bucket")
         }
     }
 }
@@ -135,6 +138,8 @@ public final class MyExtensionsConfigurer implements BigDataExtensionsConfigurer
     }
 }
 ```
+
+When TOML and programmatic declarations are used together, TOML is loaded first and programmatic declarations are loaded second. Extensions are merged by `extension.id`; if the same id appears more than once, the later declaration replaces the earlier one before any lifecycle hook runs. Use the same id to override file config, or distinct ids to run multiple extensions of the same type.
 
 For future extension modules, implement `BigDataExtension` directly for programmatic use or publish a `BigDataExtensionProvider` via `ServiceLoader`. Providers are selected from config entries under `extensions` by `type`, and extensions can hook lifecycle events such as `AFTER_KIT_START`, `BEFORE_TEST_EXECUTION`, and `AFTER_ALL`.
 

@@ -8,15 +8,12 @@ import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionResult
+import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsBuilder
+import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsConfigurer
 import org.openprojectx.bigdata.test.extensions.junit5.BigDataExtensions
 import org.openprojectx.bigdata.test.junit5.BigDataTest
 import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.time.Duration
 
 @BigDataExtensions("classpath:spark-bigdata-extensions.toml")
 @BigDataTest(
@@ -29,24 +26,31 @@ import java.time.Duration
     containerLogMode = ContainerLogMode.FILE,
 )
 class SparkBigDataTestExample {
+    companion object : BigDataExtensionsConfigurer {
+        private val runId = System.nanoTime().toString()
+        private const val s3BucketId = "spark-s3-bucket"
+        private const val gcsBucketId = "spark-gcs-bucket"
+
+        override fun configure(extensions: BigDataExtensionsBuilder) {
+            extensions.s3Bucket(bucket = "spark-iceberg-s3-$runId", id = s3BucketId)
+            extensions.gcsBucket(bucket = "spark-iceberg-gcs-$runId", id = gcsBucketId)
+        }
+    }
+
     @Test
     fun writesAvroKafkaEventsToIcebergOnObjectStorage(kit: BigDataTestKit, extensions: BigDataExtensionResult) {
         val hdfs = kit.endpoint(BigDataService.HDFS)
         val hiveMetastore = kit.endpoint(BigDataService.HIVE_METASTORE)
         val kafka = kit.endpoint(BigDataService.KAFKA)
-        val schemaRegistry = kit.endpoint(BigDataService.SCHEMA_REGISTRY)
         val s3 = kit.endpoint(BigDataService.LOCALSTACK_S3)
         val gcs = kit.endpoint(BigDataService.FAKE_GCS)
 
-        val runId = System.nanoTime().toString()
         val topic = "spark-avro-events"
-        val s3Bucket = "spark-iceberg-s3-$runId"
-        val gcsBucket = "spark-iceberg-gcs-$runId"
-        val gcsIcebergDataPath = "gs://$gcsBucket/data/demo_$runId/events_gcs"
+        val s3Bucket = extensions.required("$s3BucketId.bucket")
+        val gcsBucket = extensions.required("$gcsBucketId.bucket")
+        val gcsIcebergDataPath = "${extensions.required("$gcsBucketId.gs.uri")}/data/demo_$runId/events_gcs"
         val s3CredentialProviderPath = extensions.required("s3-jceks.credential-provider.path")
         val s3CredentialProviderHdfsPath = extensions.required("s3-jceks.hdfs.path")
-        createS3Bucket(s3.property("aws.endpoint-url.s3"), s3Bucket)
-        createGcsBucket(gcs.property("google.cloud.storage.host"), gcsBucket)
 
         sparkSession(
             hdfsUri = hdfs.property("fs.defaultFS"),
@@ -266,24 +270,4 @@ class SparkBigDataTestExample {
             client.close()
         }
     }
-
-    private fun createS3Bucket(endpoint: String, bucket: String) {
-        val request = HttpRequest.newBuilder(URI.create("$endpoint/$bucket"))
-            .timeout(Duration.ofSeconds(10))
-            .PUT(HttpRequest.BodyPublishers.noBody())
-            .build()
-        val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding())
-        check(response.statusCode() in setOf(200, 409)) { "Failed to create S3 bucket $bucket: HTTP ${response.statusCode()}" }
-    }
-
-    private fun createGcsBucket(endpoint: String, bucket: String) {
-        val request = HttpRequest.newBuilder(URI.create("$endpoint/storage/v1/b?project=bigdata-test"))
-            .timeout(Duration.ofSeconds(10))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString("""{"name":"$bucket"}""", StandardCharsets.UTF_8))
-            .build()
-        val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding())
-        check(response.statusCode() in setOf(200, 201, 409)) { "Failed to create GCS bucket $bucket: HTTP ${response.statusCode()}" }
-    }
-
 }

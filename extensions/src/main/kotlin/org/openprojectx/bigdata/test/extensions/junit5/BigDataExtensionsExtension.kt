@@ -9,6 +9,7 @@ import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsBuilder
 import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsConfigLoader
 import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsConfigurer
 import org.openprojectx.bigdata.test.extensions.config.NoopBigDataExtensionsConfigurer
+import org.openprojectx.bigdata.test.extensions.core.BigDataExtension
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionEvent
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionResult
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionRunner
@@ -39,8 +40,10 @@ class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback
         val annotation = context.requiredTestClass.getAnnotation(BigDataExtensions::class.java)
             ?: error("@BigDataExtensions is missing")
         val resources = BigDataExtensionResourceLoader(context.requiredTestClass.classLoader)
-        val extensions = BigDataExtensionsConfigLoader(resources).load(annotation.value.asIterable()) +
-            programmaticExtensions(annotation, context)
+        val extensions = mergeById(
+            BigDataExtensionsConfigLoader(resources).load(annotation.value.asIterable()) +
+                programmaticExtensions(annotation, context),
+        )
         val runner = BigDataExtensionRunner(extensions, resources)
         val kit = BigDataTestKitStore.get(context)
         val result = runner.fire(BigDataExtensionEvent.AFTER_KIT_START, kit)
@@ -53,12 +56,23 @@ class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback
     private fun programmaticExtensions(
         annotation: BigDataExtensions,
         context: ExtensionContext,
-    ): List<org.openprojectx.bigdata.test.extensions.core.BigDataExtension> {
+    ): List<BigDataExtension> {
         val builder = BigDataExtensionsBuilder()
         explicitConfigurer(annotation)?.configure(builder)
         companionConfigurer(context)?.configure(builder)
         instanceConfigurer(context)?.configure(builder)
         return builder.build()
+    }
+
+    private fun mergeById(extensions: List<BigDataExtension>): List<BigDataExtension> {
+        val merged = linkedMapOf<String, BigDataExtension>()
+        extensions.forEach { extension ->
+            if (merged.containsKey(extension.id)) {
+                merged.remove(extension.id)
+            }
+            merged[extension.id] = extension
+        }
+        return merged.values.toList()
     }
 
     private fun explicitConfigurer(annotation: BigDataExtensions): BigDataExtensionsConfigurer? {

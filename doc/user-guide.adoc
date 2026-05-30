@@ -353,6 +353,9 @@ class MyIntegrationTest {
                     record("beta", mapOf("id" to 2, "name" to "beta"))
                 }
             }
+
+            extensions.s3Bucket("spark-iceberg-s3-$suffix", id = "spark-s3-bucket")
+            extensions.gcsBucket("spark-iceberg-gcs-$suffix", id = "spark-gcs-bucket")
         }
     }
 }
@@ -386,6 +389,25 @@ public final class MyExtensionsConfigurer implements BigDataExtensionsConfigurer
 ----
 
 Use `extensions.extension(...)` to add a custom `BigDataExtension` directly when the built-in builder methods are not enough.
+
+When TOML and programmatic declarations are used together, `extension.id` is the identity. If the same id appears more than once, the later declaration replaces the earlier one before any lifecycle hook runs. Programmatic declarations therefore override TOML declarations with the same id. Use distinct ids when multiple extensions of the same type should run.
+
+=== Object Store Bucket Extensions
+
+The S3 and GCS bucket extensions create buckets after the object-store services start. They are useful when bucket names are generated per test class.
+
+[source,kotlin]
+----
+extensions.s3Bucket("spark-iceberg-s3-$suffix", id = "spark-s3-bucket")
+extensions.gcsBucket("spark-iceberg-gcs-$suffix", id = "spark-gcs-bucket")
+----
+
+Outputs:
+
+* `spark-s3-bucket.bucket`
+* `spark-s3-bucket.s3a.uri`
+* `spark-gcs-bucket.bucket`
+* `spark-gcs-bucket.gs.uri`
 
 === S3 JCEKS Extension
 

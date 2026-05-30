@@ -18,6 +18,8 @@ import org.openprojectx.bigdata.test.extensions.hadoop.S3JceksExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroRecordSeed
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroSeedExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroTopicSeed
+import org.openprojectx.bigdata.test.extensions.objectstore.GcsBucketExtension
+import org.openprojectx.bigdata.test.extensions.objectstore.S3BucketExtension
 import java.util.ServiceLoader
 
 class BigDataExtensionsConfigLoader(
@@ -49,6 +51,27 @@ class BigDataExtensionsConfigLoader(
                 extensions += KafkaAvroSeedExtension(
                     id = config.string("id", "kafka-avro-seed"),
                     topics = config["topics"]?.jsonArray?.map { it.jsonObject.toKafkaAvroTopic() }.orEmpty(),
+                )
+            }
+        }
+        root["s3Buckets"]?.jsonArray?.forEach { item ->
+            val config = item.jsonObject
+            if (config.boolean("enabled", default = true)) {
+                val bucket = config.string("bucket")
+                extensions += S3BucketExtension(
+                    id = config.string("id", "s3-bucket-$bucket"),
+                    bucket = bucket,
+                )
+            }
+        }
+        root["gcsBuckets"]?.jsonArray?.forEach { item ->
+            val config = item.jsonObject
+            if (config.boolean("enabled", default = true)) {
+                val bucket = config.string("bucket")
+                extensions += GcsBucketExtension(
+                    id = config.string("id", "gcs-bucket-$bucket"),
+                    bucket = bucket,
+                    project = config.string("project", "bigdata-test"),
                 )
             }
         }
