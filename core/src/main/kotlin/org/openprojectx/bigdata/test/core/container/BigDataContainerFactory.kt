@@ -77,7 +77,7 @@ internal class BigDataContainerFactory(
         val container = GenericBigDataContainer(kerberos.image)
             .withNetwork(network)
             .withNetworkAliases("kerby-kdc")
-            .withServicePort(88, options.portBindings.kerberosKdc)
+            .withServicePort(88, options.portBindings.hostPort(88, options.portBindings.kerberosKdc))
             .withFileSystemBind(kerberosDirectory(), "/var/lib/kerby")
             .withEnv("KERBY_REALM", kerberos.realm)
             .withEnv("KERBY_KDC_HOST", "kerby-kdc")
@@ -113,8 +113,11 @@ internal class BigDataContainerFactory(
         val container = GenericBigDataContainer(hdfs.image)
             .withNetwork(network)
             .withNetworkAliases("hdfs", "hdfs.example.com")
-            .withServicePort(hdfs.nameNodePort, options.portBindings.hdfsNameNode)
-            .withServicePort(hdfs.webPort, options.portBindings.hdfsWeb)
+            .withServicePort(
+                hdfs.nameNodePort,
+                options.portBindings.hostPort(hdfs.nameNodePort, options.portBindings.hdfsNameNode),
+            )
+            .withServicePort(hdfs.webPort, options.portBindings.hostPort(hdfs.webPort, options.portBindings.hdfsWeb))
             .withCommand("sh", "-lc", hdfsStartupCommand(hdfs.nameNodePort, hdfs.webPort))
             .waitingFor(Wait.forHttp("/").forPort(hdfs.webPort).withStartupTimeout(Duration.ofMinutes(3)))
         if (hdfs.kerberos.enabled) {
@@ -159,7 +162,7 @@ internal class BigDataContainerFactory(
         val container = GenericBigDataContainer(hive.image)
             .withNetwork(network)
             .withNetworkAliases("hive-metastore", "hive-metastore.example.com")
-            .withServicePort(9083, options.portBindings.hiveMetastore)
+            .withServicePort(9083, options.portBindings.hostPort(9083, options.portBindings.hiveMetastore))
             .withEnv("POSTGRES_DB", hive.databaseName)
             .withEnv("POSTGRES_USER", hive.databaseUser)
             .withEnv("POSTGRES_PASSWORD", hive.databasePassword)
@@ -207,7 +210,7 @@ internal class BigDataContainerFactory(
         val container = GenericBigDataContainer(kafka.image)
             .withNetwork(network)
             .withNetworkAliases("kafka", "broker1.example.com")
-            .withServicePort(9092, options.portBindings.kafka)
+            .withServicePort(9092, options.portBindings.hostPort(9092, options.portBindings.kafka))
             .withEnv("KAFKA_NODE_ID", "1")
             .withEnv("KAFKA_PROCESS_ROLES", "broker,controller")
             .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@kafka:29093")
@@ -253,7 +256,13 @@ internal class BigDataContainerFactory(
     }
 
     private fun plaintextKafka(kafka: KafkaOptions): BigDataServiceContainer {
-        val container = KafkaContainer(DockerImageName.parse(kafka.image))
+        val kafkaHostPort = options.portBindings.hostPort(9092, options.portBindings.kafka)
+        val container = if (kafkaHostPort == 0) {
+            KafkaContainer(DockerImageName.parse(kafka.image))
+        } else {
+            FixedPortKafkaContainer(DockerImageName.parse(kafka.image)).withServicePort(9092, kafkaHostPort)
+        }
+        container
             .withNetwork(network)
             .withNetworkAliases("kafka")
             .withListener("kafka:19092")
@@ -279,7 +288,7 @@ internal class BigDataContainerFactory(
         val container = GenericBigDataContainer(kafka.schemaRegistryImage)
             .withNetwork(network)
             .withNetworkAliases("schema-registry")
-            .withServicePort(8085, options.portBindings.schemaRegistry)
+            .withServicePort(8085, options.portBindings.hostPort(8085, options.portBindings.schemaRegistry))
             .withEnv("SCHEMA_REGISTRY_HOST_NAME", "schema-registry")
             .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:8085")
             .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:19092")
@@ -314,7 +323,7 @@ internal class BigDataContainerFactory(
         val container = GenericBigDataContainer(kafka.kafkaUiImage)
             .withNetwork(network)
             .withNetworkAliases("kafka-ui")
-            .withServicePort(8080, options.portBindings.kafkaUi)
+            .withServicePort(8080, options.portBindings.hostPort(8080, options.portBindings.kafkaUi))
             .withEnv("KAFKA_CLUSTERS_0_NAME", "local")
             .withEnv("KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS", "kafka:9092")
             .withEnv("DYNAMIC_CONFIG_ENABLED", "false")
@@ -346,7 +355,7 @@ internal class BigDataContainerFactory(
         val container = GenericBigDataContainer(objectStore.image)
             .withNetwork(network)
             .withNetworkAliases("localstack")
-            .withServicePort(4566, options.portBindings.localStackS3)
+            .withServicePort(4566, options.portBindings.hostPort(4566, options.portBindings.localStackS3))
             .withEnv("SERVICES", "s3")
             .waitingFor(Wait.forHttp("/_localstack/health").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(3)))
 
@@ -372,7 +381,7 @@ internal class BigDataContainerFactory(
         val container = GenericBigDataContainer(objectStore.image)
             .withNetwork(network)
             .withNetworkAliases("fake-gcs")
-            .withServicePort(4443, options.portBindings.fakeGcs)
+            .withServicePort(4443, options.portBindings.hostPort(4443, options.portBindings.fakeGcs))
             .withCommand("-scheme", "http", "-port", "4443")
             .waitingFor(Wait.forHttp("/storage/v1/b").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(2)))
 

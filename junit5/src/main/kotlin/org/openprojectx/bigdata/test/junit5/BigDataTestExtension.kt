@@ -37,6 +37,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         val builder = BigDataTestKit.builder()
             .withPortBindings(
                 PortBindingOptions(
+                    sameHostPorts = annotation.sameHostPorts,
                     kerberosKdc = annotation.kerberosKdcPort,
                     hdfsNameNode = annotation.hdfsNameNodePort,
                     hdfsWeb = annotation.hdfsWebPort,

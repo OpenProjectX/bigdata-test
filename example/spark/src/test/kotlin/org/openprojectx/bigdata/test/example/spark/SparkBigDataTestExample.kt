@@ -15,6 +15,7 @@ import org.openprojectx.bigdata.test.junit5.BigDataTest
     localStackS3 = true,
     fakeGcs = true,
     containerLogMode = ContainerLogMode.FILE,
+    sameHostPorts = true,
 )
 class SparkBigDataTestExample : SparkBigDataScenario() {
     override val runId: String get() = scenarioRunId

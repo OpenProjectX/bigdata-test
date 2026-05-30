@@ -199,7 +199,39 @@ JUnit host ports are random by default. Leave port fields at `0` for Testcontain
 class MyFixedPortTest
 ```
 
+If you want the host to use each service's normal container port, enable `sameHostPorts`:
+
+```kotlin
+@BigDataTest(
+    hdfs = true,
+    hiveMetastore = true,
+    kafka = true,
+    schemaRegistry = true,
+    localStackS3 = true,
+    fakeGcs = true,
+    sameHostPorts = true,
+)
+class MySameHostPortTest
+```
+
+This binds ports such as HDFS `8020`/`9870`, HMS `9083`, Kafka `9092`, Schema Registry `8085`, LocalStack `4566`, and fake GCS `4443` on localhost. Explicit per-service port fields still take priority over `sameHostPorts`.
+
 Available JUnit port fields are `kerberosKdcPort`, `hdfsNameNodePort`, `hdfsWebPort`, `hiveMetastorePort`, `kafkaPort`, `schemaRegistryPort`, `kafkaUiPort`, `localStackS3Port`, and `fakeGcsPort`. Endpoint properties still use the actual mapped host ports returned by Testcontainers.
+
+Default service ports and endpoint property keys:
+
+| Service | Port names | Default ports | Main endpoint properties |
+| --- | --- | --- | --- |
+| `KERBEROS` | `kdc` | `88` | `bigdata.test.kerberos.kdc` |
+| `HDFS` | `namenode`, `web` | `8020`, `9870` | `fs.defaultFS`, `spring.hadoop.fs-uri` |
+| `HIVE_METASTORE` | `thrift` | `9083` | `hive.metastore.uris`, `spring.bigdata.test.hive-metastore.thrift-uri` |
+| `KAFKA` | `bootstrap` | `9092` | `bootstrap.servers`, `spring.kafka.bootstrap-servers`, `bootstrap.servers.internal` |
+| `SCHEMA_REGISTRY` | `http` | `8085` | `schema.registry.url` |
+| `KAFKA_UI` | `http` | `8080` | `bigdata.test.kafka-ui.url` |
+| `LOCALSTACK_S3` | `edge` | `4566` | `aws.endpoint-url.s3`, `spring.cloud.aws.s3.endpoint` |
+| `FAKE_GCS` | `http` | `4443` | `google.cloud.storage.host`, `bigdata.test.gcs.endpoint` |
+
+The same metadata is available programmatically from `BigDataService.defaultPorts` and `BigDataService.endpointProperties`.
 
 When Hive Metastore is started with LocalStack S3 or fake GCS, the kit also injects server-side Hadoop filesystem configuration into HMS. External table DDL can validate `s3a://` locations against the internal LocalStack endpoint and `gs://` locations against the internal fake GCS endpoint when the HMS image includes the matching filesystem connector.
 

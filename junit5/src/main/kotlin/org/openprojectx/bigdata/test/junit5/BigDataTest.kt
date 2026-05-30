@@ -20,6 +20,7 @@ annotation class BigDataTest(
     val kafkaUiKerberos: Boolean = false,
     val localStackS3: Boolean = false,
     val fakeGcs: Boolean = false,
+    val sameHostPorts: Boolean = false,
     val kerberosKdcPort: Int = 0,
     val hdfsNameNodePort: Int = 0,
     val hdfsWebPort: Int = 0,

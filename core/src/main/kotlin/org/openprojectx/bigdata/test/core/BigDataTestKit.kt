@@ -79,6 +79,9 @@ class BigDataTestKit private constructor(
         fun withPortBindings(options: PortBindingOptions): Builder =
             apply { portBindings = options }
 
+        fun withSameHostPorts(): Builder =
+            apply { portBindings = portBindings.copy(sameHostPorts = true) }
+
         fun withContainerLogs(options: ContainerLogOptions): Builder =
             apply { containerLogs = options }
 

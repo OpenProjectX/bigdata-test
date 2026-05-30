@@ -192,6 +192,35 @@ Host ports are dynamic by default. Keep port fields set to `0` unless an externa
 class MyFixedPortTest
 ----
 
+To bind each enabled service to the same localhost port it uses inside the container, enable `sameHostPorts`.
+
+[source,kotlin]
+----
+@BigDataTest(
+    hdfs = true,
+    hiveMetastore = true,
+    kafka = true,
+    schemaRegistry = true,
+    localStackS3 = true,
+    fakeGcs = true,
+    sameHostPorts = true,
+)
+class MySameHostPortTest
+----
+
+This maps common service ports directly, for example HDFS `8020` and `9870`, Hive Metastore `9083`, Kafka `9092`, Schema Registry `8085`, LocalStack `4566`, and fake GCS `4443`. Explicit per-service port fields still take priority over `sameHostPorts`.
+
+The core builder exposes the same behavior:
+
+[source,kotlin]
+----
+val kit = BigDataTestKit.builder()
+    .withHdfs()
+    .withKafka()
+    .withSameHostPorts()
+    .build()
+----
+
 Available port fields:
 
 * `kerberosKdcPort`
@@ -205,6 +234,60 @@ Available port fields:
 * `fakeGcsPort`
 
 Endpoint properties always report the actual mapped host ports.
+
+=== Service Endpoint Reference
+
+Each started service exposes a `BigDataEndpoint` with named ports and connection properties. With dynamic ports, the host ports are assigned by Testcontainers. With `sameHostPorts = true`, the host ports below are used directly unless an explicit per-service port field overrides them.
+
+[cols="1,2,2,4", options="header"]
+|===
+|Service
+|Port names
+|Default ports
+|Endpoint property keys
+
+|`BigDataService.KERBEROS`
+|`kdc`
+|`88`
+|`bigdata.test.kerberos.realm`, `bigdata.test.kerberos.kdc`, `bigdata.test.kerberos.client-principal`, `bigdata.test.kerberos.client-password`
+
+|`BigDataService.HDFS`
+|`namenode`, `web`
+|`8020`, `9870`
+|`fs.defaultFS`, `spring.hadoop.fs-uri`
+
+|`BigDataService.HIVE_METASTORE`
+|`thrift`
+|`9083`
+|`hive.metastore.uris`, `spring.bigdata.test.hive-metastore.thrift-uri`
+
+|`BigDataService.KAFKA`
+|`bootstrap`
+|`9092`
+|`bootstrap.servers`, `spring.kafka.bootstrap-servers`, `bootstrap.servers.internal`
+
+|`BigDataService.SCHEMA_REGISTRY`
+|`http`
+|`8085`
+|`schema.registry.url`
+
+|`BigDataService.KAFKA_UI`
+|`http`
+|`8080`
+|`bigdata.test.kafka-ui.url`
+
+|`BigDataService.LOCALSTACK_S3`
+|`edge`
+|`4566`
+|`spring.cloud.aws.s3.endpoint`, `aws.endpoint-url.s3`, `aws.accessKeyId`, `aws.secretAccessKey`, `aws.region`
+
+|`BigDataService.FAKE_GCS`
+|`http`
+|`4443`
+|`bigdata.test.gcs.endpoint`, `google.cloud.storage.host`
+|===
+
+The same reference data is exposed in code through `BigDataService.defaultPorts` and `BigDataService.endpointProperties`.
 
 == Container Logs
 

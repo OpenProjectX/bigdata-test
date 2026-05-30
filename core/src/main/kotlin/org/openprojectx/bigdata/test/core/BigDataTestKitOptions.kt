@@ -90,6 +90,7 @@ data class ObjectStoreOptions(
 
 
 data class PortBindingOptions(
+    val sameHostPorts: Boolean = false,
     val kerberosKdc: Int = 0,
     val hdfsNameNode: Int = 0,
     val hdfsWeb: Int = 0,
@@ -99,7 +100,16 @@ data class PortBindingOptions(
     val kafkaUi: Int = 0,
     val localStackS3: Int = 0,
     val fakeGcs: Int = 0,
-)
+) {
+    fun hostPort(containerPort: Int, configuredHostPort: Int): Int {
+        require(configuredHostPort >= 0) { "Host port must be 0 for random binding or a positive fixed port" }
+        return when {
+            configuredHostPort > 0 -> configuredHostPort
+            sameHostPorts -> containerPort
+            else -> 0
+        }
+    }
+}
 
 enum class ContainerLogMode {
     NONE,
