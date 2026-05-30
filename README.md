@@ -56,10 +56,10 @@ The built-in extensions currently support:
 - `s3Jceks`: creates an HDFS-backed JCEKS file from the LocalStack S3 endpoint credentials and exposes `s3-jceks.credential-provider.path`.
 - `kafkaAvro`: creates Kafka topics and produces Avro records through Schema Registry from inline JSON records or a records resource.
 
-JUnit usage is declaration-driven. The test declares the services with `@BigDataTest`, then points `@BigDataExtensions` at one or more JSON resources:
+JUnit usage is declaration-driven. The test declares the services with `@BigDataTest`, then points `@BigDataExtensions` at one or more TOML resources:
 
 ```kotlin
-@BigDataExtensions("classpath:bigdata-extensions.json")
+@BigDataExtensions("classpath:bigdata-extensions.toml")
 @BigDataTest(
     hdfs = true,
     kafka = true,
@@ -76,27 +76,22 @@ class MyIntegrationTest {
 
 Example config:
 
-```json
-{
-  "s3Jceks": {
-    "enabled": true,
-    "hdfsDir": "/bigdata-test/spark",
-    "fileName": "s3.jceks"
-  },
-  "kafkaAvro": {
-    "enabled": true,
-    "topics": [
-      {
-        "name": "events",
-        "schema": "classpath:schemas/event.avsc",
-        "records": [
-          {"key": "alpha", "value": {"id": 1, "name": "alpha"}},
-          {"key": "beta", "value": {"id": 2, "name": "beta"}}
-        ]
-      }
-    ]
-  }
-}
+```toml
+[s3Jceks]
+enabled = true
+hdfsDir = "/bigdata-test/spark"
+fileName = "s3.jceks"
+
+[kafkaAvro]
+enabled = true
+
+[[kafkaAvro.topics]]
+name = "events"
+schema = "classpath:schemas/event.avsc"
+records = [
+  { key = "alpha", value = { id = 1, name = "alpha" } },
+  { key = "beta", value = { id = 2, name = "beta" } },
+]
 ```
 
 For future extension modules, implement `BigDataExtension` directly for programmatic use or publish a `BigDataExtensionProvider` via `ServiceLoader`. Providers are selected from config entries under `extensions` by `type`, and extensions can hook lifecycle events such as `AFTER_KIT_START`, `BEFORE_TEST_EXECUTION`, and `AFTER_ALL`.

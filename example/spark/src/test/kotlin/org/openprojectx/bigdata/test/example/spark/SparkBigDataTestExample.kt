@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.time.Duration
 
-@BigDataExtensions("classpath:spark-bigdata-extensions.json")
+@BigDataExtensions("classpath:spark-bigdata-extensions.toml")
 @BigDataTest(
     hdfs = true,
     hiveMetastore = true,

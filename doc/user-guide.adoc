@@ -307,7 +307,7 @@ Use `@BigDataExtensions` with one or more config resources.
 
 [source,kotlin]
 ----
-@BigDataExtensions("classpath:bigdata-extensions.json")
+@BigDataExtensions("classpath:bigdata-extensions.toml")
 @BigDataTest(
     hdfs = true,
     kafka = true,
@@ -328,17 +328,14 @@ Extension output is exposed through `BigDataExtensionResult`.
 
 The `s3Jceks` extension creates a Hadoop credential provider file in HDFS and stores LocalStack S3 credentials in it.
 
-[source,json]
+[source,toml]
 ----
-{
-  "s3Jceks": {
-    "enabled": true,
-    "hdfsDir": "/bigdata-test/spark",
-    "fileName": "s3.jceks",
-    "accessKeyAlias": "fs.s3a.access.key",
-    "secretKeyAlias": "fs.s3a.secret.key"
-  }
-}
+[s3Jceks]
+enabled = true
+hdfsDir = "/bigdata-test/spark"
+fileName = "s3.jceks"
+accessKeyAlias = "fs.s3a.access.key"
+secretKeyAlias = "fs.s3a.secret.key"
 ----
 
 Outputs:
@@ -352,26 +349,21 @@ Use `s3-jceks.credential-provider.path` as `hadoop.security.credential.provider.
 
 The `kafkaAvro` extension creates topics and produces Avro records using Schema Registry.
 
-[source,json]
+[source,toml]
 ----
-{
-  "kafkaAvro": {
-    "enabled": true,
-    "topics": [
-      {
-        "name": "events",
-        "schema": "classpath:schemas/event.avsc",
-        "records": [
-          {"key": "alpha", "value": {"id": 1, "name": "alpha"}},
-          {"key": "beta", "value": {"id": 2, "name": "beta"}}
-        ]
-      }
-    ]
-  }
-}
+[kafkaAvro]
+enabled = true
+
+[[kafkaAvro.topics]]
+name = "events"
+schema = "classpath:schemas/event.avsc"
+records = [
+  { key = "alpha", value = { id = 1, name = "alpha" } },
+  { key = "beta", value = { id = 2, name = "beta" } },
+]
 ----
 
-Records can be supplied inline or from a resource. Use this extension when test data should be declarative and reproducible instead of manually wired in every test.
+Records can be supplied inline as compact TOML arrays or from a resource. Use this extension when test data should be declarative and reproducible instead of manually wired in every test.
 
 === Extension Lifecycle
 
