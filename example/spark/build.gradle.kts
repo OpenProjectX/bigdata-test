@@ -44,5 +44,6 @@ tasks.withType<Test>().configureEach {
     jvmArgs(
         "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED",
         "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/java.net=ALL-UNNAMED",
     )
 }

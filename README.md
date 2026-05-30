@@ -203,7 +203,7 @@ GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:bootRun --args='--sprin
 
 The JUnit examples in `example/junit` are annotated with `@Disabled`; remove that annotation from an example class to start the configured stack.
 
-The Spark example in `example/spark` creates a `SparkSession` from `BigDataTestKit` endpoints, starts HDFS, Hive Metastore, Kafka, Schema Registry, LocalStack S3, and fake GCS, then uses `extensions` config to create the S3 JCEKS file on HDFS and produce Avro records to Kafka. HDFS is used as the config store for the JCEKS file; S3 and GCS are the object stores used by the Iceberg smoke checks.
+The Spark example in `example/spark` creates a `SparkSession` from `BigDataTestKit` endpoints, starts HDFS, Hive Metastore, Kafka, Schema Registry, LocalStack S3, and fake GCS, then uses `extensions` config to create the S3 JCEKS file on HDFS and produce Avro records to Kafka. HDFS is used as the config store for the JCEKS file; S3 and GCS are object-store Iceberg smoke checks through Hadoop catalogs. The example also creates an HMS-backed Iceberg table and a Hive metastore Parquet table stored on S3, then verifies the HMS database/table metadata through `HiveMetaStoreClient`.
 
 ```bash
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:test

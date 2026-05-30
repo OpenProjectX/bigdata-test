@@ -1,5 +1,7 @@
 package org.openprojectx.bigdata.test.example.spark
 
+import org.apache.hadoop.hive.conf.HiveConf
+import org.apache.hadoop.hive.metastore.HiveMetaStoreClient
 import org.apache.spark.sql.SparkSession
 import org.junit.jupiter.api.Test
 import org.openprojectx.bigdata.test.core.BigDataService
@@ -65,6 +67,19 @@ class SparkBigDataTestExample {
                 storageName = "gcs",
                 dataPath = "gs://$gcsBucket/data/demo_$runId/events_gcs",
             )
+            assertIcebergTable(spark, catalog = "hms", namespace = "hms_demo_$runId", table = "events_hms", storageName = "hms")
+            assertHiveMetastoreTable(
+                hiveMetastoreUri = hiveMetastore.property("hive.metastore.uris"),
+                database = "hms_demo_$runId",
+                table = "events_hms",
+            )
+            assertHiveS3ParquetTable(
+                spark = spark,
+                hiveMetastoreUri = hiveMetastore.property("hive.metastore.uris"),
+                database = "hive_s3_demo_$runId",
+                table = "events_parquet_s3",
+                location = "s3a://$s3Bucket/hive-parquet/events_parquet_s3",
+            )
         }
     }
 
@@ -81,8 +96,8 @@ class SparkBigDataTestExample {
             .appName("bigdata-test-spark-example")
             .master("local[2]")
             .config("spark.ui.enabled", "false")
-            .config("spark.driver.extraJavaOptions", "--add-opens=java.base/java.nio=ALL-UNNAMED")
-            .config("spark.executor.extraJavaOptions", "--add-opens=java.base/java.nio=ALL-UNNAMED")
+            .config("spark.driver.extraJavaOptions", "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED")
+            .config("spark.executor.extraJavaOptions", "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED")
             .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
             .config("spark.sql.catalog.s3", "org.apache.iceberg.spark.SparkCatalog")
             .config("spark.sql.catalog.s3.type", "hadoop")
@@ -90,12 +105,18 @@ class SparkBigDataTestExample {
             .config("spark.sql.catalog.gcs_local", "org.apache.iceberg.spark.SparkCatalog")
             .config("spark.sql.catalog.gcs_local.type", "hadoop")
             .config("spark.sql.catalog.gcs_local.warehouse", "file:${Files.createTempDirectory("bigdata-test-gcs-iceberg-warehouse-")}")
+            .config("spark.sql.catalog.hms", "org.apache.iceberg.spark.SparkCatalog")
+            .config("spark.sql.catalog.hms.type", "hive")
+            .config("spark.sql.catalog.hms.uri", hiveMetastoreUri)
+            .config("spark.sql.catalog.hms.warehouse", "file:${Files.createTempDirectory("bigdata-test-hms-warehouse-")}")
             .config("spark.sql.warehouse.dir", "file:${Files.createTempDirectory("bigdata-test-spark-warehouse-")}")
             .config("hive.metastore.uris", hiveMetastoreUri)
             .config("spark.hadoop.fs.defaultFS", hdfsUri)
             .config("spark.hadoop.hadoop.security.credential.provider.path", s3CredentialProviderPath)
             .config("spark.hadoop.fs.s3a.endpoint", s3Endpoint)
             .config("spark.hadoop.fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
+            .config("spark.hadoop.fs.s3a.access.key", "test")
+            .config("spark.hadoop.fs.s3a.secret.key", "test")
             .config("spark.hadoop.fs.s3a.path.style.access", "true")
             .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
             .config("spark.hadoop.fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
@@ -154,6 +175,74 @@ class SparkBigDataTestExample {
         check(count == 2L) { "Expected two Iceberg rows in $identifier" }
     }
 
+    private fun assertHiveMetastoreTable(hiveMetastoreUri: String, database: String, table: String) {
+        val conf = HiveConf()
+        conf.setVar(HiveConf.ConfVars.METASTOREURIS, hiveMetastoreUri)
+        val client = HiveMetaStoreClient(conf)
+        try {
+            check(client.getAllDatabases().contains(database)) { "Expected HMS database $database" }
+            val hmsTable = client.getTable(database, table)
+            check(hmsTable.dbName == database) { "Expected HMS table $database.$table, got ${hmsTable.dbName}.${hmsTable.tableName}" }
+            check(hmsTable.tableName == table) { "Expected HMS table $database.$table, got ${hmsTable.dbName}.${hmsTable.tableName}" }
+            check(hmsTable.parameters["table_type"] == "ICEBERG") {
+                "Expected HMS table $database.$table to be an Iceberg table, parameters=${hmsTable.parameters}"
+            }
+            check(hmsTable.parameters.containsKey("metadata_location")) {
+                "Expected HMS table $database.$table to contain Iceberg metadata_location"
+            }
+        } finally {
+            client.close()
+        }
+    }
+
+    private fun assertHiveS3ParquetTable(
+        spark: SparkSession,
+        hiveMetastoreUri: String,
+        database: String,
+        table: String,
+        location: String,
+    ) {
+        val identifier = "$database.$table"
+        spark.sql("CREATE DATABASE IF NOT EXISTS $database")
+        spark.sql(
+            """
+            CREATE TABLE $identifier (
+                id INT,
+                name STRING,
+                storage STRING
+            ) USING PARQUET
+            LOCATION '$location'
+            """.trimIndent(),
+        )
+        spark.sql("INSERT INTO $identifier VALUES (1, 'alpha', 'hive-s3-parquet'), (2, 'beta', 'hive-s3-parquet')")
+        val count = spark.table(identifier).where("storage = 'hive-s3-parquet'").count()
+        check(count == 2L) { "Expected two Hive S3 Parquet rows in $identifier" }
+        assertS3ParquetFiles(spark, location)
+        assertHiveMetastoreParquetS3Table(hiveMetastoreUri, database, table)
+    }
+
+    private fun assertS3ParquetFiles(spark: SparkSession, location: String) {
+        val files = org.apache.hadoop.fs.FileSystem.get(URI.create(location), spark.sparkContext().hadoopConfiguration())
+            .use { fs -> fs.listStatus(org.apache.hadoop.fs.Path(location)).map { it.path.name } }
+        check(files.any { it.endsWith(".parquet") }) { "Expected Parquet files under $location, got $files" }
+    }
+
+    private fun assertHiveMetastoreParquetS3Table(hiveMetastoreUri: String, database: String, table: String) {
+        val conf = HiveConf()
+        conf.setVar(HiveConf.ConfVars.METASTOREURIS, hiveMetastoreUri)
+        val client = HiveMetaStoreClient(conf)
+        try {
+            val hmsTable = client.getTable(database, table)
+            check(hmsTable.dbName == database) { "Expected HMS table $database.$table, got ${hmsTable.dbName}.${hmsTable.tableName}" }
+            check(hmsTable.tableName == table) { "Expected HMS table $database.$table, got ${hmsTable.dbName}.${hmsTable.tableName}" }
+            val provider = hmsTable.parameters["spark.sql.sources.provider"] ?: hmsTable.parameters["provider"]
+            check(provider.equals("parquet", ignoreCase = true) || hmsTable.sd.inputFormat.contains("Parquet")) {
+                "Expected HMS table $database.$table to be Parquet, parameters=${hmsTable.parameters}, inputFormat=${hmsTable.sd.inputFormat}"
+            }
+        } finally {
+            client.close()
+        }
+    }
 
     private fun createS3Bucket(endpoint: String, bucket: String) {
         val request = HttpRequest.newBuilder(URI.create("$endpoint/$bucket"))
