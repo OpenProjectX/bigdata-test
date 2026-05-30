@@ -6,6 +6,9 @@ fileName = "s3.jceks"
 [kafkaAvro]
 enabled = true
 
+[kerberosMaterial]
+enabled = true
+
 [[kafkaAvro.topics]]
 name = "spark-avro-events"
 schema = "classpath:schemas/spark-event.avsc"

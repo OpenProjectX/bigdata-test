@@ -13,7 +13,6 @@ import org.openprojectx.bigdata.test.junit5.BigDataTest
     kafka = true,
     kafkaKerberos = true,
     schemaRegistry = true,
-    schemaRegistryKerberos = true,
 )
 class KerberosBigDataTestExample {
     @Test

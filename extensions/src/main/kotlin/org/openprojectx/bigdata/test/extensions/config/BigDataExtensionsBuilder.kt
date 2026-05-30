@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtension
 import org.openprojectx.bigdata.test.extensions.hadoop.S3JceksExtension
+import org.openprojectx.bigdata.test.extensions.kerberos.KerberosMaterialExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroRecordSeed
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroSeedExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroTopicSeed
@@ -35,6 +36,14 @@ class BigDataExtensionsBuilder {
 
     fun kafkaAvro(configure: Consumer<KafkaAvroBuilder>) {
         extensions += KafkaAvroBuilder().also { configure.accept(it) }.build()
+    }
+
+    fun kerberosMaterial(id: String = "kerberos-material") {
+        extensions += KerberosMaterialExtension(id = id)
+    }
+
+    fun kerberosMaterial() {
+        kerberosMaterial(id = "kerberos-material")
     }
 
     fun s3Bucket(bucket: String, id: String = "s3-bucket-$bucket") {

@@ -155,7 +155,7 @@ class MyIntegrationTest {
 }
 ```
 
-Kerberos can be enabled per service. Hadoop/HDFS, Hive Metastore, Kafka, Schema Registry, and Kafka UI expose dedicated Kerberos switches; set `kerberos = true` to start the shared KDC and then enable auth for the services that should use it.
+Kerberos can be enabled per service. Hadoop/HDFS, Hive Metastore, Kafka, and Kafka UI expose dedicated Kerberos switches. Set `kerberos = true` to start the shared KDC and then enable auth for the services that should use it. Schema Registry can still be enabled with Kafka Kerberos; it uses Kafka's internal plaintext listener while host clients keep using Kerberos.
 
 ```kotlin
 @BigDataTest(
@@ -166,11 +166,12 @@ Kerberos can be enabled per service. Hadoop/HDFS, Hive Metastore, Kafka, Schema 
     hiveMetastoreKerberos = true,
     kafka = true,
     kafkaKerberos = true,
-    schemaRegistry = true,
-    schemaRegistryKerberos = true,
+    kafkaPort = 19092,
 )
 class MyKerberosIntegrationTest
 ```
+
+For host-side Kafka Kerberos clients, configure a fixed `kafkaPort` so the broker can advertise the same host port that clients use.
 
 JUnit tests can also route container logs to the main test process console or to files:
 

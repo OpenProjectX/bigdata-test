@@ -12,27 +12,41 @@ data class KafkaAvroSeedExtension(
     override val id: String = "kafka-avro-seed",
     val topics: List<KafkaAvroTopicSeed>,
 ) : BigDataExtension {
-    override val requiredServices: Set<BigDataService> = setOf(BigDataService.KAFKA, BigDataService.SCHEMA_REGISTRY)
+    override val requiredServices: Set<BigDataService> = setOf(BigDataService.KAFKA)
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)
 
     override fun onEvent(event: BigDataExtensionEvent, context: BigDataExtensionContext) {
         val kafka = context.endpoint(BigDataService.KAFKA)
-        val schemaRegistry = context.endpoint(BigDataService.SCHEMA_REGISTRY)
+        val schemaRegistry = context.kit.endpoints()[BigDataService.SCHEMA_REGISTRY]
+        kafka.properties["java.security.krb5.conf.local"]?.let { krb5Conf ->
+            System.setProperty("java.security.krb5.conf", krb5Conf)
+        }
         topics.forEach { topic ->
             KafkaAvroProducers.produce(
                 bootstrapServers = kafka.property("bootstrap.servers"),
-                schemaRegistryUrl = schemaRegistry.property("schema.registry.url"),
+                schemaRegistryUrl = schemaRegistry?.property("schema.registry.url"),
                 topic = topic.name,
                 schemaJson = context.resources.readText(topic.schema),
                 records = topic.records.map { AvroKafkaRecord(it.key, it.value.toAnyMap()) },
                 partitions = topic.partitions,
                 replicationFactor = topic.replicationFactor,
+                clientProperties = kafka.clientProperties(),
             )
             context.putOutput("$id.${topic.name}.records", topic.records.size.toString())
         }
     }
 
     private fun JsonObject.toAnyMap(): Map<String, Any?> = mapValues { (_, value) -> value.toAnyValue() }
+
+    private fun org.openprojectx.bigdata.test.core.BigDataEndpoint.clientProperties(): Map<String, String> =
+        listOf(
+            "security.protocol",
+            "sasl.mechanism",
+            "sasl.kerberos.service.name",
+            "sasl.jaas.config",
+        ).mapNotNull { key ->
+            properties[key]?.let { key to it }
+        }.toMap()
 
     private fun JsonElement.toAnyValue(): Any? = when (this) {
         is JsonObject -> toAnyMap()

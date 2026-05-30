@@ -94,11 +94,6 @@ class BigDataTestAutoConfiguration {
                         servicePrincipal = "kafka/broker1.example.com@${properties.kerberos.realm}",
                         keytabPath = "/kerby/keytabs/kafka-broker1.keytab",
                     ),
-                    schemaRegistryKerberos = KerberosAuthOptions(
-                        enabled = properties.kafka.schemaRegistryKerberosEnabled,
-                        servicePrincipal = "schema-registry/schema-registry.example.com@${properties.kerberos.realm}",
-                        keytabPath = "/kerby/keytabs/schema-registry.keytab",
-                    ),
                     kafkaUiKerberos = KerberosAuthOptions(
                         enabled = properties.kafka.kafkaUiKerberosEnabled,
                         servicePrincipal = "kafbat-ui/kafbat-ui.example.com@${properties.kerberos.realm}",

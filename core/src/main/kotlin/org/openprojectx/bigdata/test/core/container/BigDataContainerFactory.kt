@@ -6,6 +6,7 @@ import org.openprojectx.bigdata.test.core.BigDataTestKitOptions
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
+import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.testcontainers.containers.BindMode
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.Network
@@ -56,21 +57,20 @@ internal class BigDataContainerFactory(
 
     private fun kerberosRequired(): Boolean =
         options.kerberos.enabled ||
-            options.hdfs.kerberos.enabled ||
+        options.hdfs.kerberos.enabled ||
             options.hiveMetastore.kerberos.enabled ||
             options.kafka.kerberos.enabled ||
-            options.kafka.schemaRegistryKerberos.enabled ||
             options.kafka.kafkaUiKerberos.enabled
 
     private fun kerberos(): BigDataServiceContainer {
         val kerberos = options.kerberos
         val servicePrincipals = buildList {
+            addUserKeytab(kerberos.clientPrincipal, "/kerby/keytabs/client.keytab")
+            kerberos.users.forEach { addUserKeytab(it.principal, it.keytabPath) }
             addIfEnabled(options.hdfs.kerberos)
             addIfEnabled(options.hiveMetastore.kerberos)
             addIfEnabled(options.kafka.kerberos)
-            addIfEnabled(options.kafka.schemaRegistryKerberos)
             addIfEnabled(options.kafka.kafkaUiKerberos)
-            if (options.kafka.kerberos.enabled && options.kafka.schemaRegistryEnabled) addPrincipal(options.kafka.schemaRegistryKerberos)
             if (options.kafka.kerberos.enabled && options.kafka.kafkaUiEnabled) addPrincipal(options.kafka.kafkaUiKerberos)
         }
 
@@ -92,8 +92,13 @@ internal class BigDataContainerFactory(
         if (servicePrincipals.isNotEmpty()) {
             container.withEnv("KERBY_EXTRA_SERVICE_PRINCIPALS", servicePrincipals.joinToString(","))
         }
+        val users = kerberos.users.joinToString(",") { "${it.principal}:${it.password}" }
+        if (users.isNotEmpty()) {
+            container.withEnv("KERBY_EXTRA_PRINCIPALS", users)
+        }
 
         return BigDataServiceContainer(BigDataService.KERBEROS, attachLogs("kerberos", container)) {
+            val localKrb5Conf = writeLocalKerberosConf(kerberos, container.host, container.getMappedPort(88))
             BigDataEndpoint(
                 service = BigDataService.KERBEROS,
                 host = container.host,
@@ -101,8 +106,12 @@ internal class BigDataContainerFactory(
                 properties = mapOf(
                     "bigdata.test.kerberos.realm" to kerberos.realm,
                     "bigdata.test.kerberos.kdc" to "${container.host}:${container.getMappedPort(88)}",
+                    "bigdata.test.kerberos.krb5-conf" to localKrb5Conf,
+                    "bigdata.test.kerberos.krb5-conf.container" to "/kerby/client/krb5.conf",
                     "bigdata.test.kerberos.client-principal" to kerberos.clientPrincipal,
                     "bigdata.test.kerberos.client-password" to kerberos.clientPassword,
+                    "bigdata.test.kerberos.client-keytab" to localKerberosPath("/kerby/keytabs/client.keytab"),
+                    "bigdata.test.kerberos.client-keytab.container" to "/kerby/keytabs/client.keytab",
                 ),
             )
         }
@@ -207,10 +216,16 @@ internal class BigDataContainerFactory(
         val kafka = options.kafka
         if (!kafka.kerberos.enabled) return plaintextKafka(kafka)
 
+        val kafkaHostPort = options.portBindings.hostPort(9092, options.portBindings.kafka)
+        val advertisedListener = if (kafkaHostPort > 0) {
+            "SASL_PLAINTEXT://localhost:$kafkaHostPort"
+        } else {
+            "SASL_PLAINTEXT://broker1.example.com:9092"
+        }
         val container = GenericBigDataContainer(kafka.image)
             .withNetwork(network)
             .withNetworkAliases("kafka", "broker1.example.com")
-            .withServicePort(9092, options.portBindings.hostPort(9092, options.portBindings.kafka))
+            .withServicePort(9092, kafkaHostPort)
             .withEnv("KAFKA_NODE_ID", "1")
             .withEnv("KAFKA_PROCESS_ROLES", "broker,controller")
             .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@kafka:29093")
@@ -226,10 +241,10 @@ internal class BigDataContainerFactory(
             .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(3)))
         mountKerberos(container)
         container
-            .withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "CONTROLLER:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT")
-            .withEnv("KAFKA_ADVERTISED_LISTENERS", "SASL_PLAINTEXT://broker1.example.com:9092")
-            .withEnv("KAFKA_LISTENERS", "SASL_PLAINTEXT://broker1.example.com:9092,CONTROLLER://broker1.example.com:29093")
-            .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@broker1.example.com:29093")
+            .withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "CONTROLLER:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT,PLAINTEXT:PLAINTEXT")
+            .withEnv("KAFKA_ADVERTISED_LISTENERS", "$advertisedListener,PLAINTEXT://kafka:19092")
+            .withEnv("KAFKA_LISTENERS", "SASL_PLAINTEXT://0.0.0.0:9092,PLAINTEXT://0.0.0.0:19092,CONTROLLER://kafka:29093")
+            .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@kafka:29093")
             .withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "SASL_PLAINTEXT")
             .withEnv("KAFKA_SASL_ENABLED_MECHANISMS", "GSSAPI")
             .withEnv("KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL", "GSSAPI")
@@ -250,7 +265,7 @@ internal class BigDataContainerFactory(
                 properties = mapOf(
                     "bootstrap.servers" to bootstrapServers,
                     "spring.kafka.bootstrap-servers" to bootstrapServers,
-                ) + kafkaClientKerberosProperties(kafka.kerberos),
+                ) + kerberosProperties("kafka", kafka.kerberos) + kafkaClientKerberosProperties(kafka.kerberos, options.kerberos),
             )
         }
     }
@@ -293,20 +308,6 @@ internal class BigDataContainerFactory(
             .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:8085")
             .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:19092")
             .waitingFor(Wait.forHttp("/subjects").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(3)))
-        if (kafka.schemaRegistryKerberos.enabled || kafka.kerberos.enabled) {
-            mountKerberos(container)
-            val registryPrincipal = kafka.schemaRegistryKerberos
-            container
-                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "SASL_PLAINTEXT://broker1.example.com:9092")
-                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL", "SASL_PLAINTEXT")
-                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SASL_MECHANISM", "GSSAPI")
-                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SASL_KERBEROS_SERVICE_NAME", "kafka")
-                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SASL_JAAS_CONFIG", inlineJaas(registryPrincipal))
-                .withEnv("KAFKA_OPTS", "-Djava.security.krb5.conf=/kerby/client/krb5.conf")
-                .withEnv("KRB5_CONFIG", "/kerby/client/krb5.conf")
-                .withEnv("SCHEMA_REGISTRY_OPTS", "-Djava.security.krb5.conf=/kerby/client/krb5.conf")
-        }
-
         return BigDataServiceContainer(BigDataService.SCHEMA_REGISTRY, attachLogs("schema-registry", container)) {
             val url = "http://${container.host}:${container.getMappedPort(8085)}"
             BigDataEndpoint(
@@ -505,6 +506,11 @@ internal class BigDataContainerFactory(
         if (!contains(principal)) add(principal)
     }
 
+    private fun MutableList<String>.addUserKeytab(principal: String, keytabPath: String) {
+        val entry = "$principal:${keytabPath.replace("/kerby/", "/var/lib/kerby/")}"
+        if (!contains(entry)) add(entry)
+    }
+
     private fun mountKerberos(container: GenericBigDataContainer) {
         container.withFileSystemBind(kerberosDirectory(), "/kerby", BindMode.READ_ONLY)
     }
@@ -517,20 +523,26 @@ internal class BigDataContainerFactory(
             mapOf(
                 "$prefix.security.authentication" to "kerberos",
                 "$prefix.kerberos.principal" to options.servicePrincipal,
+                "$prefix.kerberos.service-name" to options.servicePrincipal.substringBefore("/"),
                 "$prefix.kerberos.keytab" to options.keytabPath,
+                "$prefix.kerberos.keytab.local" to localKerberosPath(options.keytabPath),
                 "java.security.krb5.conf" to "/kerby/client/krb5.conf",
+                "java.security.krb5.conf.local" to localKerberosPath("/kerby/client/krb5.conf"),
             )
         } else {
             emptyMap()
         }
 
-    private fun kafkaClientKerberosProperties(options: KerberosAuthOptions): Map<String, String> =
-        if (options.enabled) {
+    private fun kafkaClientKerberosProperties(service: KerberosAuthOptions, client: KerberosOptions): Map<String, String> =
+        if (service.enabled) {
+            val clientKeytab = localKerberosPath("/kerby/keytabs/client.keytab")
             mapOf(
                 "security.protocol" to "SASL_PLAINTEXT",
                 "sasl.mechanism" to "GSSAPI",
-                "sasl.kerberos.service.name" to options.servicePrincipal.substringBefore("/"),
-                "sasl.jaas.config" to inlineJaas(options),
+                "sasl.kerberos.service.name" to service.servicePrincipal.substringBefore("/"),
+                "sasl.jaas.config" to inlineJaas(client.clientPrincipal, clientKeytab),
+                "sasl.jaas.config.container-keytab" to inlineJaas(client.clientPrincipal, "/kerby/keytabs/client.keytab"),
+                "java.security.krb5.conf.local" to localKerberosPath("/kerby/client/krb5.conf"),
             )
         } else {
             emptyMap()
@@ -549,4 +561,46 @@ internal class BigDataContainerFactory(
 
     private fun inlineJaas(options: KerberosAuthOptions): String =
         """com.sun.security.auth.module.Krb5LoginModule required useKeyTab=true storeKey=true keyTab="${options.keytabPath}" principal="${options.servicePrincipal}";"""
+
+    private fun inlineJaas(principal: String, keytabPath: String): String =
+        """com.sun.security.auth.module.Krb5LoginModule required useKeyTab=true storeKey=true keyTab="$keytabPath" principal="$principal";"""
+
+    private fun localKerberosPath(containerPath: String): String =
+        when {
+            containerPath == "/kerby/client/krb5.conf" -> Path.of(kerberosDirectory())
+                .resolve("krb5-local.conf")
+                .toString()
+            containerPath.startsWith("/kerby/") -> Path.of(kerberosDirectory())
+                .resolve(containerPath.removePrefix("/kerby/"))
+                .toString()
+            else -> containerPath
+        }
+
+    private fun writeLocalKerberosConf(options: KerberosOptions, host: String, port: Int): String {
+        val path = Path.of(localKerberosPath("/kerby/client/krb5.conf"))
+        Files.createDirectories(path.parent)
+        Files.writeString(
+            path,
+            """
+            [libdefaults]
+              default_realm = ${options.realm}
+              dns_lookup_realm = false
+              dns_lookup_kdc = false
+              rdns = false
+              udp_preference_limit = 1
+
+            [realms]
+              ${options.realm} = {
+                kdc = $host:$port
+                admin_server = $host:$port
+              }
+
+            [domain_realm]
+              .${options.domain} = ${options.realm}
+              ${options.domain} = ${options.realm}
+            """.trimIndent(),
+            StandardCharsets.UTF_8,
+        )
+        return path.toString()
+    }
 }

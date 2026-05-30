@@ -9,8 +9,11 @@ enum class BigDataService(
         endpointProperties = setOf(
             "bigdata.test.kerberos.realm",
             "bigdata.test.kerberos.kdc",
+            "bigdata.test.kerberos.krb5-conf",
             "bigdata.test.kerberos.client-principal",
             "bigdata.test.kerberos.client-password",
+            "bigdata.test.kerberos.client-keytab",
+            "bigdata.test.kerberos.client-keytab.container",
         ),
     ),
     HDFS(

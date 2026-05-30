@@ -54,7 +54,6 @@ data class BigDataTestProperties(
         var kafkaUiEnabled: Boolean = false,
         var kafkaUiImage: String = "ghcr.io/kafbat/kafka-ui:latest",
         var kerberosEnabled: Boolean = false,
-        var schemaRegistryKerberosEnabled: Boolean = false,
         var kafkaUiKerberosEnabled: Boolean = false,
     )
 

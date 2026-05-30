@@ -8,10 +8,13 @@ import org.openprojectx.bigdata.test.junit5.BigDataTest
 
 @BigDataExtensions("classpath:spark-bigdata-extensions.toml")
 @BigDataTest(
+    kerberos = true,
     hdfs = true,
     hiveMetastore = true,
     kafka = true,
+    kafkaKerberos = true,
     schemaRegistry = true,
+    kafkaPort = 19092,
     localStackS3 = true,
     fakeGcs = true,
     containerLogMode = ContainerLogMode.FILE,

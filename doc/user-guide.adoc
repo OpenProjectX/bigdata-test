@@ -160,9 +160,6 @@ The JUnit extension starts the kit before all tests in the class and closes it a
 |`schemaRegistry`
 |Starts Schema Registry.
 
-|`schemaRegistryKerberos`
-|Configures Schema Registry for Kerberos/SASL Kafka access.
-
 |`kafkaUi`
 |Starts Kafka UI.
 
@@ -249,7 +246,7 @@ Each started service exposes a `BigDataEndpoint` with named ports and connection
 |`BigDataService.KERBEROS`
 |`kdc`
 |`88`
-|`bigdata.test.kerberos.realm`, `bigdata.test.kerberos.kdc`, `bigdata.test.kerberos.client-principal`, `bigdata.test.kerberos.client-password`
+|`bigdata.test.kerberos.realm`, `bigdata.test.kerberos.kdc`, `bigdata.test.kerberos.krb5-conf`, `bigdata.test.kerberos.client-principal`, `bigdata.test.kerberos.client-password`, `bigdata.test.kerberos.client-keytab`
 
 |`BigDataService.HDFS`
 |`namenode`, `web`
@@ -264,7 +261,7 @@ Each started service exposes a `BigDataEndpoint` with named ports and connection
 |`BigDataService.KAFKA`
 |`bootstrap`
 |`9092`
-|`bootstrap.servers`, `spring.kafka.bootstrap-servers`, `bootstrap.servers.internal`
+|`bootstrap.servers`, `spring.kafka.bootstrap-servers`, `bootstrap.servers.internal`, `kafka.kerberos.service-name`, `sasl.jaas.config`
 
 |`BigDataService.SCHEMA_REGISTRY`
 |`http`
@@ -349,11 +346,11 @@ Kerberos can be enabled globally and per service. Set `kerberos = true` to start
     hiveMetastoreKerberos = true,
     kafka = true,
     kafkaKerberos = true,
-    schemaRegistry = true,
-    schemaRegistryKerberos = true,
 )
 class MyKerberosIntegrationTest
 ----
+
+For host-side Kafka Kerberos clients, prefer an explicit fixed `kafkaPort`. Kafka must advertise the same host and port that the client uses during the SASL/GSSAPI exchange; with a random host port the framework cannot know that advertised port before the broker starts. When Schema Registry is enabled with Kafka Kerberos, it uses Kafka's internal plaintext listener while host clients keep using the Kerberos listener.
 
 Default principals are defined in `BigDataTestKitOptions`:
 
@@ -371,14 +368,31 @@ Default principals are defined in `BigDataTestKitOptions`:
 |`hive/hive-metastore.example.com@EXAMPLE.COM`
 
 |Kafka broker
-|`kafka/broker1.example.com@EXAMPLE.COM`
-
-|Schema Registry
-|`schema-registry/schema-registry.example.com@EXAMPLE.COM`
+|`kafka/localhost@EXAMPLE.COM`
 
 |Kafka UI
 |`kafbat-ui/kafbat-ui.example.com@EXAMPLE.COM`
 |===
+
+The `KerberosMaterialExtension` publishes reusable client and service material to extension output:
+
+[source,toml]
+----
+[kerberosMaterial]
+enabled = true
+----
+
+Common output keys are:
+
+* `kerberos-material.realm`
+* `kerberos-material.kdc`
+* `kerberos-material.krb5-conf`
+* `kerberos-material.client.principal`
+* `kerberos-material.client.password`
+* `kerberos-material.client.keytab`
+* `kerberos-material.kafka.service-name`
+* `kerberos-material.kafka.principal`
+* `kerberos-material.kafka.keytab`
 
 == Extensions Module
 

@@ -132,11 +132,18 @@ abstract class SparkBigDataScenario {
             gcsIcebergDataPath = "${extensions.required("$gcsBucketExtensionId.gs.uri")}/data/demo_$runId/events_gcs",
             s3CredentialProviderPath = extensions.required("s3-jceks.credential-provider.path"),
             s3CredentialProviderHdfsPath = extensions.required("s3-jceks.hdfs.path"),
+            kerberosClientPrincipal = extensions.required("kerberos-material.client.principal"),
+            kerberosClientPassword = extensions.required("kerberos-material.client.password"),
+            kerberosClientKeytab = extensions.required("kerberos-material.client.keytab"),
+            krb5Conf = extensions.required("kerberos-material.krb5-conf"),
+            kafkaKerberosServiceName = extensions.required("kerberos-material.kafka.service-name"),
+            kafkaJaasConfig = kafka.property("sasl.jaas.config"),
         )
     }
 
-    private fun createSparkSession(environment: SparkScenarioEnvironment): SparkSession =
-        configureSpark(
+    private fun createSparkSession(environment: SparkScenarioEnvironment): SparkSession {
+        System.setProperty("java.security.krb5.conf", environment.krb5Conf)
+        return configureSpark(
             SparkSession.builder()
                 .appName("bigdata-test-spark-example")
                 .master("local[2]")
@@ -174,10 +181,16 @@ abstract class SparkBigDataScenario {
                 .config("spark.hadoop.fs.gs.auth.type", "UNAUTHENTICATED")
                 .config("spark.hadoop.fs.gs.create.items.conflict.check.enable", "false")
                 .config("spark.hadoop.fs.gs.implicit.dir.repair.enable", "false")
-                .config("spark.hadoop.fs.gs.hierarchical.namespace.folders.enable", "false"),
+                .config("spark.hadoop.fs.gs.hierarchical.namespace.folders.enable", "false")
+                .config("spark.hadoop.java.security.krb5.conf", environment.krb5Conf)
+                .config("spark.hadoop.bigdata.test.kerberos.client.principal", environment.kerberosClientPrincipal)
+                .config("spark.hadoop.bigdata.test.kerberos.client.keytab", environment.kerberosClientKeytab)
+                .config("spark.hadoop.bigdata.test.kafka.service.name", environment.kafkaKerberosServiceName)
+                .config("spark.hadoop.bigdata.test.kafka.jaas.config", environment.kafkaJaasConfig),
             environment,
         ).enableHiveSupport()
             .getOrCreate()
+    }
 
     protected fun assertHdfsConfigStore(spark: SparkSession, hdfsUri: String, hdfsPath: String) {
         val exists = org.apache.hadoop.fs.FileSystem.get(URI.create(hdfsUri), spark.sparkContext().hadoopConfiguration())
@@ -192,6 +205,10 @@ abstract class SparkBigDataScenario {
             .option("subscribe", topic)
             .option("startingOffsets", "earliest")
             .option("endingOffsets", "latest")
+            .option("kafka.security.protocol", "SASL_PLAINTEXT")
+            .option("kafka.sasl.mechanism", "GSSAPI")
+            .option("kafka.sasl.kerberos.service.name", spark.sparkContext().hadoopConfiguration().get("bigdata.test.kafka.service.name", "kafka"))
+            .option("kafka.sasl.jaas.config", spark.sparkContext().hadoopConfiguration().get("bigdata.test.kafka.jaas.config", ""))
             .load()
         check(rows.count() == 2L) { "Expected two Avro Kafka records in $topic" }
     }
@@ -324,4 +341,10 @@ data class SparkScenarioEnvironment(
     val gcsIcebergDataPath: String,
     val s3CredentialProviderPath: String,
     val s3CredentialProviderHdfsPath: String,
+    val kerberosClientPrincipal: String,
+    val kerberosClientPassword: String,
+    val kerberosClientKeytab: String,
+    val krb5Conf: String,
+    val kafkaKerberosServiceName: String,
+    val kafkaJaasConfig: String,
 )

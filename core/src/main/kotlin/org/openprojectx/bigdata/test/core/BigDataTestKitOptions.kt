@@ -19,6 +19,13 @@ data class KerberosOptions(
     val domain: String = "example.com",
     val clientPrincipal: String = "app_user@EXAMPLE.COM",
     val clientPassword: String = "app-user-secret",
+    val users: List<KerberosUserOptions> = emptyList(),
+)
+
+data class KerberosUserOptions(
+    val principal: String,
+    val password: String,
+    val keytabPath: String = "/kerby/keytabs/${principal.substringBefore("@").replace(Regex("[^A-Za-z0-9._-]"), "_")}.keytab",
 )
 
 data class KerberosAuthOptions(
@@ -69,12 +76,8 @@ data class KafkaOptions(
     val kafkaUiImage: String = "ghcr.io/kafbat/kafka-ui:latest",
     val clusterId: String = "MkU3OEVBNTcwNTJENDM2Qk",
     val kerberos: KerberosAuthOptions = KerberosAuthOptions(
-        servicePrincipal = "kafka/broker1.example.com@EXAMPLE.COM",
+        servicePrincipal = "kafka/localhost@EXAMPLE.COM",
         keytabPath = "/kerby/keytabs/kafka-broker1.keytab",
-    ),
-    val schemaRegistryKerberos: KerberosAuthOptions = KerberosAuthOptions(
-        servicePrincipal = "schema-registry/schema-registry.example.com@EXAMPLE.COM",
-        keytabPath = "/kerby/keytabs/schema-registry.keytab",
     ),
     val kafkaUiKerberos: KerberosAuthOptions = KerberosAuthOptions(
         servicePrincipal = "kafbat-ui/kafbat-ui.example.com@EXAMPLE.COM",

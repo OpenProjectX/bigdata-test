@@ -8,6 +8,8 @@ import org.openprojectx.bigdata.test.core.ContainerLogMode
 @ExtendWith(BigDataTestExtension::class)
 annotation class BigDataTest(
     val kerberos: Boolean = false,
+    val kerberosClientPrincipal: String = "app_user@EXAMPLE.COM",
+    val kerberosClientPassword: String = "app-user-secret",
     val hdfs: Boolean = false,
     val hdfsKerberos: Boolean = false,
     val hiveMetastore: Boolean = false,
@@ -15,7 +17,6 @@ annotation class BigDataTest(
     val kafka: Boolean = false,
     val kafkaKerberos: Boolean = false,
     val schemaRegistry: Boolean = false,
-    val schemaRegistryKerberos: Boolean = false,
     val kafkaUi: Boolean = false,
     val kafkaUiKerberos: Boolean = false,
     val localStackS3: Boolean = false,

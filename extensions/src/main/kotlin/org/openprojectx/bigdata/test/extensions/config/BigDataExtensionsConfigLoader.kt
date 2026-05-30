@@ -15,6 +15,7 @@ import org.openprojectx.bigdata.test.extensions.core.BigDataExtension
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionProvider
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionResourceLoader
 import org.openprojectx.bigdata.test.extensions.hadoop.S3JceksExtension
+import org.openprojectx.bigdata.test.extensions.kerberos.KerberosMaterialExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroRecordSeed
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroSeedExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroTopicSeed
@@ -51,6 +52,13 @@ class BigDataExtensionsConfigLoader(
                 extensions += KafkaAvroSeedExtension(
                     id = config.string("id", "kafka-avro-seed"),
                     topics = config["topics"]?.jsonArray?.map { it.jsonObject.toKafkaAvroTopic() }.orEmpty(),
+                )
+            }
+        }
+        root["kerberosMaterial"]?.jsonObject?.let { config ->
+            if (config.boolean("enabled", default = true)) {
+                extensions += KerberosMaterialExtension(
+                    id = config.string("id", "kerberos-material"),
                 )
             }
         }

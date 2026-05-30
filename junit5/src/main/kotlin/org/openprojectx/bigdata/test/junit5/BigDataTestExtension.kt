@@ -12,6 +12,7 @@ import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerLogOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
+import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.bigdata.test.core.PortBindingOptions
 
 class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResolver {
@@ -57,7 +58,15 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 ),
             )
         }
-        if (annotation.kerberos) builder.withKerberos()
+        if (annotation.kerberos || annotation.hasKerberosService()) {
+            builder.withKerberos(
+                KerberosOptions(
+                    enabled = true,
+                    clientPrincipal = annotation.kerberosClientPrincipal,
+                    clientPassword = annotation.kerberosClientPassword,
+                ),
+            )
+        }
         if (annotation.hdfs || annotation.hdfsKerberos) {
             builder.withHdfs(
                 HdfsOptions(
@@ -90,13 +99,8 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     kafkaUiEnabled = annotation.kafkaUi,
                     kerberos = KerberosAuthOptions(
                         enabled = annotation.kafkaKerberos,
-                        servicePrincipal = "kafka/broker1.example.com@EXAMPLE.COM",
+                        servicePrincipal = "kafka/localhost@EXAMPLE.COM",
                         keytabPath = "/kerby/keytabs/kafka-broker1.keytab",
-                    ),
-                    schemaRegistryKerberos = KerberosAuthOptions(
-                        enabled = annotation.schemaRegistryKerberos,
-                        servicePrincipal = "schema-registry/schema-registry.example.com@EXAMPLE.COM",
-                        keytabPath = "/kerby/keytabs/schema-registry.keytab",
                     ),
                     kafkaUiKerberos = KerberosAuthOptions(
                         enabled = annotation.kafkaUiKerberos,
@@ -110,4 +114,10 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         if (annotation.fakeGcs) builder.withFakeGcs()
         return builder.build()
     }
+
+    private fun BigDataTest.hasKerberosService(): Boolean =
+        hdfsKerberos ||
+            hiveMetastoreKerberos ||
+            kafkaKerberos ||
+            kafkaUiKerberos
 }
