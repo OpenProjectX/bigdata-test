@@ -1,92 +1,57 @@
 # bigdata-test
 
-Composable Testcontainers-based fixtures for local big-data integration tests.
+Composable Testcontainers fixtures for local big-data integration tests.
+
+`bigdata-test` starts only the services a test asks for and exposes their
+connection properties through a small Kotlin/JUnit API. Heavier setup such as
+S3 JCEKS generation, bucket creation, and Kafka Avro seeding lives in the
+optional `extensions` module so `core` and `junit5` stay lightweight.
 
 ## Modules
 
-- `core`: container builder and endpoint/property model
-- `junit5`: `@BigDataTest` extension for JUnit 5 tests
-- `extensions`: config-driven extension module for Hadoop credential providers, Kafka, Avro, and future test setup hooks
+- `core`: container builder, service options, endpoints, and log routing
+- `junit5`: `@BigDataTest` extension and parameter injection
+- `extensions`: config-driven setup hooks for JCEKS, buckets, Kafka Avro, and Kerberos material
 - `bigdata-test-spring-boot-autoconfigure`: Spring Boot auto-configuration
-- `bigdata-test-spring-boot-starter`: starter that brings in the auto-configuration
-- `example:spring`: Spring Boot local-development example
-- `example:junit`: JUnit 5 integration-test examples
-- `example:spark`: Spark + JUnit 5 example that wires Spark to the container endpoints
+- `bigdata-test-spring-boot-starter`: Spring Boot starter
+- `example:junit`: plain JUnit 5 examples
+- `example:spring`: Spring Boot example
+- `example:spark`: Spark, HMS, Kafka, S3, GCS, Iceberg, and Kerberos smoke tests
 
-## Core Usage
+## Quick Start
 
-```kotlin
-val kit = BigDataTestKit.builder()
-    .withHiveMetastore()
-    .withKafka(KafkaOptions(enabled = true, schemaRegistryEnabled = true, kafkaUiEnabled = true))
-    .withLocalStackS3()
-    .build()
-
-kit.use {
-    it.start()
-    val metastoreUri = it.endpoint(BigDataService.HIVE_METASTORE).property("hive.metastore.uris")
-    val bootstrapServers = it.endpoint(BigDataService.KAFKA).property("bootstrap.servers")
-}
-```
-
-Container logs are disabled by default. Enable them when a container fails to start or you need service-side troubleshooting output:
+Use `@BigDataTest` in a JUnit 5 test and request `BigDataTestKit` as a parameter:
 
 ```kotlin
-val kit = BigDataTestKit.builder()
-    .withKafka()
-    .withContainerLogsToStdout()
-    .build()
-```
-
-or write one file per service:
-
-```kotlin
-val kit = BigDataTestKit.builder()
-    .withHiveMetastore()
-    .withContainerLogsToDirectory("build/container-logs")
-    .build()
-```
-
-## Extensions
-
-`core` and `junit5` intentionally stay clean of Hadoop, Spark, and storage-client dependencies. Optional heavier setup lives in `extensions`, which runs config-driven hooks against a started `BigDataTestKit`.
-
-The built-in extensions currently support:
-
-- `s3Jceks`: creates an HDFS-backed JCEKS file from the LocalStack S3 endpoint credentials and exposes `s3-jceks.credential-provider.path`.
-- `kafkaAvro`: creates Kafka topics and produces Avro records through Schema Registry from inline TOML records or a records resource.
-- `s3Bucket` / `gcsBucket`: creates LocalStack S3 and fake-gcs-server buckets and exposes their bucket names and storage URIs.
-
-JUnit usage is declaration-driven. The test declares the services with `@BigDataTest`, then points `@BigDataExtensions` at one or more TOML resources:
-
-```kotlin
-@BigDataExtensions("classpath:bigdata-extensions.toml")
 @BigDataTest(
-    hdfs = true,
+    hiveMetastore = true,
     kafka = true,
     schemaRegistry = true,
     localStackS3 = true,
 )
 class MyIntegrationTest {
     @Test
-    fun test(kit: BigDataTestKit, extensions: BigDataExtensionResult) {
-        val providerPath = extensions.required("s3-jceks.credential-provider.path")
+    fun test(kit: BigDataTestKit) {
+        val metastoreUri = kit.endpoint(BigDataService.HIVE_METASTORE)
+            .property("hive.metastore.uris")
+        val bootstrapServers = kit.endpoint(BigDataService.KAFKA)
+            .property("bootstrap.servers")
     }
 }
 ```
 
-Example config:
+For declarative test setup, add `@BigDataExtensions` with TOML config:
+
+```kotlin
+@BigDataExtensions("classpath:bigdata-extensions.toml")
+@BigDataTest(hdfs = true, kafka = true, schemaRegistry = true, localStackS3 = true)
+class MyIntegrationTest
+```
 
 ```toml
-[images]
-hdfs = "apache/hadoop:3.5.0"
-kafka = "apache/kafka:4.1.2"
-schemaRegistry = "confluentinc/cp-schema-registry:7.8.0"
-localStackS3 = "localstack/localstack:4.14.0"
-
 [s3Jceks]
 enabled = true
-hdfsDir = "/bigdata-test/spark"
+hdfsDir = "/bigdata-test/demo"
 fileName = "s3.jceks"
 
 [kafkaAvro]
@@ -97,227 +62,40 @@ name = "events"
 schema = "classpath:schemas/event.avsc"
 records = [
   { key = "alpha", value = { id = 1, name = "alpha" } },
-  { key = "beta", value = { id = 2, name = "beta" } },
 ]
 ```
 
-Image overrides are read before containers start. `hiveMetastore` is the open-source HMS image and `hiveMetastorePostgres` is its external PostgreSQL image. `clouderaHms` is the embedded-Postgres Cloudera HMS image. You can put `[images]` in the same TOML file referenced by `@BigDataExtensions`, or in files listed directly on `@BigDataTest(config = ["classpath:bigdata-test.toml"])`; direct `@BigDataTest` config files take priority when the same image key appears in both places.
+## Run Examples
 
-```toml
-[images]
-hiveMetastore = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4"
-hiveMetastorePostgres = "postgres:16-alpine"
-clouderaHms = "ghcr.io/openprojectx/cloudera-hms:0.1.16"
-```
-
-The same setup can be declared programmatically when names, records, or options need to be generated dynamically:
-
-```kotlin
-@BigDataExtensions
-@BigDataTest(kafka = true, schemaRegistry = true, localStackS3 = true, hdfs = true)
-class MyIntegrationTest {
-    companion object : BigDataExtensionsConfigurer {
-        override fun configure(extensions: BigDataExtensionsBuilder) {
-            val suffix = System.nanoTime()
-            extensions.s3Jceks {
-                hdfsDir = "/bigdata-test/$suffix"
-            }
-            extensions.kafkaAvro {
-                topic("events-$suffix", "classpath:schemas/event.avsc") {
-                    record("alpha", mapOf("id" to 1, "name" to "alpha"))
-                }
-            }
-            extensions.s3Bucket("spark-iceberg-s3-$suffix", id = "spark-s3-bucket")
-            extensions.gcsBucket("spark-iceberg-gcs-$suffix", id = "spark-gcs-bucket")
-        }
-    }
-}
-```
-
-Java tests can use the explicit configurer form:
-
-```java
-@BigDataExtensions(configurer = MyExtensionsConfigurer.class)
-@BigDataTest(kafka = true, schemaRegistry = true)
-class MyJavaIntegrationTest {
-}
-
-public final class MyExtensionsConfigurer implements BigDataExtensionsConfigurer {
-    @Override
-    public void configure(BigDataExtensionsBuilder extensions) {
-        extensions.kafkaAvro(kafka -> kafka.topic(
-            "events",
-            "classpath:schemas/event.avsc",
-            topic -> topic.record("alpha", Map.of("id", 1, "name", "alpha"))
-        ));
-    }
-}
-```
-
-When TOML and programmatic declarations are used together, TOML is loaded first and programmatic declarations are loaded second. Extensions are merged by `extension.id`; if the same id appears more than once, the later declaration replaces the earlier one before any lifecycle hook runs. Use the same id to override file config, or distinct ids to run multiple extensions of the same type.
-
-For future extension modules, implement `BigDataExtension` directly for programmatic use or publish a `BigDataExtensionProvider` via `ServiceLoader`. Providers are selected from config entries under `extensions` by `type`, and extensions can hook lifecycle events such as `AFTER_KIT_START`, `BEFORE_TEST_EXECUTION`, and `AFTER_ALL`.
-
-## JUnit 5
-
-```kotlin
-@BigDataTest(hiveMetastore = true, kafka = true, localStackS3 = true)
-class MyIntegrationTest {
-    @Test
-    fun test(kit: BigDataTestKit) {
-        val properties = kit.springProperties()
-    }
-}
-```
-
-`hiveMetastore = true` starts the open-source HMS distribution and an external Postgres support container. Use `clouderaHms = true` when you want the Cloudera HMS image with embedded Postgres. Enable only one HMS implementation for a test class.
-
-The Spark example uses `hiveMetastore = true` with the Hive 3 open-source HMS image so Spark 3.x uses a compatible metastore server while still exercising server-side S3A and GCS filesystem configuration. Use `clouderaHms = true` when you want the embedded-Postgres Cloudera HMS image instead.
-
-Kerberos can be enabled per service. Hadoop/HDFS, Hive Metastore, Kafka, and Kafka UI expose dedicated Kerberos switches. Set `kerberos = true` to start the shared KDC and then enable auth for the services that should use it. Schema Registry can still be enabled with Kafka Kerberos; it uses Kafka's internal plaintext listener while host clients keep using Kerberos.
-
-```kotlin
-@BigDataTest(
-    kerberos = true,
-    hdfs = true,
-    hdfsKerberos = true,
-    hiveMetastore = true,
-    hiveMetastoreKerberos = true,
-    kafka = true,
-    kafkaKerberos = true,
-    kafkaPort = 19092,
-)
-class MyKerberosIntegrationTest
-```
-
-For host-side Kafka Kerberos clients, configure a fixed `kafkaPort` so the broker can advertise the same host port that clients use.
-
-JUnit tests can also route container logs to the main test process console or to files:
-
-```kotlin
-@BigDataTest(
-    kafka = true,
-    schemaRegistry = true,
-    containerLogMode = ContainerLogMode.FILE,
-    containerLogDirectory = "build/container-logs",
-)
-class MyTroubleshootingTest
-```
-
-`ContainerLogMode.STDOUT` prefixes each line with the service name. `ContainerLogMode.FILE` writes files such as `kafka.log`, `schema-registry.log`, `hive-metastore.log`, and `hive-metastore-postgres.log`. The Postgres log is only produced for the open-source HMS distribution.
-
-JUnit host ports are random by default. Leave port fields at `0` for Testcontainers dynamic port mapping, or set a positive value when a local tool needs a stable host port:
-
-```kotlin
-@BigDataTest(
-    hdfs = true,
-    kafka = true,
-    hdfsNameNodePort = 18020,
-    hdfsWebPort = 19870,
-    kafkaPort = 19092,
-)
-class MyFixedPortTest
-```
-
-If you want the host to use each service's normal container port, enable `sameHostPorts`:
-
-```kotlin
-@BigDataTest(
-    hdfs = true,
-    hiveMetastore = true,
-    kafka = true,
-    schemaRegistry = true,
-    localStackS3 = true,
-    fakeGcs = true,
-    sameHostPorts = true,
-)
-class MySameHostPortTest
-```
-
-This binds ports such as HDFS `8020`/`9870`, HMS `9083`, Kafka `9092`, Schema Registry `8085`, LocalStack `4566`, and fake GCS `4443` on localhost. Explicit per-service port fields still take priority over `sameHostPorts`.
-
-Available JUnit port fields are `kerberosKdcPort`, `hdfsNameNodePort`, `hdfsWebPort`, `hiveMetastorePort`, `kafkaPort`, `schemaRegistryPort`, `kafkaUiPort`, `localStackS3Port`, and `fakeGcsPort`. Endpoint properties still use the actual mapped host ports returned by Testcontainers.
-
-Gradle tasks can drive startup config with `bigdata.test.config`. Use `bigdata.test.config.replace=true` for data-driven matrices where the task must choose mutually exclusive services such as `hiveMetastore` versus `clouderaHms`, or Kerberos enabled versus disabled.
-
-The Spark example provides:
+Use the shared Gradle home when running this repository locally:
 
 ```bash
-./gradlew :example:spark:sparkApacheHmsTest
-./gradlew :example:spark:sparkApacheHmsKerberosTest
-./gradlew :example:spark:sparkClouderaHmsTest
-./gradlew :example:spark:sparkClouderaHmsKerberosTest
-./gradlew :example:spark:sparkBigDataMatrixTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew check
 ```
 
-Default service ports and endpoint property keys:
-
-| Service | Port names | Default ports | Main endpoint properties |
-| --- | --- | --- | --- |
-| `KERBEROS` | `kdc` | `88` | `bigdata.test.kerberos.kdc` |
-| `HDFS` | `namenode`, `web` | `8020`, `9870` | `fs.defaultFS`, `spring.hadoop.fs-uri` |
-| `HIVE_METASTORE` | `thrift` | `9083` | `hive.metastore.uris`, `spring.bigdata.test.hive-metastore.thrift-uri` |
-| `KAFKA` | `bootstrap` | `9092` | `bootstrap.servers`, `spring.kafka.bootstrap-servers`, `bootstrap.servers.internal` |
-| `SCHEMA_REGISTRY` | `http` | `8085` | `schema.registry.url` |
-| `KAFKA_UI` | `http` | `8080` | `bigdata.test.kafka-ui.url` |
-| `LOCALSTACK_S3` | `edge` | `4566` | `aws.endpoint-url.s3`, `spring.cloud.aws.s3.endpoint` |
-| `FAKE_GCS` | `http` | `4443` | `google.cloud.storage.host`, `bigdata.test.gcs.endpoint` |
-
-The same metadata is available programmatically from `BigDataService.defaultPorts` and `BigDataService.endpointProperties`.
-
-When Hive Metastore is started with LocalStack S3 or fake GCS, the kit injects server-side Hadoop filesystem configuration into HMS. External table DDL can validate `s3a://` locations against the internal LocalStack endpoint and `gs://` locations against the internal fake GCS endpoint when the HMS image includes the matching filesystem connector.
-
-`hiveMetastore` defaults to `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4`. Hive 4 images can be tested by overriding `[images].hiveMetastore`, but Spark 3.x brings a Hive 2.3 metastore client and should use the Hive 3 image unless that client stack is changed. The Cloudera image remains available through `clouderaHms`.
-
-## Spring Boot
-
-Add the starter and enable the kit in local-development or test configuration:
-
-```yaml
-bigdata:
-  test:
-    enabled: true
-    hive-metastore:
-      enabled: true
-      image: ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4
-      database-image: postgres:16-alpine
-    kafka:
-      enabled: true
-      kerberos-enabled: true
-      schema-registry-enabled: true
-      schema-registry-kerberos-enabled: true
-    localstack-s3:
-      enabled: true
-```
-
-For the embedded-Postgres Cloudera HMS image, use `bigdata.test.cloudera-hms.enabled=true` instead of `bigdata.test.hive-metastore.enabled=true`.
-
-The auto-configuration exposes a started `BigDataTestKit` bean and closes it with the application context.
-
-## Dependency Management
-
-The build uses the Testcontainers BOM `org.testcontainers:testcontainers-bom:2.0.4`. In this repository it is applied once from the root `subprojects` block, so individual modules and examples should depend on Testcontainers modules without repeating the BOM.
-
-For external consumers, import the same BOM in your own dependency-management setup before adding `bigdata-test` and any direct Testcontainers dependencies. With Testcontainers 2.x, module coordinates use the `testcontainers-` prefix, for example `org.testcontainers:testcontainers-junit-jupiter` and `org.testcontainers:testcontainers-postgresql`.
-
-## Examples
-
-Run the Spring example without starting containers:
-
-```bash
-GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:check
-```
-
-Run the Spring example with the Kerberos profile when you want it to start containers:
-
-```bash
-GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:bootRun --args='--spring.profiles.active=kerberos'
-```
-
-The JUnit examples in `example/junit` are annotated with `@Disabled`; remove that annotation from an example class to start the configured stack.
-
-The Spark example in `example/spark` creates a `SparkSession` from `BigDataTestKit` endpoints, starts HDFS, Hive Metastore, Kafka, Schema Registry, LocalStack S3, and fake GCS, then uses `extensions` config to create the S3 JCEKS file on HDFS and produce Avro records to Kafka. HDFS is used as the config store for the JCEKS file; S3 and GCS are object-store Iceberg smoke checks through Hadoop catalogs. The example also creates an HMS-backed Iceberg table and Hive external Parquet tables on S3 and GCS, then verifies the HMS database/table location and format metadata through `HiveMetaStoreClient`.
+Run the Spark smoke test:
 
 ```bash
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:test
 ```
+
+Run the Spark HMS/Kerberos matrix:
+
+```bash
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkBigDataMatrixTest
+```
+
+Individual matrix cells are also available:
+
+```bash
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheHmsTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheHmsKerberosTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaHmsTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaHmsKerberosTest
+```
+
+## Documentation
+
+- Detailed usage: [doc/user-guide.adoc](doc/user-guide.adoc)
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Current Hive Docker HMS notes: [doc/hive-docker-hms-issues.adoc](doc/hive-docker-hms-issues.adoc)
