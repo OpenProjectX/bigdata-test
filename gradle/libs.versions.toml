@@ -9,6 +9,7 @@ kotlinxSerializationJSON = "1.9.0"
 kotlinxCoroutines = "1.10.2"
 springBoot = "4.0.5"
 testcontainers = "2.0.4"
+hiveDockerTestcontainers = "0.1.4"
 spark = "3.5.7"
 hadoop = "3.4.2"
 
@@ -32,6 +33,7 @@ testcontainers = { module = "org.testcontainers:testcontainers" }
 testcontainersPostgresql = { module = "org.testcontainers:testcontainers-postgresql" }
 testcontainersKafka = { module = "org.testcontainers:testcontainers-kafka" }
 testcontainersJunitJupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
+hiveDockerTestcontainers = { module = "org.openprojectx.hive.docker.core:hive-docker-testcontainers", version.ref = "hiveDockerTestcontainers" }
 sparkSql = { module = "org.apache.spark:spark-sql_2.12", version.ref = "spark" }
 sparkHive = { module = "org.apache.spark:spark-hive_2.12", version.ref = "spark" }
 sparkSqlKafka = { module = "org.apache.spark:spark-sql-kafka-0-10_2.12", version.ref = "spark" }

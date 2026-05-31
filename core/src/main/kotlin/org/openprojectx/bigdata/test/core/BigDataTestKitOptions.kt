@@ -54,11 +54,12 @@ data class HdfsOptions(
 
 data class HiveMetastoreOptions(
     val enabled: Boolean = false,
-    val image: String = "ghcr.io/openprojectx/cloudera-hms:0.1.16",
-    val apacheHiveImage: String = "apache/hive:3.1.3",
-    val databaseName: String = "metastore_db",
+    val distribution: HiveMetastoreDistribution = HiveMetastoreDistribution.OPEN_SOURCE,
+    val image: String = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4",
+    val databaseImage: String = "postgres:16-alpine",
+    val databaseName: String = "metastore",
     val databaseUser: String = "hive",
-    val databasePassword: String = "hive-password",
+    val databasePassword: String = "hive",
     val warehouseDir: String = "/user/hive/warehouse",
     val extraConfiguration: Map<String, String> = emptyMap(),
     val kerberos: KerberosAuthOptions = KerberosAuthOptions(
@@ -66,6 +67,11 @@ data class HiveMetastoreOptions(
         keytabPath = "/kerby/keytabs/hive-metastore.keytab",
     ),
 )
+
+enum class HiveMetastoreDistribution {
+    OPEN_SOURCE,
+    CLOUDERA,
+}
 
 data class KafkaOptions(
     val enabled: Boolean = false,

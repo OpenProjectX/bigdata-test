@@ -67,6 +67,15 @@ class BigDataTestKit private constructor(
         fun withHiveMetastore(options: HiveMetastoreOptions = HiveMetastoreOptions(enabled = true)): Builder =
             apply { hiveMetastore = options.copy(enabled = true) }
 
+        fun withClouderaHms(
+            options: HiveMetastoreOptions = HiveMetastoreOptions(
+                enabled = true,
+                distribution = HiveMetastoreDistribution.CLOUDERA,
+                image = "ghcr.io/openprojectx/cloudera-hms:0.1.16",
+            ),
+        ): Builder =
+            apply { hiveMetastore = options.copy(enabled = true, distribution = HiveMetastoreDistribution.CLOUDERA) }
+
         fun withKafka(options: KafkaOptions = KafkaOptions(enabled = true)): Builder =
             apply { kafka = options.copy(enabled = true) }
 

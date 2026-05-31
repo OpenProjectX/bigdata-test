@@ -2,6 +2,7 @@ package org.openprojectx.bigdata.test.autoconfigure
 
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.HdfsOptions
+import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
@@ -61,11 +62,16 @@ class BigDataTestAutoConfiguration {
             )
         }
 
+        require(!(properties.hiveMetastore.enabled && properties.clouderaHms.enabled)) {
+            "Use only one HMS implementation: bigdata.test.hive-metastore or bigdata.test.cloudera-hms"
+        }
         if (properties.hiveMetastore.enabled) {
             builder.withHiveMetastore(
                 HiveMetastoreOptions(
                     enabled = true,
+                    distribution = HiveMetastoreDistribution.OPEN_SOURCE,
                     image = properties.hiveMetastore.image,
+                    databaseImage = properties.hiveMetastore.databaseImage,
                     databaseName = properties.hiveMetastore.databaseName,
                     databaseUser = properties.hiveMetastore.databaseUser,
                     databasePassword = properties.hiveMetastore.databasePassword,
@@ -73,6 +79,23 @@ class BigDataTestAutoConfiguration {
                     extraConfiguration = properties.hiveMetastore.extraConfiguration,
                     kerberos = KerberosAuthOptions(
                         enabled = properties.hiveMetastore.kerberosEnabled,
+                        servicePrincipal = "hive/hive-metastore.example.com@${properties.kerberos.realm}",
+                        keytabPath = "/kerby/keytabs/hive-metastore.keytab",
+                    ),
+                ),
+            )
+        }
+
+        if (properties.clouderaHms.enabled) {
+            builder.withClouderaHms(
+                HiveMetastoreOptions(
+                    enabled = true,
+                    distribution = HiveMetastoreDistribution.CLOUDERA,
+                    image = properties.clouderaHms.image,
+                    warehouseDir = properties.clouderaHms.warehouseDir,
+                    extraConfiguration = properties.clouderaHms.extraConfiguration,
+                    kerberos = KerberosAuthOptions(
+                        enabled = properties.clouderaHms.kerberosEnabled,
                         servicePrincipal = "hive/hive-metastore.example.com@${properties.kerberos.realm}",
                         keytabPath = "/kerby/keytabs/hive-metastore.keytab",
                     ),

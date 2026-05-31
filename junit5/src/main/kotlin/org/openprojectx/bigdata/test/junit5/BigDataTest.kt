@@ -14,6 +14,7 @@ annotation class BigDataTest(
     val hdfs: Boolean = false,
     val hdfsKerberos: Boolean = false,
     val hiveMetastore: Boolean = false,
+    val clouderaHms: Boolean = false,
     val hiveMetastoreKerberos: Boolean = false,
     val kafka: Boolean = false,
     val kafkaKerberos: Boolean = false,

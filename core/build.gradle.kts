@@ -7,4 +7,5 @@ dependencies {
     api(libs.testcontainers)
     api(libs.testcontainersPostgresql)
     api(libs.testcontainersKafka)
+    api(libs.hiveDockerTestcontainers)
 }

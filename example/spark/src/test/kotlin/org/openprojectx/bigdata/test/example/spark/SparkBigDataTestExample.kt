@@ -1,25 +1,12 @@
 package org.openprojectx.bigdata.test.example.spark
 
-import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsBuilder
 import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsConfigurer
 import org.openprojectx.bigdata.test.extensions.junit5.BigDataExtensions
 import org.openprojectx.bigdata.test.junit5.BigDataTest
 
 @BigDataExtensions("classpath:spark-bigdata-extensions.toml")
-@BigDataTest(
-    kerberos = true,
-    hdfs = true,
-    hiveMetastore = true,
-    kafka = true,
-    kafkaKerberos = true,
-    schemaRegistry = true,
-    kafkaPort = 19092,
-    localStackS3 = true,
-    fakeGcs = true,
-    containerLogMode = ContainerLogMode.FILE,
-    sameHostPorts = true,
-)
+@BigDataTest
 class SparkBigDataTestExample : SparkBigDataScenario() {
     override val runId: String get() = scenarioRunId
     override val s3BucketExtensionId: String get() = S3_BUCKET_ID

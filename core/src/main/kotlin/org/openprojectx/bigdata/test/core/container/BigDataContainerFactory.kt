@@ -4,9 +4,11 @@ import org.openprojectx.bigdata.test.core.BigDataEndpoint
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKitOptions
 import org.openprojectx.bigdata.test.core.ContainerLogMode
+import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosOptions
+import org.openprojectx.hive.docker.testcontainers.HiveMetastoreContainer
 import org.testcontainers.containers.BindMode
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.Network
@@ -158,28 +160,60 @@ internal class BigDataContainerFactory(
 
     private fun hiveMetastore(): BigDataServiceContainer {
         val hive = options.hiveMetastore
-        val image = DockerImageName.parse("postgres:14")
-        val postgres = PostgreSQLContainer(image)
+        if (hive.distribution == HiveMetastoreDistribution.CLOUDERA) {
+            return clouderaHms()
+        }
+        val postgres = PostgreSQLContainer(DockerImageName.parse(hive.databaseImage))
+            .withNetwork(network)
+            .withNetworkAliases("hive-metastore-postgres")
             .withDatabaseName(hive.databaseName)
             .withUsername(hive.databaseUser)
             .withPassword(hive.databasePassword)
-            .withNetwork(network)
-            .withNetworkAliases("hms-postgres")
-        supportContainers += postgres
-        attachLogs("hive-metastore-postgres", postgres)
+        supportContainers += attachLogs("hive-metastore-postgres", postgres)
+        postgres.start()
 
+        val container = FixedPortHiveMetastoreContainer(hive.image)
+        container
+            .withNetwork(network)
+            .withNetworkAliases("hive-metastore", "hive-metastore.example.com")
+            .withEnv("SERVICE_NAME", "metastore")
+            .withPostgres("hive-metastore-postgres", 5432, hive.databaseName, hive.databaseUser, hive.databasePassword)
+            .withWarehousePath(hive.warehouseDir)
+        container.withServicePort(9083, options.portBindings.hostPort(9083, options.portBindings.hiveMetastore))
+        if (hive.kerberos.enabled) {
+            mountKerberos(container)
+            container
+                .withEnv("KRB5_CONFIG", "/kerby/client/krb5.conf")
+                .withEnv("SERVICE_OPTS", "-Djava.security.krb5.conf=/kerby/client/krb5.conf")
+        }
+        configureHiveDockerObjectStores(container)
+        if (hive.extraConfiguration.isNotEmpty() || hive.kerberos.enabled) {
+            container
+                .withEnv("HIVE_CUSTOM_CONF_DIR", "/bigdata-test/hive-conf")
+                .withFileSystemBind(openSourceHiveConfigurationDirectory().toString(), "/bigdata-test/hive-conf", BindMode.READ_ONLY)
+        }
+
+        return BigDataServiceContainer(BigDataService.HIVE_METASTORE, attachLogs("hive-metastore", container)) {
+            val thriftUri = container.thriftUri
+            BigDataEndpoint(
+                service = BigDataService.HIVE_METASTORE,
+                host = container.host,
+                ports = mapOf("thrift" to container.getMappedPort(9083)),
+                properties = mapOf(
+                    "hive.metastore.uris" to thriftUri,
+                    "spring.bigdata.test.hive-metastore.thrift-uri" to thriftUri,
+                ) + kerberosProperties("hive.metastore", hive.kerberos),
+            )
+        }
+    }
+
+    private fun clouderaHms(): BigDataServiceContainer {
+        val hive = options.hiveMetastore
         val container = GenericBigDataContainer(hive.image)
             .withNetwork(network)
             .withNetworkAliases("hive-metastore", "hive-metastore.example.com")
             .withServicePort(9083, options.portBindings.hostPort(9083, options.portBindings.hiveMetastore))
-            .withEnv("POSTGRES_DB", hive.databaseName)
-            .withEnv("POSTGRES_USER", hive.databaseUser)
-            .withEnv("POSTGRES_PASSWORD", hive.databasePassword)
-            .withEnv("HMS_JDBC_URL", "jdbc:postgresql://hms-postgres:5432/${hive.databaseName}")
-            .withEnv("HMS_JDBC_USER", hive.databaseUser)
-            .withEnv("HMS_JDBC_PASSWORD", hive.databasePassword)
             .withEnv("HMS_WAREHOUSE_DIR", hive.warehouseDir)
-            .dependsOn(postgres)
             .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(3)))
         if (hive.kerberos.enabled) {
             mountKerberos(container)
@@ -421,11 +455,91 @@ internal class BigDataContainerFactory(
                 put("fs.gs.storage.service.path", "storage/v1/")
                 put("fs.gs.client.type", "HTTP_API_CLIENT")
                 put("fs.gs.auth.type", "UNAUTHENTICATED")
+                put("fs.gs.status.parallel.enable", "false")
                 put("fs.gs.create.items.conflict.check.enable", "false")
                 put("fs.gs.implicit.dir.repair.enable", "false")
                 put("fs.gs.hierarchical.namespace.folders.enable", "false")
             }
         }
+
+    private fun configureHiveDockerObjectStores(container: HiveMetastoreContainer) {
+        if (options.localStackS3.enabled) {
+            container
+                .withEnv("S3A_FILE_SYSTEM_IMPL", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+                .withEnv("S3_ENDPOINT_URL", "http://localstack:4566")
+                .withEnv("AWS_ACCESS_KEY_ID", "test")
+                .withEnv("AWS_SECRET_ACCESS_KEY", "test")
+                .withEnv("S3_PATH_STYLE_ACCESS", "true")
+                .withEnv("S3_SSL_ENABLED", "false")
+        }
+        if (options.fakeGcs.enabled) {
+            container
+                .withEnv("GCS_FILE_SYSTEM_IMPL", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
+                .withEnv("GCS_ABSTRACT_FILE_SYSTEM_IMPL", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS")
+                .withEnv("GCS_AUTH_TYPE", "UNAUTHENTICATED")
+                .withEnv("GCS_PROJECT_ID", "bigdata-test")
+                .withEnv("GCS_STORAGE_ROOT_URL", "http://fake-gcs:4443")
+                .withEnv("GCS_STORAGE_SERVICE_PATH", "/storage/v1/")
+                .withEnv("GCS_CREATE_ITEMS_CONFLICT_CHECK_ENABLED", "false")
+                .withEnv("GCS_CLIENT_UPLOAD_TYPE", "WRITE_TO_DISK_THEN_UPLOAD")
+                .withEnv("GCS_DIRECT_UPLOAD_ENABLED", "false")
+                .withEnv("GCS_PERFORMANCE_CACHE_ENABLED", "false")
+                .withEnv("GCS_STORAGE_CLIENT_CACHE_ENABLED", "false")
+                .withEnv("GCS_GRPC_ENABLED", "false")
+        }
+    }
+
+    private fun openSourceHiveConfigurationDirectory(): Path {
+        val hive = options.hiveMetastore
+        val dir = Files.createTempDirectory("bigdata-test-hive-conf-")
+        val metastoreProperties = linkedMapOf(
+            "hive.metastore.warehouse.dir" to hive.warehouseDir,
+            "javax.jdo.option.ConnectionURL" to "jdbc:postgresql://hive-metastore-postgres:5432/${hive.databaseName}",
+            "javax.jdo.option.ConnectionDriverName" to "org.postgresql.Driver",
+            "javax.jdo.option.ConnectionUserName" to hive.databaseUser,
+            "javax.jdo.option.ConnectionPassword" to hive.databasePassword,
+        )
+        if (hive.kerberos.enabled) {
+            metastoreProperties += mapOf(
+                "hive.metastore.sasl.enabled" to "true",
+                "hive.metastore.kerberos.principal" to hive.kerberos.servicePrincipal,
+                "hive.metastore.kerberos.keytab.file" to hive.kerberos.keytabPath,
+                "hadoop.security.authentication" to "kerberos",
+            )
+        }
+        metastoreProperties += hive.extraConfiguration
+        val hadoopProperties = hiveMetastoreObjectStoreConfiguration()
+
+        writeConfigurationXml(dir.resolve("hive-site.xml"), metastoreProperties + hadoopProperties)
+        writeConfigurationXml(dir.resolve("metastore-site.xml"), metastoreProperties + hadoopProperties)
+        writeConfigurationXml(dir.resolve("core-site.xml"), hadoopProperties)
+        return dir
+    }
+
+    private fun writeConfigurationXml(path: Path, properties: Map<String, String>) {
+        Files.writeString(
+            path,
+            buildString {
+                appendLine("<configuration>")
+                properties.forEach { (key, value) ->
+                    appendLine("  <property>")
+                    appendLine("    <name>${xmlEscape(key)}</name>")
+                    appendLine("    <value>${xmlEscape(value)}</value>")
+                    appendLine("  </property>")
+                }
+                appendLine("</configuration>")
+            },
+            StandardCharsets.UTF_8,
+        )
+    }
+
+    private fun xmlEscape(value: String): String =
+        value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&apos;")
 
 
     private fun <T : GenericContainer<*>> attachLogs(name: String, container: T): T {
@@ -511,7 +625,7 @@ internal class BigDataContainerFactory(
         if (!contains(entry)) add(entry)
     }
 
-    private fun mountKerberos(container: GenericBigDataContainer) {
+    private fun mountKerberos(container: GenericContainer<*>) {
         container.withFileSystemBind(kerberosDirectory(), "/kerby", BindMode.READ_ONLY)
     }
 

@@ -9,6 +9,7 @@ data class BigDataTestProperties(
     var tls: Tls = Tls(),
     var hdfs: Hdfs = Hdfs(),
     var hiveMetastore: HiveMetastore = HiveMetastore(),
+    var clouderaHms: ClouderaHms = ClouderaHms(),
     var kafka: Kafka = Kafka(),
     var localstackS3: ObjectStore = ObjectStore(image = "localstack/localstack:4.14.0"),
     var fakeGcs: ObjectStore = ObjectStore(image = "fsouza/fake-gcs-server:1.54"),
@@ -37,10 +38,19 @@ data class BigDataTestProperties(
 
     data class HiveMetastore(
         var enabled: Boolean = false,
-        var image: String = "ghcr.io/openprojectx/cloudera-hms:0.1.16",
-        var databaseName: String = "metastore_db",
+        var image: String = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4",
+        var databaseImage: String = "postgres:16-alpine",
+        var databaseName: String = "metastore",
         var databaseUser: String = "hive",
-        var databasePassword: String = "hive-password",
+        var databasePassword: String = "hive",
+        var warehouseDir: String = "/user/hive/warehouse",
+        var extraConfiguration: Map<String, String> = emptyMap(),
+        var kerberosEnabled: Boolean = false,
+    )
+
+    data class ClouderaHms(
+        var enabled: Boolean = false,
+        var image: String = "ghcr.io/openprojectx/cloudera-hms:0.1.16",
         var warehouseDir: String = "/user/hive/warehouse",
         var extraConfiguration: Map<String, String> = emptyMap(),
         var kerberosEnabled: Boolean = false,

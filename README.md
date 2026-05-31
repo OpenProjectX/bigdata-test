@@ -101,7 +101,14 @@ records = [
 ]
 ```
 
-Image overrides are read before containers start. You can put `[images]` in the same TOML file referenced by `@BigDataExtensions`, or in files listed directly on `@BigDataTest(config = ["classpath:bigdata-test.toml"])`; direct `@BigDataTest` config files take priority when the same image key appears in both places.
+Image overrides are read before containers start. `hiveMetastore` is the open-source HMS image and `hiveMetastorePostgres` is its external PostgreSQL image. `clouderaHms` is the embedded-Postgres Cloudera HMS image. You can put `[images]` in the same TOML file referenced by `@BigDataExtensions`, or in files listed directly on `@BigDataTest(config = ["classpath:bigdata-test.toml"])`; direct `@BigDataTest` config files take priority when the same image key appears in both places.
+
+```toml
+[images]
+hiveMetastore = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4"
+hiveMetastorePostgres = "postgres:16-alpine"
+clouderaHms = "ghcr.io/openprojectx/cloudera-hms:0.1.16"
+```
 
 The same setup can be declared programmatically when names, records, or options need to be generated dynamically:
 
@@ -163,6 +170,10 @@ class MyIntegrationTest {
 }
 ```
 
+`hiveMetastore = true` starts the open-source HMS distribution and an external Postgres support container. Use `clouderaHms = true` when you want the Cloudera HMS image with embedded Postgres. Enable only one HMS implementation for a test class.
+
+The Spark example uses `hiveMetastore = true` with the Hive 3 open-source HMS image so Spark 3.x uses a compatible metastore server while still exercising server-side S3A and GCS filesystem configuration. Use `clouderaHms = true` when you want the embedded-Postgres Cloudera HMS image instead.
+
 Kerberos can be enabled per service. Hadoop/HDFS, Hive Metastore, Kafka, and Kafka UI expose dedicated Kerberos switches. Set `kerberos = true` to start the shared KDC and then enable auth for the services that should use it. Schema Registry can still be enabled with Kafka Kerberos; it uses Kafka's internal plaintext listener while host clients keep using Kerberos.
 
 ```kotlin
@@ -193,7 +204,7 @@ JUnit tests can also route container logs to the main test process console or to
 class MyTroubleshootingTest
 ```
 
-`ContainerLogMode.STDOUT` prefixes each line with the service name. `ContainerLogMode.FILE` writes files such as `kafka.log`, `schema-registry.log`, `hive-metastore.log`, and `hive-metastore-postgres.log`.
+`ContainerLogMode.STDOUT` prefixes each line with the service name. `ContainerLogMode.FILE` writes files such as `kafka.log`, `schema-registry.log`, `hive-metastore.log`, and `hive-metastore-postgres.log`. The Postgres log is only produced for the open-source HMS distribution.
 
 JUnit host ports are random by default. Leave port fields at `0` for Testcontainers dynamic port mapping, or set a positive value when a local tool needs a stable host port:
 
@@ -242,7 +253,9 @@ Default service ports and endpoint property keys:
 
 The same metadata is available programmatically from `BigDataService.defaultPorts` and `BigDataService.endpointProperties`.
 
-When Hive Metastore is started with LocalStack S3 or fake GCS, the kit also injects server-side Hadoop filesystem configuration into HMS. External table DDL can validate `s3a://` locations against the internal LocalStack endpoint and `gs://` locations against the internal fake GCS endpoint when the HMS image includes the matching filesystem connector.
+When Hive Metastore is started with LocalStack S3 or fake GCS, the kit injects server-side Hadoop filesystem configuration into HMS. External table DDL can validate `s3a://` locations against the internal LocalStack endpoint and `gs://` locations against the internal fake GCS endpoint when the HMS image includes the matching filesystem connector.
+
+`hiveMetastore` defaults to `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4`. Hive 4 images can be tested by overriding `[images].hiveMetastore`, but Spark 3.x brings a Hive 2.3 metastore client and should use the Hive 3 image unless that client stack is changed. The Cloudera image remains available through `clouderaHms`.
 
 ## Spring Boot
 
@@ -254,6 +267,8 @@ bigdata:
     enabled: true
     hive-metastore:
       enabled: true
+      image: ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4
+      database-image: postgres:16-alpine
     kafka:
       enabled: true
       kerberos-enabled: true
@@ -262,6 +277,8 @@ bigdata:
     localstack-s3:
       enabled: true
 ```
+
+For the embedded-Postgres Cloudera HMS image, use `bigdata.test.cloudera-hms.enabled=true` instead of `bigdata.test.hive-metastore.enabled=true`.
 
 The auto-configuration exposes a started `BigDataTestKit` bean and closes it with the application context.
 
