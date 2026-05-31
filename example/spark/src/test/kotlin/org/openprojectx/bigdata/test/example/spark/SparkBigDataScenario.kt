@@ -44,6 +44,9 @@ abstract class SparkBigDataScenario {
                     spark = context.spark,
                     bootstrapServers = context.environment.kafkaBootstrapServers,
                     topic = kafkaAvroTopic(),
+                    securityProtocol = context.environment.kafkaSecurityProtocol,
+                    kerberosServiceName = context.environment.kafkaKerberosServiceName,
+                    jaasConfig = context.environment.kafkaJaasConfig,
                 )
             },
         )
@@ -132,17 +135,20 @@ abstract class SparkBigDataScenario {
             gcsIcebergDataPath = "${extensions.required("$gcsBucketExtensionId.gs.uri")}/data/demo_$runId/events_gcs",
             s3CredentialProviderPath = extensions.required("s3-jceks.credential-provider.path"),
             s3CredentialProviderHdfsPath = extensions.required("s3-jceks.hdfs.path"),
-            kerberosClientPrincipal = extensions.required("kerberos-material.client.principal"),
-            kerberosClientPassword = extensions.required("kerberos-material.client.password"),
-            kerberosClientKeytab = extensions.required("kerberos-material.client.keytab"),
-            krb5Conf = extensions.required("kerberos-material.krb5-conf"),
-            kafkaKerberosServiceName = extensions.required("kerberos-material.kafka.service-name"),
-            kafkaJaasConfig = kafka.property("sasl.jaas.config"),
+            kerberosClientPrincipal = extensions.optional("kerberos-material.client.principal"),
+            kerberosClientPassword = extensions.optional("kerberos-material.client.password"),
+            kerberosClientKeytab = extensions.optional("kerberos-material.client.keytab"),
+            krb5Conf = extensions.optional("kerberos-material.krb5-conf")
+                ?: kafka.properties["java.security.krb5.conf.local"],
+            kafkaSecurityProtocol = kafka.properties["security.protocol"],
+            kafkaKerberosServiceName = extensions.optional("kerberos-material.kafka.service-name")
+                ?: kafka.properties["sasl.kerberos.service.name"],
+            kafkaJaasConfig = kafka.properties["sasl.jaas.config"],
         )
     }
 
     private fun createSparkSession(environment: SparkScenarioEnvironment): SparkSession {
-        System.setProperty("java.security.krb5.conf", environment.krb5Conf)
+        environment.krb5Conf?.let { System.setProperty("java.security.krb5.conf", it) }
         return configureSpark(
             SparkSession.builder()
                 .appName("bigdata-test-spark-example")
@@ -184,14 +190,27 @@ abstract class SparkBigDataScenario {
                 .config("spark.hadoop.fs.gs.create.items.conflict.check.enable", "false")
                 .config("spark.hadoop.fs.gs.implicit.dir.repair.enable", "false")
                 .config("spark.hadoop.fs.gs.hierarchical.namespace.folders.enable", "false")
-                .config("spark.hadoop.java.security.krb5.conf", environment.krb5Conf)
-                .config("spark.hadoop.bigdata.test.kerberos.client.principal", environment.kerberosClientPrincipal)
-                .config("spark.hadoop.bigdata.test.kerberos.client.keytab", environment.kerberosClientKeytab)
-                .config("spark.hadoop.bigdata.test.kafka.service.name", environment.kafkaKerberosServiceName)
-                .config("spark.hadoop.bigdata.test.kafka.jaas.config", environment.kafkaJaasConfig),
+                .configureKerberos(environment),
             environment,
         ).enableHiveSupport()
             .getOrCreate()
+    }
+
+    private fun SparkSession.Builder.configureKerberos(environment: SparkScenarioEnvironment): SparkSession.Builder {
+        environment.krb5Conf?.let { config("spark.hadoop.java.security.krb5.conf", it) }
+        environment.kerberosClientPrincipal?.let {
+            config("spark.hadoop.bigdata.test.kerberos.client.principal", it)
+        }
+        environment.kerberosClientKeytab?.let {
+            config("spark.hadoop.bigdata.test.kerberos.client.keytab", it)
+        }
+        environment.kafkaKerberosServiceName?.let {
+            config("spark.hadoop.bigdata.test.kafka.service.name", it)
+        }
+        environment.kafkaJaasConfig?.let {
+            config("spark.hadoop.bigdata.test.kafka.jaas.config", it)
+        }
+        return this
     }
 
     protected fun assertHdfsConfigStore(spark: SparkSession, hdfsUri: String, hdfsPath: String) {
@@ -200,18 +219,30 @@ abstract class SparkBigDataScenario {
         check(exists) { "Expected S3 JCEKS file in HDFS for ${spark.sparkContext().appName()}" }
     }
 
-    protected fun assertKafkaAvroInput(spark: SparkSession, bootstrapServers: String, topic: String) {
-        val rows = spark.read()
+    protected fun assertKafkaAvroInput(
+        spark: SparkSession,
+        bootstrapServers: String,
+        topic: String,
+        securityProtocol: String?,
+        kerberosServiceName: String?,
+        jaasConfig: String?,
+    ) {
+        val reader = spark.read()
             .format("kafka")
             .option("kafka.bootstrap.servers", bootstrapServers)
             .option("subscribe", topic)
             .option("startingOffsets", "earliest")
             .option("endingOffsets", "latest")
-            .option("kafka.security.protocol", "SASL_PLAINTEXT")
-            .option("kafka.sasl.mechanism", "GSSAPI")
-            .option("kafka.sasl.kerberos.service.name", spark.sparkContext().hadoopConfiguration().get("bigdata.test.kafka.service.name", "kafka"))
-            .option("kafka.sasl.jaas.config", spark.sparkContext().hadoopConfiguration().get("bigdata.test.kafka.jaas.config", ""))
-            .load()
+
+        if (securityProtocol == "SASL_PLAINTEXT") {
+            reader
+                .option("kafka.security.protocol", securityProtocol)
+                .option("kafka.sasl.mechanism", "GSSAPI")
+                .option("kafka.sasl.kerberos.service.name", kerberosServiceName ?: "kafka")
+                .option("kafka.sasl.jaas.config", jaasConfig ?: "")
+        }
+
+        val rows = reader.load()
         check(rows.count() == 2L) { "Expected two Avro Kafka records in $topic" }
     }
 
@@ -343,10 +374,11 @@ data class SparkScenarioEnvironment(
     val gcsIcebergDataPath: String,
     val s3CredentialProviderPath: String,
     val s3CredentialProviderHdfsPath: String,
-    val kerberosClientPrincipal: String,
-    val kerberosClientPassword: String,
-    val kerberosClientKeytab: String,
-    val krb5Conf: String,
-    val kafkaKerberosServiceName: String,
-    val kafkaJaasConfig: String,
+    val kerberosClientPrincipal: String?,
+    val kerberosClientPassword: String?,
+    val kerberosClientKeytab: String?,
+    val krb5Conf: String?,
+    val kafkaSecurityProtocol: String?,
+    val kafkaKerberosServiceName: String?,
+    val kafkaJaasConfig: String?,
 )

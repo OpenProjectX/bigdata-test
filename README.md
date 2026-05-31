@@ -238,6 +238,18 @@ This binds ports such as HDFS `8020`/`9870`, HMS `9083`, Kafka `9092`, Schema Re
 
 Available JUnit port fields are `kerberosKdcPort`, `hdfsNameNodePort`, `hdfsWebPort`, `hiveMetastorePort`, `kafkaPort`, `schemaRegistryPort`, `kafkaUiPort`, `localStackS3Port`, and `fakeGcsPort`. Endpoint properties still use the actual mapped host ports returned by Testcontainers.
 
+Gradle tasks can drive startup config with `bigdata.test.config`. Use `bigdata.test.config.replace=true` for data-driven matrices where the task must choose mutually exclusive services such as `hiveMetastore` versus `clouderaHms`, or Kerberos enabled versus disabled.
+
+The Spark example provides:
+
+```bash
+./gradlew :example:spark:sparkApacheHmsTest
+./gradlew :example:spark:sparkApacheHmsKerberosTest
+./gradlew :example:spark:sparkClouderaHmsTest
+./gradlew :example:spark:sparkClouderaHmsKerberosTest
+./gradlew :example:spark:sparkBigDataMatrixTest
+```
+
 Default service ports and endpoint property keys:
 
 | Service | Port names | Default ports | Main endpoint properties |

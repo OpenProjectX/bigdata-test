@@ -47,3 +47,65 @@ tasks.withType<Test>().configureEach {
         "--add-opens=java.base/java.net=ALL-UNNAMED",
     )
 }
+
+val sparkBigDataTestClass = "org.openprojectx.bigdata.test.example.spark.SparkBigDataTestExample"
+val sparkCommonConfig = "classpath:spark-bigdata-test-common.toml"
+
+fun registerSparkMatrixTest(
+    name: String,
+    descriptionText: String,
+    variantConfig: String,
+) = tasks.register<Test>(name) {
+    description = descriptionText
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter.includeTestsMatching(sparkBigDataTestClass)
+    systemProperty("bigdata.test.config.replace", "true")
+    systemProperty("bigdata.test.config", "$sparkCommonConfig,$variantConfig")
+}
+
+val sparkApacheHmsTest = registerSparkMatrixTest(
+    name = "sparkApacheHmsTest",
+    descriptionText = "Runs the Spark example with open-source Hive 3 HMS and plaintext Kafka.",
+    variantConfig = "classpath:spark-bigdata-test-apache-hms.toml",
+)
+
+val sparkApacheHmsKerberosTest = registerSparkMatrixTest(
+    name = "sparkApacheHmsKerberosTest",
+    descriptionText = "Runs the Spark example with open-source Hive 3 HMS and Kafka Kerberos.",
+    variantConfig = "classpath:spark-bigdata-test-apache-hms-kerberos.toml",
+)
+sparkApacheHmsKerberosTest.configure {
+    mustRunAfter(sparkApacheHmsTest)
+}
+
+val sparkClouderaHmsTest = registerSparkMatrixTest(
+    name = "sparkClouderaHmsTest",
+    descriptionText = "Runs the Spark example with Cloudera HMS and plaintext Kafka.",
+    variantConfig = "classpath:spark-bigdata-test-cloudera-hms.toml",
+)
+sparkClouderaHmsTest.configure {
+    mustRunAfter(sparkApacheHmsKerberosTest)
+}
+
+val sparkClouderaHmsKerberosTest = registerSparkMatrixTest(
+    name = "sparkClouderaHmsKerberosTest",
+    descriptionText = "Runs the Spark example with Cloudera HMS and Kafka Kerberos.",
+    variantConfig = "classpath:spark-bigdata-test-cloudera-hms-kerberos.toml",
+)
+sparkClouderaHmsKerberosTest.configure {
+    mustRunAfter(sparkClouderaHmsTest)
+}
+
+tasks.register("sparkBigDataMatrixTest") {
+    description = "Runs all Spark HMS/Kerberos matrix combinations."
+    group = "verification"
+    dependsOn(
+        sparkApacheHmsTest,
+        sparkApacheHmsKerberosTest,
+        sparkClouderaHmsTest,
+        sparkClouderaHmsKerberosTest,
+    )
+}

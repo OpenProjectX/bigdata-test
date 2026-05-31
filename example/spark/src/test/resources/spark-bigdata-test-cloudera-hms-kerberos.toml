@@ -1,0 +1,7 @@
+[services]
+kerberos = true
+clouderaHms = true
+kafkaKerberos = true
+
+[ports]
+kafka = 19092

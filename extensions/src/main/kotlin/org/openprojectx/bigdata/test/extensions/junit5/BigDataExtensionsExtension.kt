@@ -40,8 +40,9 @@ class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback
         val annotation = context.requiredTestClass.getAnnotation(BigDataExtensions::class.java)
             ?: error("@BigDataExtensions is missing")
         val resources = BigDataExtensionResourceLoader(context.requiredTestClass.classLoader)
+        val configLocations = bigDataExtensionsConfigLocations(annotation)
         val extensions = mergeById(
-            BigDataExtensionsConfigLoader(resources).load(annotation.value.asIterable()) +
+            BigDataExtensionsConfigLoader(resources).load(configLocations) +
                 programmaticExtensions(annotation, context),
         )
         val runner = BigDataExtensionRunner(extensions, resources)
@@ -91,6 +92,22 @@ class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback
     private fun instanceConfigurer(context: ExtensionContext): BigDataExtensionsConfigurer? =
         context.testInstance.orElse(null) as? BigDataExtensionsConfigurer
 
+    private fun bigDataExtensionsConfigLocations(annotation: BigDataExtensions): List<String> {
+        val taskConfig = systemPropertyLocations(EXTENSIONS_CONFIG_PROPERTY)
+        return if (System.getProperty(EXTENSIONS_CONFIG_REPLACE_PROPERTY).toBoolean()) {
+            taskConfig
+        } else {
+            annotation.value.asIterable() + taskConfig
+        }
+    }
+
+    private fun systemPropertyLocations(name: String): List<String> =
+        System.getProperty(name)
+            ?.split(',')
+            ?.map(String::trim)
+            ?.filter(String::isNotEmpty)
+            .orEmpty()
+
     private val ExtensionContext.store: ExtensionContext.Store
         get() = getStore(ExtensionContext.Namespace.create(BigDataExtensionsExtension::class.java, requiredTestClass))
 
@@ -102,5 +119,7 @@ class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback
     private companion object {
         const val STATE_KEY = "state"
         const val RESULT_KEY = "result"
+        const val EXTENSIONS_CONFIG_PROPERTY = "bigdata.extensions.config"
+        const val EXTENSIONS_CONFIG_REPLACE_PROPERTY = "bigdata.extensions.config.replace"
     }
 }

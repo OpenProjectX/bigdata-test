@@ -37,7 +37,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         BigDataTestKitStore.get(extensionContext)
 
     private fun kitFrom(annotation: BigDataTest, context: ExtensionContext): BigDataTestKit {
-        val configLocations = bigDataExtensionsLocations(context) + annotation.config.asIterable()
+        val configLocations = bigDataTestConfigLocations(annotation, context)
         val config = BigDataTestConfigLoader(context.requiredTestClass.classLoader).load(configLocations)
         val images = config.images
         val services = config.services
@@ -193,8 +193,26 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             }
             .orEmpty()
 
+    private fun bigDataTestConfigLocations(annotation: BigDataTest, context: ExtensionContext): List<String> {
+        val taskConfig = systemPropertyLocations(TEST_CONFIG_PROPERTY)
+        return if (System.getProperty(TEST_CONFIG_REPLACE_PROPERTY).toBoolean()) {
+            taskConfig
+        } else {
+            bigDataExtensionsLocations(context) + annotation.config.asIterable() + taskConfig
+        }
+    }
+
+    private fun systemPropertyLocations(name: String): List<String> =
+        System.getProperty(name)
+            ?.split(',')
+            ?.map(String::trim)
+            ?.filter(String::isNotEmpty)
+            .orEmpty()
+
     private companion object {
         const val BIG_DATA_EXTENSIONS_ANNOTATION = "org.openprojectx.bigdata.test.extensions.junit5.BigDataExtensions"
+        const val TEST_CONFIG_PROPERTY = "bigdata.test.config"
+        const val TEST_CONFIG_REPLACE_PROPERTY = "bigdata.test.config.replace"
     }
 }
 

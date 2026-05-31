@@ -6,7 +6,12 @@ import org.openprojectx.bigdata.test.extensions.junit5.BigDataExtensions
 import org.openprojectx.bigdata.test.junit5.BigDataTest
 
 @BigDataExtensions("classpath:spark-bigdata-extensions.toml")
-@BigDataTest
+@BigDataTest(
+    config = [
+        "classpath:spark-bigdata-test-common.toml",
+        "classpath:spark-bigdata-test-apache-hms-kerberos.toml",
+    ],
+)
 class SparkBigDataTestExample : SparkBigDataScenario() {
     override val runId: String get() = scenarioRunId
     override val s3BucketExtensionId: String get() = S3_BUCKET_ID

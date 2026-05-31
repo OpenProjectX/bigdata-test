@@ -222,6 +222,25 @@ class MyIntegrationTest
 
 When both are used, files from `@BigDataExtensions` are loaded first and files from `@BigDataTest(config = ...)` are loaded after them, so direct `@BigDataTest` config wins for duplicate image keys.
 
+Gradle or any other test launcher can add startup config at runtime with the `bigdata.test.config` system property. Use a comma-separated list when a task should compose common config with one matrix-specific override:
+
+[source,kotlin]
+----
+tasks.register<Test>("sparkApacheHmsKerberosTest") {
+    useJUnitPlatform()
+    filter.includeTestsMatching("org.openprojectx.bigdata.test.example.spark.SparkBigDataTestExample")
+    systemProperty("bigdata.test.config.replace", "true")
+    systemProperty(
+        "bigdata.test.config",
+        "classpath:spark-bigdata-test-common.toml,classpath:spark-bigdata-test-apache-hms-kerberos.toml",
+    )
+}
+----
+
+When `bigdata.test.config.replace=true`, task config replaces startup config from `@BigDataExtensions` and `@BigDataTest(config = ...)`. Without it, task config is appended last and wins for scalar values. Service booleans are additive, so replacement mode is the right choice when a matrix needs to turn Kerberos or HMS implementations on and off.
+
+Extension config has the same launcher hook: `bigdata.extensions.config` and `bigdata.extensions.config.replace`.
+
 `hiveMetastore` is the open-source HMS image and defaults to `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4`. Hive 4 images can be tested by overriding this image key, but Spark 3.x brings a Hive 2.3 metastore client and should use the Hive 3 image unless that client stack is changed. The open-source HMS path starts an external PostgreSQL support container using `hiveMetastorePostgres`.
 
 `clouderaHms` is the embedded-Postgres Cloudera HMS image. Use the `clouderaHms = true` annotation flag when you want this implementation. A test class must not enable both `hiveMetastore` and `clouderaHms`.
@@ -777,6 +796,19 @@ Run it with:
 ----
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:test
 ----
+
+The Spark example also has Gradle tasks for the HMS/Kerberos matrix:
+
+[source,bash]
+----
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheHmsTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheHmsKerberosTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaHmsTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaHmsKerberosTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkBigDataMatrixTest
+----
+
+The Kerberos axis currently enables the shared KDC and Kafka Kerberos path used by the Spark Kafka source. The HMS axis switches between the open-source Hive 3 HMS image and the Cloudera HMS image.
 
 == Troubleshooting
 
