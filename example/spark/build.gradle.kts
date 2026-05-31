@@ -2,36 +2,37 @@ import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 
 plugins {
     id("buildsrc.convention.kotlin-jvm")
+    id("org.openprojectx.spark.platform") version "0.1.38-SNAPSHOT"
 }
 
 description = "Spark JUnit 5 example for bigdata-test"
 
-configurations.all {
-    resolutionStrategy.force("org.apache.kafka:kafka-clients:3.4.1")
-    resolutionStrategy.capabilitiesResolution {
-        withCapability("org.lz4:lz4-java") {
-            select(candidates.first {
-                val id = it.id
-                id is ModuleComponentIdentifier && id.group == "at.yawk.lz4"
-            })
-            because("at.yawk.lz4:lz4-java 1.10.1 is the maintained fork with newer fixes")
-        }
-    }
+sparkPlatform {
+    line.set("spark3")
+    variants.set(listOf("iceberg"))
+    addons.set(
+        listOf(
+            "hadoopAws",
+            "hadoopGcs",
+            "icebergAws",
+        )
+    )
+
 }
 
 dependencies {
     testImplementation(project(":junit5"))
     testImplementation(project(":extensions"))
-    testImplementation(libs.sparkSql)
-    testImplementation(libs.sparkHive)
-    testImplementation(libs.sparkSqlKafka)
-    testImplementation(libs.sparkAvro)
-    testImplementation(libs.hadoopAws)
-    testImplementation(libs.icebergSparkRuntime)
-    testImplementation(libs.icebergAwsBundle)
-    testImplementation(libs.gcsConnector)
-    testImplementation(libs.gcsio)
-    testImplementation(libs.gcsUtilHadoop)
+    testImplementation("org.apache.spark:spark-sql_2.12")
+    testImplementation("org.apache.spark:spark-hive_2.12")
+    testImplementation("org.apache.spark:spark-sql-kafka-0-10_2.12")
+    testImplementation("org.apache.spark:spark-avro_2.12")
+    testImplementation("org.apache.hadoop:hadoop-aws")
+    testImplementation("org.apache.iceberg:iceberg-spark-runtime-3.5_2.12")
+    testImplementation("org.apache.iceberg:iceberg-aws-bundle")
+    testImplementation("com.google.cloud.bigdataoss:gcs-connector")
+    testImplementation("com.google.cloud.bigdataoss:gcsio")
+    testImplementation("com.google.cloud.bigdataoss:util-hadoop")
     testImplementation(libs.junitJupiterApi)
     testRuntimeOnly(libs.junitJupiterEngine)
     testRuntimeOnly(libs.junitPlatformLauncher)
