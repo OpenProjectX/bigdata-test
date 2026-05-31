@@ -34,6 +34,8 @@ Subprojects should declare Testcontainers modules without repeating the BOM. Ext
 
 When adding dependencies, keep them in the narrowest module that needs them. For example, Hadoop credential provider helpers belong in `extensions`, not `core`.
 
+Heavy client dependencies in `extensions`, such as Hadoop, Kafka, Avro, Schema Registry, and serialization libraries, should stay as `implementation` unless their types intentionally become part of the public API. This avoids pushing those libraries onto a user's compile classpath. Do not switch them to `api` just because an internal extension implementation imports them.
+
 ## Configuration Model
 
 Startup-time service configuration belongs to `@BigDataTest` and its TOML files. Examples include:

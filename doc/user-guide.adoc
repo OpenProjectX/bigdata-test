@@ -69,6 +69,10 @@ External consumers should import the same BOM in their own dependency-management
 * `org.testcontainers:testcontainers-junit-jupiter`
 * `org.testcontainers:testcontainers-postgresql`
 
+The `extensions` module keeps Hadoop, Kafka, Avro, Schema Registry, and serialization libraries as implementation dependencies. They are required at runtime for the built-in extensions, but they are not part of the extension module's compile API. This reduces compile-classpath conflicts for user applications that already use their own Hadoop or Kafka client versions.
+
+If an application needs to force its own runtime versions, use normal Gradle dependency constraints, platforms, or exclusions in the consuming build. Future extension modules can split these integrations further by feature so users can depend only on the extension families they need.
+
 == Programmatic Usage
 
 Use `BigDataTestKit.builder()` when you want direct lifecycle control.

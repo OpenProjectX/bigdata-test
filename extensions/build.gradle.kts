@@ -7,11 +7,11 @@ description = "Config-driven bigdata-test extensions for Hadoop credential provi
 
 dependencies {
     api(project(":junit5"))
-    api(libs.hadoopClientApi)
-    api(libs.hadoopClientRuntime)
-    api(libs.kafkaAvroSerializer)
-    api(libs.avro)
-    api(libs.kotlinxSerialization)
 
+    implementation(libs.hadoopClientApi)
+    implementation(libs.hadoopClientRuntime)
+    implementation(libs.kafkaAvroSerializer)
     implementation(libs.kafkaSchemaRegistryClient)
+    implementation(libs.avro)
+    implementation(libs.kotlinxSerialization)
 }
