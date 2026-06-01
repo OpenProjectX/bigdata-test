@@ -155,30 +155,41 @@ abstract class SparkBigDataScenario {
                 .appName("bigdata-test-spark-example")
                 .master("local[2]")
                 .config("spark.ui.enabled", "false")
-                .config("spark.driver.extraJavaOptions", "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED")
-                .config("spark.executor.extraJavaOptions", "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED")
+                .config(
+                    "spark.driver.extraJavaOptions",
+                    "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED"
+                )
+                .config(
+                    "spark.executor.extraJavaOptions",
+                    "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED"
+                )
                 .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
                 .config("spark.sql.catalog.s3", "org.apache.iceberg.spark.SparkCatalog")
                 .config("spark.sql.catalog.s3.type", "hadoop")
                 .config("spark.sql.catalog.s3.warehouse", "s3a://${environment.s3Bucket}/warehouse")
                 .config("spark.sql.catalog.gcs_local", "org.apache.iceberg.spark.SparkCatalog")
                 .config("spark.sql.catalog.gcs_local.type", "hadoop")
-                .config("spark.sql.catalog.gcs_local.warehouse", "file:${Files.createTempDirectory("bigdata-test-gcs-iceberg-warehouse-")}")
+                .config(
+                    "spark.sql.catalog.gcs_local.warehouse",
+                    "file:${Files.createTempDirectory("bigdata-test-gcs-iceberg-warehouse-")}"
+                )
                 .config("spark.sql.catalog.hms", "org.apache.iceberg.spark.SparkCatalog")
                 .config("spark.sql.catalog.hms.type", "hive")
                 .config("spark.sql.catalog.hms.uri", environment.hiveMetastoreUri)
-                .config("spark.sql.catalog.hms.warehouse", "file:${Files.createTempDirectory("bigdata-test-hms-warehouse-")}")
+                .config(
+                    "spark.sql.catalog.hms.warehouse",
+                    "file:${Files.createTempDirectory("bigdata-test-hms-warehouse-")}"
+                )
                 .config("spark.sql.warehouse.dir", "file:${Files.createTempDirectory("bigdata-test-spark-warehouse-")}")
                 .config("spark.sql.statistics.size.autoUpdate.enabled", "false")
-                .config("spark.sql.parquet.compression.codec", "uncompressed")
-                .config("spark.sql.catalog.s3.write.parquet.compression-codec", "uncompressed")
-                .config("spark.sql.catalog.gcs_local.write.parquet.compression-codec", "uncompressed")
-                .config("spark.sql.catalog.hms.write.parquet.compression-codec", "uncompressed")
                 .config("hive.metastore.uris", environment.hiveMetastoreUri)
                 .config("spark.hadoop.fs.defaultFS", environment.hdfsUri)
                 .config("spark.hadoop.hadoop.security.credential.provider.path", environment.s3CredentialProviderPath)
                 .config("spark.hadoop.fs.s3a.endpoint", environment.s3Endpoint)
-                .config("spark.hadoop.fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
+                .config(
+                    "spark.hadoop.fs.s3a.aws.credentials.provider",
+                    "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+                )
                 .config("spark.hadoop.fs.s3a.access.key", "test")
                 .config("spark.hadoop.fs.s3a.secret.key", "test")
                 .config("spark.hadoop.fs.s3a.path.style.access", "true")
@@ -219,8 +230,9 @@ abstract class SparkBigDataScenario {
     }
 
     protected fun assertHdfsConfigStore(spark: SparkSession, hdfsUri: String, hdfsPath: String) {
-        val exists = org.apache.hadoop.fs.FileSystem.get(URI.create(hdfsUri), spark.sparkContext().hadoopConfiguration())
-            .use { fs -> fs.exists(org.apache.hadoop.fs.Path(hdfsPath)) }
+        val exists =
+            org.apache.hadoop.fs.FileSystem.get(URI.create(hdfsUri), spark.sparkContext().hadoopConfiguration())
+                .use { fs -> fs.exists(org.apache.hadoop.fs.Path(hdfsPath)) }
         check(exists) { "Expected S3 JCEKS file in HDFS for ${spark.sparkContext().appName()}" }
     }
 
@@ -261,11 +273,9 @@ abstract class SparkBigDataScenario {
     ) {
         val identifier = "$catalog.$namespace.$table"
         spark.sql("CREATE NAMESPACE IF NOT EXISTS $catalog.$namespace")
-        val properties = listOfNotNull(
-            "'write.parquet.compression-codec'='uncompressed'",
-            dataPath?.let { "'write.data.path'='$it'" },
-        ).joinToString(", ")
-        val tableProperties = " TBLPROPERTIES ($properties)"
+        val tableProperties = icebergTableProperties(
+            "write.data.path" to dataPath,
+        )
         spark.sql(
             """
             CREATE TABLE $identifier (
@@ -318,7 +328,7 @@ abstract class SparkBigDataScenario {
                 UNION ALL
                 SELECT 2 AS id, 'beta' AS name, '$storageName' AS storage
                 """.trimIndent(),
-            ).write().mode("overwrite").option("compression", "uncompressed").parquet(location)
+            ).write().mode("overwrite").parquet(location)
         }
         spark.sql(
             """
@@ -337,12 +347,18 @@ abstract class SparkBigDataScenario {
     }
 
     private fun assertParquetFiles(spark: SparkSession, location: String) {
-        val files = org.apache.hadoop.fs.FileSystem.get(URI.create(location), spark.sparkContext().hadoopConfiguration())
-            .use { fs -> fs.listStatus(org.apache.hadoop.fs.Path(location)).map { it.path.name } }
+        val files =
+            org.apache.hadoop.fs.FileSystem.get(URI.create(location), spark.sparkContext().hadoopConfiguration())
+                .use { fs -> fs.listStatus(org.apache.hadoop.fs.Path(location)).map { it.path.name } }
         check(files.any { it.endsWith(".parquet") }) { "Expected Parquet files under $location, got $files" }
     }
 
-    private fun assertHiveMetastoreExternalParquetTable(hiveMetastoreUri: String, database: String, table: String, location: String) {
+    private fun assertHiveMetastoreExternalParquetTable(
+        hiveMetastoreUri: String,
+        database: String,
+        table: String,
+        location: String
+    ) {
         val conf = HiveConf()
         conf.setVar(HiveConf.ConfVars.METASTOREURIS, hiveMetastoreUri)
         val client = hiveMetastoreClient(conf)
@@ -370,6 +386,17 @@ abstract class SparkBigDataScenario {
             .firstOrNull()
             ?: error("No supported HiveMetaStoreClient constructor found")
         return constructor.newInstance(conf) as IMetaStoreClient
+    }
+
+    private fun icebergTableProperties(vararg properties: Pair<String, String?>): String {
+        val entries = properties.mapNotNull { (key, value) ->
+            value?.let { "'$key'='$it'" }
+        }
+        return if (entries.isEmpty()) {
+            ""
+        } else {
+            " TBLPROPERTIES (${entries.joinToString(", ")})"
+        }
     }
 }
 
