@@ -24,7 +24,7 @@ subprojects {
         "kaptTest",
     )
     configurations.matching { it.name in testcontainersBomConfigurations }.all {
-        project.dependencies.add(name, project.dependencies.enforcedPlatform(libs.testcontainersBom))
+        project.dependencies.add(name, project.dependencies.platform(libs.testcontainersBom))
     }
 
     if (path.startsWith(":example:")) {
