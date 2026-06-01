@@ -51,6 +51,26 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Verify Docker environment
+        run: |
+          docker version
+          docker info
+
+      - name: Run Spark big data matrix tests
+        run: |
+          ./gradlew --no-configuration-cache :example:spark:sparkBigDataMatrixTest --stacktrace --info
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+            **/build/reports/problems/
+          if-no-files-found: ignore
+
       - name: Write signing key
         env:
           SIGNING_KEY_ASC: ${{ secrets.SIGNING_KEY_ASC }}
@@ -64,4 +84,4 @@ jobs:
           SIGNING_KEY_FILE: ${{ runner.temp }}/signing-key.asc
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
-          ./gradlew --no-configuration-cache release $EXTRA_GRADLE_ARGS
+          ./gradlew --no-configuration-cache release --stacktrace --info $EXTRA_GRADLE_ARGS
