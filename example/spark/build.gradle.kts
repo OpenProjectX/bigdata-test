@@ -107,6 +107,7 @@ fun registerSparkMatrixTest(
     name: String,
     descriptionText: String,
     dependencyLine: String,
+    hmsDistribution: String,
     runtimeClasspath: Configuration,
     variantConfig: String,
 ) = tasks.register<Test>(name) {
@@ -118,12 +119,14 @@ fun registerSparkMatrixTest(
     filter.includeTestsMatching(sparkBigDataTestClass)
     systemProperty("bigdata.test.config.replace", "true")
     systemProperty("bigdata.test.config", "$sparkCommonConfig,$variantConfig")
+    systemProperty("bigdata.spark.hms.distribution", hmsDistribution)
 }
 
 val sparkApacheDepsApacheHmsTest = registerSparkMatrixTest(
     name = "sparkApacheDepsApacheHmsTest",
     descriptionText = "Runs the Spark example with Apache Spark/Hadoop deps, open-source Hive 3 HMS, and plaintext Kafka.",
     dependencyLine = "apache",
+    hmsDistribution = "apache",
     runtimeClasspath = apacheSparkRuntimeClasspath,
     variantConfig = "classpath:spark-bigdata-test-apache-hms.toml",
 )
@@ -132,6 +135,7 @@ val sparkApacheDepsApacheHmsKerberosTest = registerSparkMatrixTest(
     name = "sparkApacheDepsApacheHmsKerberosTest",
     descriptionText = "Runs the Spark example with Apache Spark/Hadoop deps, open-source Hive 3 HMS, and Kafka Kerberos.",
     dependencyLine = "apache",
+    hmsDistribution = "apache",
     runtimeClasspath = apacheSparkRuntimeClasspath,
     variantConfig = "classpath:spark-bigdata-test-apache-hms-kerberos.toml",
 )
@@ -140,6 +144,7 @@ val sparkApacheDepsClouderaHmsTest = registerSparkMatrixTest(
     name = "sparkApacheDepsClouderaHmsTest",
     descriptionText = "Runs the Spark example with Apache Spark/Hadoop deps, Cloudera HMS, and plaintext Kafka.",
     dependencyLine = "apache",
+    hmsDistribution = "cloudera",
     runtimeClasspath = apacheSparkRuntimeClasspath,
     variantConfig = "classpath:spark-bigdata-test-cloudera-hms.toml",
 )
@@ -148,30 +153,34 @@ val sparkApacheDepsClouderaHmsKerberosTest = registerSparkMatrixTest(
     name = "sparkApacheDepsClouderaHmsKerberosTest",
     descriptionText = "Runs the Spark example with Apache Spark/Hadoop deps, Cloudera HMS, and Kafka Kerberos.",
     dependencyLine = "apache",
+    hmsDistribution = "cloudera",
     runtimeClasspath = apacheSparkRuntimeClasspath,
     variantConfig = "classpath:spark-bigdata-test-cloudera-hms-kerberos.toml",
 )
 
 val sparkClouderaDepsApacheHmsTest = registerSparkMatrixTest(
     name = "sparkClouderaDepsApacheHmsTest",
-    descriptionText = "Runs the Spark example with Cloudera Spark/Hadoop deps, open-source Hive 3 HMS, and plaintext Kafka.",
+    descriptionText = "Compatibility task: Cloudera Spark/Hadoop deps always run with Cloudera HMS and plaintext Kafka.",
     dependencyLine = "cloudera",
+    hmsDistribution = "cloudera",
     runtimeClasspath = clouderaSparkRuntimeClasspath,
-    variantConfig = "classpath:spark-bigdata-test-apache-hms.toml",
+    variantConfig = "classpath:spark-bigdata-test-cloudera-hms.toml",
 )
 
 val sparkClouderaDepsApacheHmsKerberosTest = registerSparkMatrixTest(
     name = "sparkClouderaDepsApacheHmsKerberosTest",
-    descriptionText = "Runs the Spark example with Cloudera Spark/Hadoop deps, open-source Hive 3 HMS, and Kafka Kerberos.",
+    descriptionText = "Compatibility task: Cloudera Spark/Hadoop deps always run with Cloudera HMS and Kafka Kerberos.",
     dependencyLine = "cloudera",
+    hmsDistribution = "cloudera",
     runtimeClasspath = clouderaSparkRuntimeClasspath,
-    variantConfig = "classpath:spark-bigdata-test-apache-hms-kerberos.toml",
+    variantConfig = "classpath:spark-bigdata-test-cloudera-hms-kerberos.toml",
 )
 
 val sparkClouderaDepsClouderaHmsTest = registerSparkMatrixTest(
     name = "sparkClouderaDepsClouderaHmsTest",
     descriptionText = "Runs the Spark example with Cloudera Spark/Hadoop deps, Cloudera HMS, and plaintext Kafka.",
     dependencyLine = "cloudera",
+    hmsDistribution = "cloudera",
     runtimeClasspath = clouderaSparkRuntimeClasspath,
     variantConfig = "classpath:spark-bigdata-test-cloudera-hms.toml",
 )
@@ -180,6 +189,7 @@ val sparkClouderaDepsClouderaHmsKerberosTest = registerSparkMatrixTest(
     name = "sparkClouderaDepsClouderaHmsKerberosTest",
     descriptionText = "Runs the Spark example with Cloudera Spark/Hadoop deps, Cloudera HMS, and Kafka Kerberos.",
     dependencyLine = "cloudera",
+    hmsDistribution = "cloudera",
     runtimeClasspath = clouderaSparkRuntimeClasspath,
     variantConfig = "classpath:spark-bigdata-test-cloudera-hms-kerberos.toml",
 )
