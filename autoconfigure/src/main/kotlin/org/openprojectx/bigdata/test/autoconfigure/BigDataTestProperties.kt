@@ -25,15 +25,27 @@ data class BigDataTestProperties(
 
     data class Tls(
         var enabled: Boolean = false,
-        var certPath: String? = null,
-        var keyPath: String? = null,
         var caCertPath: String? = null,
+        var caKeyPath: String? = null,
+        var trustStorePath: String? = null,
+        var trustStorePassword: String = "changeit",
+        var haproxyImage: String = "haproxy:3.0-alpine",
+        @Deprecated("Use caCertPath")
+        var certPath: String? = null,
+        @Deprecated("Use caKeyPath")
+        var keyPath: String? = null,
+    )
+
+    data class HttpTls(
+        var enabled: Boolean = false,
+        var domain: String = "localhost",
     )
 
     data class Hdfs(
         var enabled: Boolean = false,
         var image: String = "apache/hadoop:3.5.0",
         var kerberosEnabled: Boolean = false,
+        var webTls: HttpTls = HttpTls(),
     )
 
     data class HiveMetastore(
@@ -61,8 +73,10 @@ data class BigDataTestProperties(
         var image: String = "apache/kafka:4.1.2",
         var schemaRegistryEnabled: Boolean = false,
         var schemaRegistryImage: String = "confluentinc/cp-schema-registry:7.8.0",
+        var schemaRegistryTls: HttpTls = HttpTls(),
         var kafkaUiEnabled: Boolean = false,
         var kafkaUiImage: String = "ghcr.io/kafbat/kafka-ui:latest",
+        var kafkaUiTls: HttpTls = HttpTls(),
         var kerberosEnabled: Boolean = false,
         var kafkaUiKerberosEnabled: Boolean = false,
     )
@@ -70,5 +84,6 @@ data class BigDataTestProperties(
     data class ObjectStore(
         var enabled: Boolean = false,
         var image: String,
+        var tls: HttpTls = HttpTls(),
     )
 }

@@ -1,11 +1,17 @@
 package org.openprojectx.bigdata.test.junit5
 
+import java.nio.file.Files
+import java.nio.file.Path
+import java.security.KeyStore
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManagerFactory
 import org.junit.jupiter.api.extension.AfterAllCallback
 import org.junit.jupiter.api.extension.BeforeAllCallback
 import org.junit.jupiter.api.extension.ExtensionContext
 import org.junit.jupiter.api.extension.ParameterContext
 import org.junit.jupiter.api.extension.ParameterResolver
 import org.openprojectx.bigdata.test.core.HdfsOptions
+import org.openprojectx.bigdata.test.core.HttpTlsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.BigDataTestKit
@@ -16,6 +22,7 @@ import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.bigdata.test.core.ObjectStoreOptions
 import org.openprojectx.bigdata.test.core.PortBindingOptions
+import org.openprojectx.bigdata.test.core.TlsOptions
 
 class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResolver {
     override fun beforeAll(context: ExtensionContext) {
@@ -23,10 +30,12 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             ?: return
         val kit = kitFrom(annotation, context)
         kit.start()
+        installJvmTlsProperties(context, kit)
         BigDataTestKitStore.put(context, kit)
     }
 
     override fun afterAll(context: ExtensionContext) {
+        restoreJvmTlsProperties(context)
         BigDataTestKitStore.remove(context)?.close()
     }
 
@@ -42,6 +51,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         val images = config.images
         val services = config.services
         val ports = config.ports
+        val tls = config.tls
         val containerLogs = config.containerLogs
         val builder = BigDataTestKit.builder()
             .withPortBindings(
@@ -50,12 +60,17 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     kerberosKdc = annotation.kerberosKdcPort.takeIfPositive() ?: ports.kerberosKdc ?: 0,
                     hdfsNameNode = annotation.hdfsNameNodePort.takeIfPositive() ?: ports.hdfsNameNode ?: 0,
                     hdfsWeb = annotation.hdfsWebPort.takeIfPositive() ?: ports.hdfsWeb ?: 0,
+                    hdfsWebTls = ports.hdfsWebTls ?: 0,
                     hiveMetastore = annotation.hiveMetastorePort.takeIfPositive() ?: ports.hiveMetastore ?: 0,
                     kafka = annotation.kafkaPort.takeIfPositive() ?: ports.kafka ?: 0,
                     schemaRegistry = annotation.schemaRegistryPort.takeIfPositive() ?: ports.schemaRegistry ?: 0,
+                    schemaRegistryTls = ports.schemaRegistryTls ?: 0,
                     kafkaUi = annotation.kafkaUiPort.takeIfPositive() ?: ports.kafkaUi ?: 0,
+                    kafkaUiTls = ports.kafkaUiTls ?: 0,
                     localStackS3 = annotation.localStackS3Port.takeIfPositive() ?: ports.localStackS3 ?: 0,
+                    localStackS3Tls = ports.localStackS3Tls ?: 0,
                     fakeGcs = annotation.fakeGcsPort.takeIfPositive() ?: ports.fakeGcs ?: 0,
+                    fakeGcsTls = ports.fakeGcsTls ?: 0,
                 ),
             )
         val containerLogMode = if (annotation.containerLogMode != ContainerLogMode.NONE) {
@@ -90,6 +105,24 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         val kafkaUiKerberos = annotation.kafkaUiKerberos || services.kafkaUiKerberos == true
         val localStackS3 = annotation.localStackS3 || services.localStackS3 == true
         val fakeGcs = annotation.fakeGcs || services.fakeGcs == true
+        val tlsEnabled = tls.enabled == true ||
+            config.hdfsWebTls.enabled == true ||
+            config.schemaRegistryTls.enabled == true ||
+            config.kafkaUiTls.enabled == true ||
+            config.localStackS3Tls.enabled == true ||
+            config.fakeGcsTls.enabled == true
+        if (tlsEnabled || tls.hasValues()) {
+            builder.withTls(
+                TlsOptions(
+                    enabled = tlsEnabled,
+                    caCertPath = tls.caCertPath,
+                    caKeyPath = tls.caKeyPath,
+                    trustStorePath = tls.trustStorePath,
+                    trustStorePassword = tls.trustStorePassword ?: "changeit",
+                    haproxyImage = tls.haproxyImage ?: "haproxy:3.0-alpine",
+                ),
+            )
+        }
 
         if (kerberos || hdfsKerberos || hiveMetastoreKerberos || kafkaKerberos || kafkaUiKerberos) {
             builder.withKerberos(
@@ -106,6 +139,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 HdfsOptions(
                     enabled = true,
                     image = images.hdfs ?: "apache/hadoop:3.5.0",
+                    webTls = config.hdfsWebTls.toHttpTls("localhost"),
                     kerberos = KerberosAuthOptions(
                         enabled = hdfsKerberos,
                         servicePrincipal = "nn/hdfs.example.com@EXAMPLE.COM",
@@ -149,8 +183,10 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     image = images.kafka ?: "apache/kafka:4.1.2",
                     schemaRegistryEnabled = schemaRegistry,
                     schemaRegistryImage = images.schemaRegistry ?: "confluentinc/cp-schema-registry:7.8.0",
+                    schemaRegistryTls = config.schemaRegistryTls.toHttpTls("localhost"),
                     kafkaUiEnabled = kafkaUi,
                     kafkaUiImage = images.kafkaUi ?: "ghcr.io/kafbat/kafka-ui:latest",
+                    kafkaUiTls = config.kafkaUiTls.toHttpTls("localhost"),
                     kerberos = KerberosAuthOptions(
                         enabled = kafkaKerberos,
                         servicePrincipal = "kafka/localhost@EXAMPLE.COM",
@@ -169,6 +205,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 ObjectStoreOptions(
                     enabled = true,
                     image = images.localStackS3 ?: "localstack/localstack:4.14.0",
+                    tls = config.localStackS3Tls.toHttpTls("localhost"),
                 ),
             )
         }
@@ -177,6 +214,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 ObjectStoreOptions(
                     enabled = true,
                     image = images.fakeGcs ?: "fsouza/fake-gcs-server:1.54",
+                    tls = config.fakeGcsTls.toHttpTls("storage.googleapis.com"),
                 ),
             )
         }
@@ -209,11 +247,59 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             ?.filter(String::isNotEmpty)
             .orEmpty()
 
+    private fun installJvmTlsProperties(context: ExtensionContext, kit: BigDataTestKit) {
+        val properties = kit.springProperties()
+            .filterKeys { it in JVM_TLS_PROPERTIES }
+        if (properties.isEmpty()) return
+        BigDataTestKitStore.putSystemProperties(
+            context,
+            properties.keys.associateWith { System.getProperty(it) },
+        )
+        properties.forEach { (key, value) -> System.setProperty(key, value) }
+        BigDataTestKitStore.putSslContext(context, SSLContext.getDefault())
+        SSLContext.setDefault(sslContext(properties))
+    }
+
+    private fun restoreJvmTlsProperties(context: ExtensionContext) {
+        BigDataTestKitStore.removeSslContext(context)?.let { SSLContext.setDefault(it) }
+        BigDataTestKitStore.removeSystemProperties(context).forEach { (key, value) ->
+            if (value == null) {
+                System.clearProperty(key)
+            } else {
+                System.setProperty(key, value)
+            }
+        }
+    }
+
+    private fun sslContext(properties: Map<String, String>): SSLContext {
+        val trustStorePath = properties.getValue("javax.net.ssl.trustStore")
+        val trustStorePassword = properties.getValue("javax.net.ssl.trustStorePassword").toCharArray()
+        val trustStoreType = properties["javax.net.ssl.trustStoreType"] ?: KeyStore.getDefaultType()
+        val keyStore = KeyStore.getInstance(trustStoreType)
+        Files.newInputStream(Path.of(trustStorePath)).use { keyStore.load(it, trustStorePassword) }
+        val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+        trustManagerFactory.init(keyStore)
+        return SSLContext.getInstance("TLS").apply {
+            init(null, trustManagerFactory.trustManagers, null)
+        }
+    }
+
     private companion object {
         const val BIG_DATA_EXTENSIONS_ANNOTATION = "org.openprojectx.bigdata.test.extensions.junit5.BigDataExtensions"
         const val TEST_CONFIG_PROPERTY = "bigdata.test.config"
         const val TEST_CONFIG_REPLACE_PROPERTY = "bigdata.test.config.replace"
+        val JVM_TLS_PROPERTIES = setOf(
+            "javax.net.ssl.trustStore",
+            "javax.net.ssl.trustStorePassword",
+            "javax.net.ssl.trustStoreType",
+        )
     }
 }
 
 private fun Int.takeIfPositive(): Int? = takeIf { it > 0 }
+
+private fun BigDataTestHttpTlsConfig.toHttpTls(defaultDomain: String): HttpTlsOptions =
+    HttpTlsOptions(
+        enabled = enabled == true,
+        domain = domain ?: defaultDomain,
+    )

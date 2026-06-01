@@ -20,6 +20,7 @@ confluent = "8.2.1"
 avro = "1.12.1"
 gcsConnector = "4.0.4"
 gcsio = "4.0.4"
+bouncycastle = "1.83"
 
 [libraries]
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -54,6 +55,8 @@ avro = { module = "org.apache.avro:avro", version.ref = "avro" }
 junitJupiterApi = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }
 junitJupiterEngine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiter" }
 junitPlatformLauncher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }
+bouncycastlePkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+bouncycastleProvider = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 
 # Libraries can be bundled together for easier import
 [bundles]

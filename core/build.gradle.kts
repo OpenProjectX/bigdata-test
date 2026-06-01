@@ -4,6 +4,8 @@ plugins {
 
 
 dependencies {
+    implementation(libs.bouncycastlePkix)
+    implementation(libs.bouncycastleProvider)
     api(libs.testcontainers)
     api(libs.testcontainersPostgresql)
     api(libs.testcontainersKafka)

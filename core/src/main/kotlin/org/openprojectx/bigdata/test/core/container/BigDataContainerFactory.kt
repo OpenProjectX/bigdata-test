@@ -4,6 +4,7 @@ import org.openprojectx.bigdata.test.core.BigDataEndpoint
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKitOptions
 import org.openprojectx.bigdata.test.core.ContainerLogMode
+import org.openprojectx.bigdata.test.core.HttpTlsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
@@ -35,6 +36,7 @@ internal class BigDataContainerFactory(
     private val supportContainers = mutableListOf<Startable>()
     private val logConsumers = mutableListOf<Closeable>()
     private val kerberosDir: Path? = if (kerberosRequired()) Files.createTempDirectory("bigdata-test-kerberos-") else null
+    private val tlsMaterial: TlsMaterial by lazy { TlsMaterial(options.tls.copy(enabled = true)) }
 
     fun create(): List<BigDataServiceContainer> {
         val containers = mutableListOf<BigDataServiceContainer>()
@@ -143,17 +145,24 @@ internal class BigDataContainerFactory(
 
         return BigDataServiceContainer(BigDataService.HDFS, attachLogs("hdfs", container)) {
             val nameNode = "${container.host}:${container.getMappedPort(hdfs.nameNodePort)}"
+            val webTls = httpTlsEndpoint(
+                name = "hdfs-web",
+                tls = hdfs.webTls,
+                backendHost = "hdfs",
+                backendPort = hdfs.webPort,
+                hostPort = tlsHostPort(options.portBindings.hdfsWebTls),
+            )
             BigDataEndpoint(
                 service = BigDataService.HDFS,
                 host = container.host,
                 ports = mapOf(
                     "namenode" to container.getMappedPort(hdfs.nameNodePort),
                     "web" to container.getMappedPort(hdfs.webPort),
-                ),
+                ) + webTls.port("web-tls"),
                 properties = mapOf(
                     "fs.defaultFS" to "hdfs://$nameNode",
                     "spring.hadoop.fs-uri" to "hdfs://$nameNode",
-                ) + kerberosProperties("hadoop", hdfs.kerberos),
+                ) + webTls.property("dfs.namenode.https-address") + webTls.jvmProperties() + kerberosProperties("hadoop", hdfs.kerberos),
             )
         }
     }
@@ -343,12 +352,19 @@ internal class BigDataContainerFactory(
             .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:19092")
             .waitingFor(Wait.forHttp("/subjects").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(3)))
         return BigDataServiceContainer(BigDataService.SCHEMA_REGISTRY, attachLogs("schema-registry", container)) {
-            val url = "http://${container.host}:${container.getMappedPort(8085)}"
+            val tlsEndpoint = httpTlsEndpoint(
+                name = "schema-registry",
+                tls = kafka.schemaRegistryTls,
+                backendHost = "schema-registry",
+                backendPort = 8085,
+                hostPort = tlsHostPort(options.portBindings.schemaRegistryTls),
+            )
+            val url = tlsEndpoint.url ?: "http://${container.host}:${container.getMappedPort(8085)}"
             BigDataEndpoint(
                 service = BigDataService.SCHEMA_REGISTRY,
-                host = container.host,
-                ports = mapOf("http" to container.getMappedPort(8085)),
-                properties = mapOf("schema.registry.url" to url),
+                host = tlsEndpoint.host ?: container.host,
+                ports = mapOf("http" to container.getMappedPort(8085)) + tlsEndpoint.port("https"),
+                properties = mapOf("schema.registry.url" to url) + tlsEndpoint.jvmProperties(),
             )
         }
     }
@@ -375,12 +391,19 @@ internal class BigDataContainerFactory(
         }
 
         return BigDataServiceContainer(BigDataService.KAFKA_UI, attachLogs("kafka-ui", container)) {
-            val url = "http://${container.host}:${container.getMappedPort(8080)}"
+            val tlsEndpoint = httpTlsEndpoint(
+                name = "kafka-ui",
+                tls = kafka.kafkaUiTls,
+                backendHost = "kafka-ui",
+                backendPort = 8080,
+                hostPort = tlsHostPort(options.portBindings.kafkaUiTls),
+            )
+            val url = tlsEndpoint.url ?: "http://${container.host}:${container.getMappedPort(8080)}"
             BigDataEndpoint(
                 service = BigDataService.KAFKA_UI,
-                host = container.host,
-                ports = mapOf("http" to container.getMappedPort(8080)),
-                properties = mapOf("bigdata.test.kafka-ui.url" to url),
+                host = tlsEndpoint.host ?: container.host,
+                ports = mapOf("http" to container.getMappedPort(8080)) + tlsEndpoint.port("https"),
+                properties = mapOf("bigdata.test.kafka-ui.url" to url) + tlsEndpoint.jvmProperties(),
             )
         }
     }
@@ -395,18 +418,25 @@ internal class BigDataContainerFactory(
             .waitingFor(Wait.forHttp("/_localstack/health").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(3)))
 
         return BigDataServiceContainer(BigDataService.LOCALSTACK_S3, attachLogs("localstack-s3", container)) {
-            val endpoint = "http://${container.host}:${container.getMappedPort(4566)}"
+            val tlsEndpoint = httpTlsEndpoint(
+                name = "localstack-s3",
+                tls = objectStore.tls,
+                backendHost = "localstack",
+                backendPort = 4566,
+                hostPort = tlsHostPort(options.portBindings.localStackS3Tls),
+            )
+            val endpoint = tlsEndpoint.url ?: "http://${container.host}:${container.getMappedPort(4566)}"
             BigDataEndpoint(
                 service = BigDataService.LOCALSTACK_S3,
-                host = container.host,
-                ports = mapOf("edge" to container.getMappedPort(4566)),
+                host = tlsEndpoint.host ?: container.host,
+                ports = mapOf("edge" to container.getMappedPort(4566)) + tlsEndpoint.port("https"),
                 properties = mapOf(
                     "spring.cloud.aws.s3.endpoint" to endpoint,
                     "aws.endpoint-url.s3" to endpoint,
                     "aws.accessKeyId" to "test",
                     "aws.secretAccessKey" to "test",
                     "aws.region" to "us-east-1",
-                ),
+                ) + tlsEndpoint.jvmProperties(),
             )
         }
     }
@@ -421,15 +451,22 @@ internal class BigDataContainerFactory(
             .waitingFor(Wait.forHttp("/storage/v1/b").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(2)))
 
         return BigDataServiceContainer(BigDataService.FAKE_GCS, attachLogs("fake-gcs", container)) {
-            val endpoint = "http://${container.host}:${container.getMappedPort(4443)}"
+            val tlsEndpoint = httpTlsEndpoint(
+                name = "fake-gcs",
+                tls = objectStore.tls,
+                backendHost = "fake-gcs",
+                backendPort = 4443,
+                hostPort = tlsHostPort(options.portBindings.fakeGcsTls),
+            )
+            val endpoint = tlsEndpoint.url ?: "http://${container.host}:${container.getMappedPort(4443)}"
             BigDataEndpoint(
                 service = BigDataService.FAKE_GCS,
-                host = container.host,
-                ports = mapOf("http" to container.getMappedPort(4443)),
+                host = tlsEndpoint.host ?: container.host,
+                ports = mapOf("http" to container.getMappedPort(4443)) + tlsEndpoint.port("https"),
                 properties = mapOf(
                     "bigdata.test.gcs.endpoint" to endpoint,
                     "google.cloud.storage.host" to endpoint,
-                ),
+                ) + tlsEndpoint.jvmProperties(),
             )
         }
     }
@@ -531,6 +568,80 @@ internal class BigDataContainerFactory(
             },
             StandardCharsets.UTF_8,
         )
+    }
+
+    private fun httpTlsEndpoint(
+        name: String,
+        tls: HttpTlsOptions,
+        backendHost: String,
+        backendPort: Int,
+        hostPort: Int,
+    ): HttpTlsEndpoint {
+        if (!tls.enabled) return HttpTlsEndpoint()
+        val dir = Files.createTempDirectory("bigdata-test-haproxy-$name-")
+        val pem = tlsMaterial.haproxyPem(name, tls.domain)
+        val config = dir.resolve("haproxy.cfg")
+        Files.writeString(
+            config,
+            """
+            global
+              log stdout format raw local0
+
+            defaults
+              mode http
+              log global
+              option httplog
+              timeout connect 10s
+              timeout client 60s
+              timeout server 60s
+
+            frontend https-in
+              bind *:443 ssl crt /usr/local/etc/haproxy/certs/service.pem
+              http-request set-header Host $backendHost:$backendPort
+              default_backend app
+
+            backend app
+              server app $backendHost:$backendPort check
+            """.trimIndent() + "\n",
+            StandardCharsets.UTF_8,
+        )
+        val container = GenericBigDataContainer(options.tls.haproxyImage)
+            .withNetwork(network)
+            .withNetworkAliases("$name-tls")
+            .withServicePort(443, hostPort)
+            .withFileSystemBind(config.toString(), "/usr/local/etc/haproxy/haproxy.cfg", BindMode.READ_ONLY)
+            .withFileSystemBind(pem.toString(), "/usr/local/etc/haproxy/certs/service.pem", BindMode.READ_ONLY)
+            .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)))
+        val proxied = attachLogs("$name-tls", container)
+        proxied.start()
+        supportContainers += proxied
+        val mappedPort = proxied.getMappedPort(443)
+        return HttpTlsEndpoint(
+            host = tls.domain,
+            port = mappedPort,
+            url = "https://${tls.domain}:$mappedPort",
+            properties = tlsMaterial.properties(),
+        )
+    }
+
+    private fun tlsHostPort(configuredHostPort: Int): Int {
+        require(configuredHostPort >= 0) { "TLS host port must be 0 for random binding or a positive fixed port" }
+        return configuredHostPort
+    }
+
+    private data class HttpTlsEndpoint(
+        val host: String? = null,
+        val port: Int? = null,
+        val url: String? = null,
+        val properties: Map<String, String> = emptyMap(),
+    ) {
+        fun port(name: String): Map<String, Int> =
+            port?.let { mapOf(name to it) }.orEmpty()
+
+        fun property(name: String): Map<String, String> =
+            url?.let { mapOf(name to it) }.orEmpty()
+
+        fun jvmProperties(): Map<String, String> = properties
     }
 
     private fun xmlEscape(value: String): String =

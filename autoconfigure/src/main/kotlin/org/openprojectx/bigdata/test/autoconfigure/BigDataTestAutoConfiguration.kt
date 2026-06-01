@@ -2,6 +2,7 @@ package org.openprojectx.bigdata.test.autoconfigure
 
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.HdfsOptions
+import org.openprojectx.bigdata.test.core.HttpTlsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
@@ -37,13 +38,17 @@ class BigDataTestAutoConfiguration {
             )
         }
 
-        if (properties.tls.enabled) {
+        if (properties.tls.enabled || properties.anyHttpTlsEnabled()) {
             builder.withTls(
                 TlsOptions(
-                    enabled = true,
+                    enabled = properties.tls.enabled || properties.anyHttpTlsEnabled(),
+                    caCertPath = properties.tls.caCertPath,
+                    caKeyPath = properties.tls.caKeyPath,
+                    trustStorePath = properties.tls.trustStorePath,
+                    trustStorePassword = properties.tls.trustStorePassword,
+                    haproxyImage = properties.tls.haproxyImage,
                     certPath = properties.tls.certPath,
                     keyPath = properties.tls.keyPath,
-                    caCertPath = properties.tls.caCertPath,
                 ),
             )
         }
@@ -53,6 +58,7 @@ class BigDataTestAutoConfiguration {
                 HdfsOptions(
                     enabled = true,
                     image = properties.hdfs.image,
+                    webTls = properties.hdfs.webTls.toCore(),
                     kerberos = KerberosAuthOptions(
                         enabled = properties.hdfs.kerberosEnabled,
                         servicePrincipal = "nn/hdfs.example.com@${properties.kerberos.realm}",
@@ -110,8 +116,10 @@ class BigDataTestAutoConfiguration {
                     image = properties.kafka.image,
                     schemaRegistryEnabled = properties.kafka.schemaRegistryEnabled,
                     schemaRegistryImage = properties.kafka.schemaRegistryImage,
+                    schemaRegistryTls = properties.kafka.schemaRegistryTls.toCore(),
                     kafkaUiEnabled = properties.kafka.kafkaUiEnabled,
                     kafkaUiImage = properties.kafka.kafkaUiImage,
+                    kafkaUiTls = properties.kafka.kafkaUiTls.toCore(),
                     kerberos = KerberosAuthOptions(
                         enabled = properties.kafka.kerberosEnabled,
                         servicePrincipal = "kafka/broker1.example.com@${properties.kerberos.realm}",
@@ -127,13 +135,38 @@ class BigDataTestAutoConfiguration {
         }
 
         if (properties.localstackS3.enabled) {
-            builder.withLocalStackS3(ObjectStoreOptions(enabled = true, image = properties.localstackS3.image))
+            builder.withLocalStackS3(
+                ObjectStoreOptions(
+                    enabled = true,
+                    image = properties.localstackS3.image,
+                    tls = properties.localstackS3.tls.toCore(),
+                ),
+            )
         }
 
         if (properties.fakeGcs.enabled) {
-            builder.withFakeGcs(ObjectStoreOptions(enabled = true, image = properties.fakeGcs.image))
+            builder.withFakeGcs(
+                ObjectStoreOptions(
+                    enabled = true,
+                    image = properties.fakeGcs.image,
+                    tls = properties.fakeGcs.tls.toCore(defaultDomain = "storage.googleapis.com"),
+                ),
+            )
         }
 
         return builder.build().also { it.start() }
     }
+
+    private fun BigDataTestProperties.HttpTls.toCore(defaultDomain: String = "localhost"): HttpTlsOptions =
+        HttpTlsOptions(
+            enabled = enabled,
+            domain = domain.ifBlank { defaultDomain },
+        )
+
+    private fun BigDataTestProperties.anyHttpTlsEnabled(): Boolean =
+        hdfs.webTls.enabled ||
+            kafka.schemaRegistryTls.enabled ||
+            kafka.kafkaUiTls.enabled ||
+            localstackS3.tls.enabled ||
+            fakeGcs.tls.enabled
 }

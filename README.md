@@ -65,6 +65,19 @@ records = [
 ]
 ```
 
+HTTP services can be exposed through an HAProxy TLS gateway from TOML:
+
+```toml
+[services]
+localStackS3 = true
+
+[localStackS3Tls]
+enabled = true
+domain = "localhost"
+```
+
+The endpoint properties then return HTTPS URLs and JVM truststore settings such as `javax.net.ssl.trustStore`.
+
 ## Run Examples
 
 Use the shared Gradle home when running this repository locally:

@@ -251,6 +251,66 @@ Container data-driven tests can be TOML-driven because service images, ports, Ke
 
 `clouderaHms` is the embedded-Postgres Cloudera HMS image. Use the `clouderaHms = true` annotation flag when you want this implementation. A test class must not enable both `hiveMetastore` and `clouderaHms`.
 
+=== HTTP TLS Gateway
+
+HTTP services can be exposed through an HAProxy HTTPS gateway. The service container still speaks its normal HTTP protocol internally; HAProxy listens on container port `443`, terminates TLS, and forwards to the service over the shared Docker network. This matches local environments where users normally expose one HTTPS endpoint and configure local DNS or `/etc/hosts` for the chosen domain.
+
+TLS certificates are generated in the JVM. No `openssl` binary is required. By default, `bigdata-test` generates a temporary root CA, service certificates, and a PKCS12 truststore. You can provide your own root CA certificate and key:
+
+[source,toml]
+----
+[tls]
+caCertPath = "/path/to/root-ca.crt"
+caKeyPath = "/path/to/root-ca.key"
+trustStorePath = "build/bigdata-test-truststore.p12"
+trustStorePassword = "changeit"
+haproxyImage = "haproxy:3.0-alpine"
+
+[localStackS3Tls]
+enabled = true
+domain = "localhost"
+
+[fakeGcsTls]
+enabled = true
+domain = "storage.googleapis.com"
+
+[schemaRegistryTls]
+enabled = true
+domain = "schema-registry.local"
+
+[kafkaUiTls]
+enabled = true
+domain = "kafka-ui.local"
+
+[hdfsWebTls]
+enabled = true
+domain = "hdfs.local"
+----
+
+The HTTPS endpoint replaces the normal endpoint property for that service. For example, `aws.endpoint-url.s3` becomes `https://<domain>:<mapped-port>` when `localStackS3Tls.enabled=true`.
+
+Endpoint properties also include JVM truststore settings:
+
+* `javax.net.ssl.trustStore`
+* `javax.net.ssl.trustStorePassword`
+* `javax.net.ssl.trustStoreType`
+* `bigdata.test.tls.ca-cert`
+
+Use those properties for clients that build their own `SSLContext`, or pass them as JVM system properties for libraries that use the default JSSE truststore.
+
+TLS host ports are random by default even when `sameHostPorts=true`, because multiple enabled HTTP services cannot all bind localhost port `443`. Use explicit TOML port fields when a stable HTTPS port is required:
+
+[source,toml]
+----
+[ports]
+localStackS3Tls = 443
+schemaRegistryTls = 8443
+----
+
+Available TLS port fields are `hdfsWebTls`, `schemaRegistryTls`, `kafkaUiTls`, `localStackS3Tls`, and `fakeGcsTls`.
+
+Non-HTTP services should use their native TLS implementation rather than HAProxy to avoid protocol compatibility issues. Kafka TLS is intentionally not implemented as a generic HAProxy gateway because Kafka clients depend on broker metadata and advertised listeners.
+
 === Dynamic and Fixed Ports
 
 Host ports are dynamic by default. Keep port fields set to `0` unless an external local tool needs a stable port.
@@ -285,6 +345,8 @@ class MySameHostPortTest
 
 This maps common service ports directly, for example HDFS `8020` and `9870`, Hive Metastore `9083`, Kafka `9092`, Schema Registry `8085`, LocalStack `4566`, and fake GCS `4443`. Explicit per-service port fields still take priority over `sameHostPorts`.
 
+TLS gateway ports are not affected by `sameHostPorts`, because every gateway listens on container port `443`. Configure the per-service TLS port fields explicitly if a stable HTTPS host port is needed.
+
 The core builder exposes the same behavior:
 
 [source,kotlin]
@@ -301,12 +363,17 @@ Available port fields:
 * `kerberosKdcPort`
 * `hdfsNameNodePort`
 * `hdfsWebPort`
+* `hdfsWebTls`
 * `hiveMetastorePort`
 * `kafkaPort`
 * `schemaRegistryPort`
+* `schemaRegistryTls`
 * `kafkaUiPort`
+* `kafkaUiTls`
 * `localStackS3Port`
+* `localStackS3Tls`
 * `fakeGcsPort`
+* `fakeGcsTls`
 
 Endpoint properties always report the actual mapped host ports.
 
@@ -327,9 +394,9 @@ Each started service exposes a `BigDataEndpoint` with named ports and connection
 |`bigdata.test.kerberos.realm`, `bigdata.test.kerberos.kdc`, `bigdata.test.kerberos.krb5-conf`, `bigdata.test.kerberos.client-principal`, `bigdata.test.kerberos.client-password`, `bigdata.test.kerberos.client-keytab`
 
 |`BigDataService.HDFS`
-|`namenode`, `web`
-|`8020`, `9870`
-|`fs.defaultFS`, `spring.hadoop.fs-uri`
+|`namenode`, `web`, `web-tls`
+|`8020`, `9870`, `443`
+|`fs.defaultFS`, `spring.hadoop.fs-uri`, `dfs.namenode.https-address`
 
 |`BigDataService.HIVE_METASTORE`
 |`thrift`
@@ -342,23 +409,23 @@ Each started service exposes a `BigDataEndpoint` with named ports and connection
 |`bootstrap.servers`, `spring.kafka.bootstrap-servers`, `bootstrap.servers.internal`, `kafka.kerberos.service-name`, `sasl.jaas.config`
 
 |`BigDataService.SCHEMA_REGISTRY`
-|`http`
-|`8085`
+|`http`, `https`
+|`8085`, `443`
 |`schema.registry.url`
 
 |`BigDataService.KAFKA_UI`
-|`http`
-|`8080`
+|`http`, `https`
+|`8080`, `443`
 |`bigdata.test.kafka-ui.url`
 
 |`BigDataService.LOCALSTACK_S3`
-|`edge`
-|`4566`
+|`edge`, `https`
+|`4566`, `443`
 |`spring.cloud.aws.s3.endpoint`, `aws.endpoint-url.s3`, `aws.accessKeyId`, `aws.secretAccessKey`, `aws.region`
 
 |`BigDataService.FAKE_GCS`
-|`http`
-|`4443`
+|`http`, `https`
+|`4443`, `443`
 |`bigdata.test.gcs.endpoint`, `google.cloud.storage.host`
 |===
 

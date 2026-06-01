@@ -1,0 +1,9 @@
+[services]
+localStackS3 = true
+
+[localStackS3Tls]
+enabled = true
+domain = "localhost"
+
+[containerLogs]
+mode = "stdout"

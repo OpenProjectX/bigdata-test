@@ -36,9 +36,20 @@ data class KerberosAuthOptions(
 
 data class TlsOptions(
     val enabled: Boolean = false,
-    val certPath: String? = null,
-    val keyPath: String? = null,
     val caCertPath: String? = null,
+    val caKeyPath: String? = null,
+    val trustStorePath: String? = null,
+    val trustStorePassword: String = "changeit",
+    val haproxyImage: String = "haproxy:3.0-alpine",
+    @Deprecated("Use caCertPath for the root CA certificate")
+    val certPath: String? = null,
+    @Deprecated("Use caKeyPath for the root CA private key")
+    val keyPath: String? = null,
+)
+
+data class HttpTlsOptions(
+    val enabled: Boolean = false,
+    val domain: String = "localhost",
 )
 
 data class HdfsOptions(
@@ -46,6 +57,7 @@ data class HdfsOptions(
     val image: String = "apache/hadoop:3.5.0",
     val nameNodePort: Int = 8020,
     val webPort: Int = 9870,
+    val webTls: HttpTlsOptions = HttpTlsOptions(),
     val kerberos: KerberosAuthOptions = KerberosAuthOptions(
         servicePrincipal = "nn/hdfs.example.com@EXAMPLE.COM",
         keytabPath = "/kerby/keytabs/hdfs-namenode.keytab",
@@ -78,8 +90,10 @@ data class KafkaOptions(
     val image: String = "apache/kafka:4.1.2",
     val schemaRegistryEnabled: Boolean = false,
     val schemaRegistryImage: String = "confluentinc/cp-schema-registry:7.8.0",
+    val schemaRegistryTls: HttpTlsOptions = HttpTlsOptions(),
     val kafkaUiEnabled: Boolean = false,
     val kafkaUiImage: String = "ghcr.io/kafbat/kafka-ui:latest",
+    val kafkaUiTls: HttpTlsOptions = HttpTlsOptions(),
     val clusterId: String = "MkU3OEVBNTcwNTJENDM2Qk",
     val kerberos: KerberosAuthOptions = KerberosAuthOptions(
         servicePrincipal = "kafka/localhost@EXAMPLE.COM",
@@ -94,6 +108,7 @@ data class KafkaOptions(
 data class ObjectStoreOptions(
     val enabled: Boolean = false,
     val image: String = "localstack/localstack:4.14.0",
+    val tls: HttpTlsOptions = HttpTlsOptions(),
 )
 
 
@@ -103,12 +118,17 @@ data class PortBindingOptions(
     val kerberosKdc: Int = 0,
     val hdfsNameNode: Int = 0,
     val hdfsWeb: Int = 0,
+    val hdfsWebTls: Int = 0,
     val hiveMetastore: Int = 0,
     val kafka: Int = 0,
     val schemaRegistry: Int = 0,
+    val schemaRegistryTls: Int = 0,
     val kafkaUi: Int = 0,
+    val kafkaUiTls: Int = 0,
     val localStackS3: Int = 0,
+    val localStackS3Tls: Int = 0,
     val fakeGcs: Int = 0,
+    val fakeGcsTls: Int = 0,
 ) {
     fun hostPort(containerPort: Int, configuredHostPort: Int): Int {
         require(configuredHostPort >= 0) { "Host port must be 0 for random binding or a positive fixed port" }
