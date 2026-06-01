@@ -79,19 +79,23 @@ Run the Spark smoke test:
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:test
 ```
 
-Run the Spark HMS/Kerberos matrix:
+Run the Spark dependency/HMS/Kerberos matrix:
 
 ```bash
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkBigDataMatrixTest
 ```
 
-Individual matrix cells are also available:
+Individual matrix cells are also available. The first axis selects the Spark/Hadoop dependency line, then HMS implementation, then Kerberos:
 
 ```bash
-GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheHmsTest
-GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheHmsKerberosTest
-GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaHmsTest
-GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaHmsKerberosTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheDepsApacheHmsTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheDepsApacheHmsKerberosTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheDepsClouderaHmsTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheDepsClouderaHmsKerberosTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaDepsApacheHmsTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaDepsApacheHmsKerberosTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaDepsClouderaHmsTest
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaDepsClouderaHmsKerberosTest
 ```
 
 ## Documentation

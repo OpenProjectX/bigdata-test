@@ -134,6 +134,8 @@ Run the full Spark matrix when touching runtime config composition, HMS selectio
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkBigDataMatrixTest
 ```
 
+The Spark matrix has two kinds of axes. Container/service axes belong in TOML and can be selected with `bigdata.test.config`. Dependency axes belong in Gradle tasks because they require different resolved test JVM classpaths. Add a new dependency line by creating a resolvable runtime classpath in `example/spark/build.gradle.kts`, then pair it with the existing TOML service variants.
+
 The Gradle configuration-cache warning from `net.researchgate.release` is currently expected and unrelated to test behavior.
 
 ## Troubleshooting During Development

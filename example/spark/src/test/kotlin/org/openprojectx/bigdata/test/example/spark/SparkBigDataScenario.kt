@@ -1,6 +1,7 @@
 package org.openprojectx.bigdata.test.example.spark
 
 import org.apache.hadoop.hive.conf.HiveConf
+import org.apache.hadoop.hive.metastore.IMetaStoreClient
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient
 import org.apache.spark.sql.SparkSession
 import org.junit.jupiter.api.Test
@@ -169,6 +170,10 @@ abstract class SparkBigDataScenario {
                 .config("spark.sql.catalog.hms.warehouse", "file:${Files.createTempDirectory("bigdata-test-hms-warehouse-")}")
                 .config("spark.sql.warehouse.dir", "file:${Files.createTempDirectory("bigdata-test-spark-warehouse-")}")
                 .config("spark.sql.statistics.size.autoUpdate.enabled", "false")
+                .config("spark.sql.parquet.compression.codec", "uncompressed")
+                .config("spark.sql.catalog.s3.write.parquet.compression-codec", "uncompressed")
+                .config("spark.sql.catalog.gcs_local.write.parquet.compression-codec", "uncompressed")
+                .config("spark.sql.catalog.hms.write.parquet.compression-codec", "uncompressed")
                 .config("hive.metastore.uris", environment.hiveMetastoreUri)
                 .config("spark.hadoop.fs.defaultFS", environment.hdfsUri)
                 .config("spark.hadoop.hadoop.security.credential.provider.path", environment.s3CredentialProviderPath)
@@ -256,7 +261,11 @@ abstract class SparkBigDataScenario {
     ) {
         val identifier = "$catalog.$namespace.$table"
         spark.sql("CREATE NAMESPACE IF NOT EXISTS $catalog.$namespace")
-        val tableProperties = dataPath?.let { " TBLPROPERTIES ('write.data.path'='$it')" }.orEmpty()
+        val properties = listOfNotNull(
+            "'write.parquet.compression-codec'='uncompressed'",
+            dataPath?.let { "'write.data.path'='$it'" },
+        ).joinToString(", ")
+        val tableProperties = " TBLPROPERTIES ($properties)"
         spark.sql(
             """
             CREATE TABLE $identifier (
@@ -274,7 +283,7 @@ abstract class SparkBigDataScenario {
     protected fun assertHiveMetastoreTable(hiveMetastoreUri: String, database: String, table: String) {
         val conf = HiveConf()
         conf.setVar(HiveConf.ConfVars.METASTOREURIS, hiveMetastoreUri)
-        val client = HiveMetaStoreClient(conf)
+        val client = hiveMetastoreClient(conf)
         try {
             check(client.getAllDatabases().contains(database)) { "Expected HMS database $database" }
             val hmsTable = client.getTable(database, table)
@@ -309,7 +318,7 @@ abstract class SparkBigDataScenario {
                 UNION ALL
                 SELECT 2 AS id, 'beta' AS name, '$storageName' AS storage
                 """.trimIndent(),
-            ).write().mode("overwrite").parquet(location)
+            ).write().mode("overwrite").option("compression", "uncompressed").parquet(location)
         }
         spark.sql(
             """
@@ -336,7 +345,7 @@ abstract class SparkBigDataScenario {
     private fun assertHiveMetastoreExternalParquetTable(hiveMetastoreUri: String, database: String, table: String, location: String) {
         val conf = HiveConf()
         conf.setVar(HiveConf.ConfVars.METASTOREURIS, hiveMetastoreUri)
-        val client = HiveMetaStoreClient(conf)
+        val client = hiveMetastoreClient(conf)
         try {
             val hmsTable = client.getTable(database, table)
             check(hmsTable.dbName == database) { "Expected HMS table $database.$table, got ${hmsTable.dbName}.${hmsTable.tableName}" }
@@ -350,6 +359,17 @@ abstract class SparkBigDataScenario {
         } finally {
             client.close()
         }
+    }
+
+    private fun hiveMetastoreClient(conf: HiveConf): IMetaStoreClient {
+        val clientClass = HiveMetaStoreClient::class.java
+        val constructor = sequenceOf(HiveConf::class.java, org.apache.hadoop.conf.Configuration::class.java)
+            .mapNotNull { parameterType ->
+                runCatching { clientClass.getConstructor(parameterType) }.getOrNull()
+            }
+            .firstOrNull()
+            ?: error("No supported HiveMetaStoreClient constructor found")
+        return constructor.newInstance(conf) as IMetaStoreClient
     }
 }
 

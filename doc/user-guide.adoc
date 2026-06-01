@@ -245,6 +245,8 @@ When `bigdata.test.config.replace=true`, task config replaces startup config fro
 
 Extension config has the same launcher hook: `bigdata.extensions.config` and `bigdata.extensions.config.replace`.
 
+Container data-driven tests can be TOML-driven because service images, ports, Kerberos flags, and extension inputs are runtime configuration. Dependency data-driven tests must be Gradle-task/classpath-driven because Spark, Hadoop, Iceberg, and vendor distributions are resolved before the test JVM starts. The Spark example uses separate resolvable runtime classpaths for Apache and Cloudera dependency lines, then pairs those classpaths with TOML service variants.
+
 `hiveMetastore` is the open-source HMS image and defaults to `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4`. Hive 4 images can be tested by overriding this image key, but Spark 3.x brings a Hive 2.3 metastore client and should use the Hive 3 image unless that client stack is changed. The open-source HMS path starts an external PostgreSQL support container using `hiveMetastorePostgres`.
 
 `clouderaHms` is the embedded-Postgres Cloudera HMS image. Use the `clouderaHms = true` annotation flag when you want this implementation. A test class must not enable both `hiveMetastore` and `clouderaHms`.
@@ -801,7 +803,62 @@ Run it with:
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:test
 ----
 
-The Spark example also has Gradle tasks for the HMS/Kerberos matrix:
+The Spark example also has Gradle tasks for a dependency/HMS/Kerberos matrix:
+
+[source,bash]
+----
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkBigDataMatrixTest
+----
+
+The aggregate task runs these cells:
+
+|===
+|Task |Dependency line |HMS |Kerberos
+
+|`sparkApacheDepsApacheHmsTest`
+|Apache Spark/Hadoop
+|Open-source Hive 3 HMS
+|No
+
+|`sparkApacheDepsApacheHmsKerberosTest`
+|Apache Spark/Hadoop
+|Open-source Hive 3 HMS
+|Yes
+
+|`sparkApacheDepsClouderaHmsTest`
+|Apache Spark/Hadoop
+|Cloudera HMS
+|No
+
+|`sparkApacheDepsClouderaHmsKerberosTest`
+|Apache Spark/Hadoop
+|Cloudera HMS
+|Yes
+
+|`sparkClouderaDepsApacheHmsTest`
+|Cloudera Spark/Hadoop
+|Open-source Hive 3 HMS
+|No
+
+|`sparkClouderaDepsApacheHmsKerberosTest`
+|Cloudera Spark/Hadoop
+|Open-source Hive 3 HMS
+|Yes
+
+|`sparkClouderaDepsClouderaHmsTest`
+|Cloudera Spark/Hadoop
+|Cloudera HMS
+|No
+
+|`sparkClouderaDepsClouderaHmsKerberosTest`
+|Cloudera Spark/Hadoop
+|Cloudera HMS
+|Yes
+|===
+
+The Kerberos axis currently enables the shared KDC and Kafka Kerberos path used by the Spark Kafka source. The HMS axis switches between the open-source Hive 3 HMS image and the Cloudera HMS image. The dependency axis switches the test JVM runtime classpath; it is intentionally implemented in Gradle rather than TOML.
+
+Legacy HMS-only task aliases are still present:
 
 [source,bash]
 ----
@@ -809,10 +866,11 @@ GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheHmsTest
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkApacheHmsKerberosTest
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaHmsTest
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaHmsKerberosTest
-GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkBigDataMatrixTest
 ----
 
-The Kerberos axis currently enables the shared KDC and Kafka Kerberos path used by the Spark Kafka source. The HMS axis switches between the open-source Hive 3 HMS image and the Cloudera HMS image.
+The `sparkClouderaHmsTest` and `sparkClouderaHmsKerberosTest` aliases select the Cloudera dependency line and Cloudera HMS. Use `sparkApacheDepsClouderaHmsTest` when you specifically want Apache Spark/Hadoop dependencies against Cloudera HMS.
+
+Spark example test tasks always execute instead of reusing previous test outputs, because these are container smoke tests. The shared Spark TOML writes service container logs to `example/spark/build/bigdata-test-container-logs`; Gradle's test output contains the test JVM logs and points to the HTML test report on failure.
 
 == Troubleshooting
 

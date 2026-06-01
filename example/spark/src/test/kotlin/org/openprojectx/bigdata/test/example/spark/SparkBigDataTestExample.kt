@@ -9,7 +9,7 @@ import org.openprojectx.bigdata.test.junit5.BigDataTest
 @BigDataTest(
     config = [
         "classpath:spark-bigdata-test-common.toml",
-        "classpath:spark-bigdata-test-apache-hms-kerberos.toml",
+        "classpath:spark-bigdata-test-cloudera-hms-kerberos.toml",
     ],
 )
 class SparkBigDataTestExample : SparkBigDataScenario() {

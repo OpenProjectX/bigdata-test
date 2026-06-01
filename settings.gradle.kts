@@ -33,6 +33,7 @@ dependencyResolutionManagement {
         mavenCentral()
         gradlePluginPortal()
         maven(url = "https://packages.confluent.io/maven/")
+        maven(url = "https://repository.cloudera.com/repository/cloudera-repos/")
 
     }
 }
