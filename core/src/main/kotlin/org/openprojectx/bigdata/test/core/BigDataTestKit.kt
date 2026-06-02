@@ -13,8 +13,11 @@ class BigDataTestKit private constructor(
 
     override fun start() {
         if (started) return
-        serviceContainers.forEach { it.container.start() }
-        serviceContainers.forEach { endpoints[it.service] = it.endpoint() }
+        serviceContainers.forEach {
+            it.container.start()
+            it.afterStart()
+            endpoints[it.service] = it.endpoint()
+        }
         started = true
     }
 

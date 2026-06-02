@@ -7,5 +7,6 @@ import org.testcontainers.containers.GenericContainer
 internal data class BigDataServiceContainer(
     val service: BigDataService,
     val container: GenericContainer<*>,
+    val afterStart: () -> Unit = {},
     val endpoint: () -> BigDataEndpoint,
 )

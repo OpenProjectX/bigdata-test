@@ -46,6 +46,7 @@ dependencies {
 val apacheSparkVersion = libs.versions.spark.get()
 val apacheHadoopVersion = libs.versions.hadoop.get()
 val icebergVersion = libs.versions.iceberg.get()
+val apacheSparkJacksonVersion = "2.15.2"
 val testImplementationConfiguration = configurations.named("testImplementation")
 val testRuntimeOnlyConfiguration = configurations.named("testRuntimeOnly")
 
@@ -66,6 +67,9 @@ fun createSparkRuntimeClasspath(name: String, dependencyLine: String) = configur
             when (requested.group) {
                 "org.apache.spark" -> useVersion(apacheSparkVersion)
                 "org.apache.hadoop" -> useVersion(apacheHadoopVersion)
+            }
+            if (requested.group.startsWith("com.fasterxml.jackson")) {
+                useVersion(apacheSparkJacksonVersion)
             }
         }
     }

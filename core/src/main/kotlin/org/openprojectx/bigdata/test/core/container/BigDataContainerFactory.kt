@@ -10,7 +10,6 @@ import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.hive.docker.testcontainers.HiveMetastoreContainer
-import org.testcontainers.containers.BindMode
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.Network
 import org.testcontainers.containers.PostgreSQLContainer
@@ -20,6 +19,7 @@ import org.testcontainers.containers.output.OutputFrame
 import org.testcontainers.images.builder.Transferable
 import org.testcontainers.lifecycle.Startable
 import org.testcontainers.utility.DockerImageName
+import org.testcontainers.utility.MountableFile
 import java.io.OutputStreamWriter
 import java.io.Closeable
 import java.nio.file.Files
@@ -77,13 +77,10 @@ internal class BigDataContainerFactory(
             addIfEnabled(options.kafka.kafkaUiKerberos)
             if (options.kafka.kerberos.enabled && options.kafka.kafkaUiEnabled) addPrincipal(options.kafka.kafkaUiKerberos)
         }
-        writeContainerKerberosConf(kerberos)
-
         val container = GenericBigDataContainer(kerberos.image)
             .withNetwork(network)
             .withNetworkAliases("kerby-kdc")
             .withServicePort(88, options.portBindings.hostPort(88, options.portBindings.kerberosKdc))
-            .withFileSystemBind(kerberosDirectory(), "/var/lib/kerby")
             .withEnv("KERBY_REALM", kerberos.realm)
             .withEnv("KERBY_KDC_HOST", "kerby-kdc")
             .withEnv("KERBY_KDC_BIND_HOST", "0.0.0.0")
@@ -102,7 +99,11 @@ internal class BigDataContainerFactory(
             container.withEnv("KERBY_EXTRA_PRINCIPALS", users)
         }
 
-        return BigDataServiceContainer(BigDataService.KERBEROS, attachLogs("kerberos", container)) {
+        return BigDataServiceContainer(
+            service = BigDataService.KERBEROS,
+            container = attachLogs("kerberos", container),
+            afterStart = { copyKerberosMaterialFromContainer(container) },
+        ) {
             val localKrb5Conf = writeLocalKerberosConf(kerberos, container.host, container.getMappedPort(88))
             BigDataEndpoint(
                 service = BigDataService.KERBEROS,
@@ -399,7 +400,10 @@ internal class BigDataContainerFactory(
             .waitingFor(Wait.forHttp("/subjects").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(3)))
         if (kafka.tls.enabled && !kafka.kerberos.enabled) {
             container
-                .withFileSystemBind(tlsMaterial.trustStorePath.toString(), "/etc/schema-registry/tls/truststore.p12", BindMode.READ_ONLY)
+                .withCopyFileToContainer(
+                    MountableFile.forHostPath(tlsMaterial.trustStorePath),
+                    "/etc/schema-registry/tls/truststore.p12",
+                )
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "SSL://kafka:9093")
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL", "SSL")
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_LOCATION", "/etc/schema-registry/tls/truststore.p12")
@@ -448,7 +452,7 @@ internal class BigDataContainerFactory(
         if (kafka.tls.enabled) {
             val trustStore = tlsMaterial.trustStorePath
             container
-                .withFileSystemBind(trustStore.toString(), "/etc/kafka/tls/truststore.p12", BindMode.READ_ONLY)
+                .withCopyFileToContainer(MountableFile.forHostPath(trustStore), "/etc/kafka/tls/truststore.p12")
                 .withEnv("KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS", if (kafka.kerberos.enabled) "broker1.example.com:9092" else "kafka:9093")
                 .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL", if (kafka.kerberos.enabled) "SASL_SSL" else "SSL")
                 .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION", "/etc/kafka/tls/truststore.p12")
@@ -678,8 +682,8 @@ internal class BigDataContainerFactory(
             .withNetwork(network)
             .withNetworkAliases("$name-tls")
             .withServicePort(443, hostPort)
-            .withFileSystemBind(config.toString(), "/usr/local/etc/haproxy/haproxy.cfg", BindMode.READ_ONLY)
-            .withFileSystemBind(pem.toString(), "/usr/local/etc/haproxy/certs/service.pem", BindMode.READ_ONLY)
+            .withCopyFileToContainer(MountableFile.forHostPath(config), "/usr/local/etc/haproxy/haproxy.cfg")
+            .withCopyFileToContainer(MountableFile.forHostPath(pem), "/usr/local/etc/haproxy/certs/service.pem")
             .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)))
         val proxied = attachLogs("$name-tls", container)
         proxied.start()
@@ -709,8 +713,11 @@ internal class BigDataContainerFactory(
             sanDomains = listOf("kafka", "broker1.example.com"),
         )
         container
-            .withFileSystemBind(keyStore.path.toString(), "/etc/kafka/secrets/kafka.keystore.p12", BindMode.READ_ONLY)
-            .withFileSystemBind(tlsMaterial.trustStorePath.toString(), "/etc/kafka/secrets/kafka.truststore.p12", BindMode.READ_ONLY)
+            .withCopyFileToContainer(MountableFile.forHostPath(keyStore.path), "/etc/kafka/secrets/kafka.keystore.p12")
+            .withCopyFileToContainer(
+                MountableFile.forHostPath(tlsMaterial.trustStorePath),
+                "/etc/kafka/secrets/kafka.truststore.p12",
+            )
             .withCopyToContainer(Transferable.of(keyStore.password), "/etc/kafka/secrets/kafka.key.credentials")
             .withCopyToContainer(Transferable.of(keyStore.password), "/etc/kafka/secrets/kafka.keystore.credentials")
             .withCopyToContainer(Transferable.of(tlsMaterial.trustStorePassword), "/etc/kafka/secrets/kafka.truststore.credentials")
@@ -877,11 +884,78 @@ internal class BigDataContainerFactory(
 
     private fun mountKerberos(container: GenericContainer<*>) {
         writeContainerKerberosConf(options.kerberos)
-        container.withFileSystemBind(kerberosDirectory(), "/kerby", BindMode.READ_ONLY)
+        copyKerberosFileToContainer(container, "/kerby/client/krb5.conf")
+        kerberosContainerPaths().forEach { copyKerberosFileToContainer(container, it) }
     }
 
     private fun kerberosDirectory(): String =
         kerberosDir?.toString() ?: error("Kerberos directory was not initialized")
+
+    private fun copyKerberosMaterialFromContainer(container: GenericContainer<*>) {
+        val paths = kerberosContainerPaths()
+        waitForKerberosFiles(container, paths)
+        paths.forEach { containerPath ->
+            copyKerberosFileFromContainer(
+                container = container,
+                source = containerPath.replace("/kerby/", "/var/lib/kerby/"),
+                destination = containerPath,
+            )
+        }
+    }
+
+    private fun copyKerberosFileFromContainer(
+        container: GenericContainer<*>,
+        source: String,
+        destination: String,
+    ) {
+        val path = hostKerberosMaterialPath(destination)
+        Files.createDirectories(path.parent)
+        container.copyFileFromContainer(source, path.toString())
+    }
+
+    private fun waitForKerberosFiles(container: GenericContainer<*>, containerPaths: Set<String>) {
+        val sources = containerPaths.map { it.replace("/kerby/", "/var/lib/kerby/") }
+        val deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos()
+        while (true) {
+            val missing = sources.filterNot { source ->
+                container.execInContainer("sh", "-lc", "test -s '$source'").exitCode == 0
+            }
+            if (missing.isEmpty()) return
+            if (System.nanoTime() >= deadline) {
+                error("Kerberos KDC did not generate expected keytab files: ${missing.joinToString(", ")}")
+            }
+            Thread.sleep(250)
+        }
+    }
+
+    private fun copyKerberosFileToContainer(container: GenericContainer<*>, containerPath: String) {
+        val path = hostKerberosMaterialPath(containerPath)
+        Files.createDirectories(path.parent)
+        if (Files.notExists(path)) {
+            Files.write(path, ByteArray(0))
+        }
+        container.withCopyFileToContainer(MountableFile.forHostPath(path), containerPath)
+    }
+
+    private fun kerberosContainerPaths(): Set<String> =
+        buildSet {
+            add("/kerby/keytabs/client.keytab")
+            options.kerberos.users.forEach { add(it.keytabPath) }
+            addIfEnabled(options.hdfs.kerberos)
+            addIfEnabled(options.hiveMetastore.kerberos)
+            addIfEnabled(options.kafka.kerberos)
+            addIfEnabled(options.kafka.kafkaUiKerberos)
+            if (options.kafka.kerberos.enabled && options.kafka.kafkaUiEnabled) add(options.kafka.kafkaUiKerberos.keytabPath)
+        }
+
+    private fun MutableSet<String>.addIfEnabled(options: KerberosAuthOptions) {
+        if (options.enabled) add(options.keytabPath)
+    }
+
+    private fun hostKerberosMaterialPath(containerPath: String): Path {
+        require(containerPath.startsWith("/kerby/")) { "Kerberos material path must be under /kerby: $containerPath" }
+        return Path.of(kerberosDirectory()).resolve(containerPath.removePrefix("/kerby/"))
+    }
 
     private fun kerberosProperties(prefix: String, options: KerberosAuthOptions): Map<String, String> =
         if (options.enabled) {
