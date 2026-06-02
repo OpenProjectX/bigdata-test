@@ -6,7 +6,7 @@ import org.gradle.api.attributes.Usage
 
 plugins {
     id("buildsrc.convention.kotlin-jvm")
-    id("org.openprojectx.spark.platform") version "0.1.41-SNAPSHOT"
+    id("org.openprojectx.spark.platform") version "0.1.41"
     id("org.openprojectx.hadoop-native-loader") version "0.1.1"
 
 }
