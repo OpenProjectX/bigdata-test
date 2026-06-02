@@ -5,3 +5,7 @@ kafkaKerberos = true
 
 [ports]
 kafka = 19092
+
+[kafkaTls]
+enabled = true
+domain = "localhost"
