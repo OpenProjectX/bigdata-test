@@ -58,18 +58,83 @@ jobs:
 
       - name: Run Spark big data matrix tests
         run: |
-          ./gradlew --no-configuration-cache :example:spark:sparkBigDataMatrixTest --stacktrace --info
+          ./gradlew --no-configuration-cache :example:spark:sparkBigDataMatrixTest --stacktrace --debug
 
-      - name: Upload test reports
+      - name: Collect and print Spark diagnostics on failure
+        if: failure()
+        run: |
+          set +e
+          diagnostics_dir="build/github-diagnostics"
+          mkdir -p "${diagnostics_dir}/docker" "${diagnostics_dir}/spark"
+
+          echo "::group::Docker containers"
+          docker ps -a | tee "${diagnostics_dir}/docker/containers.txt"
+          echo "::endgroup::"
+
+          echo "::group::Docker images"
+          docker images | tee "${diagnostics_dir}/docker/images.txt"
+          echo "::endgroup::"
+
+          mapfile -t container_ids < <(docker ps -aq)
+          for container_id in "${container_ids[@]}"; do
+            container_name="$(docker inspect --format '{{.Name}}' "${container_id}" 2>/dev/null | sed 's#^/##')"
+            if [ -z "${container_name}" ]; then
+              container_name="${container_id}"
+            fi
+            safe_name="$(printf '%s' "${container_name}" | tr -c 'A-Za-z0-9_.-' '_')"
+            docker inspect "${container_id}" > "${diagnostics_dir}/docker/${safe_name}.inspect.json" 2>&1
+            docker logs "${container_id}" > "${diagnostics_dir}/docker/${safe_name}.stdout-stderr.log" 2>&1
+          done
+
+          echo "::group::Spark container log files"
+          if [ -d example/spark/build/bigdata-test-container-logs ]; then
+            find example/spark/build/bigdata-test-container-logs -type f -print | sort
+          else
+            echo "No Spark container log directory found."
+          fi
+          echo "::endgroup::"
+
+          if [ -d example/spark/build/bigdata-test-container-logs ]; then
+            while IFS= read -r log_file; do
+              echo "::group::${log_file}"
+              sed -n '1,400p' "${log_file}"
+              line_count="$(wc -l < "${log_file}")"
+              if [ "${line_count}" -gt 400 ]; then
+                echo "... truncated first 400 lines from ${line_count} total lines ..."
+                echo "--- tail ---"
+                tail -n 400 "${log_file}"
+              fi
+              echo "::endgroup::"
+            done < <(find example/spark/build/bigdata-test-container-logs -type f -print | sort)
+            cp -a example/spark/build/bigdata-test-container-logs "${diagnostics_dir}/spark/container-logs"
+          fi
+
+          echo "::group::Spark test XML results"
+          if [ -d example/spark/build/test-results ]; then
+            while IFS= read -r result_file; do
+              echo "--- ${result_file} ---"
+              sed -n '1,240p' "${result_file}"
+            done < <(find example/spark/build/test-results -type f -name '*.xml' -print | sort)
+          else
+            echo "No Spark test result directory found."
+          fi
+          echo "::endgroup::"
+          cp -a example/spark/build/test-results "${diagnostics_dir}/spark/test-results" 2>/dev/null || true
+          cp -a example/spark/build/reports/tests "${diagnostics_dir}/spark/test-reports" 2>/dev/null || true
+
+      - name: Upload test reports and container logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
+          name: test-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             **/build/reports/tests/
             **/build/test-results/
             **/build/reports/problems/
+            **/build/bigdata-test-container-logs/
+            build/github-diagnostics/
           if-no-files-found: ignore
+          retention-days: 14
 
       - name: Write signing key
         env:
