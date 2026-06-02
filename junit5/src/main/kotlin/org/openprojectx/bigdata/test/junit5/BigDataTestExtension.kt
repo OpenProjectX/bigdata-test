@@ -132,7 +132,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             builder.withKerberos(
                 KerberosOptions(
                     enabled = true,
-                    image = images.kerberos ?: "openprojectx/kerby-kdc:latest",
+                    image = images.kerberos ?: "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest",
                     clientPrincipal = annotation.kerberosClientPrincipal,
                     clientPassword = annotation.kerberosClientPassword,
                 ),

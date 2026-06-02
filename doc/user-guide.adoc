@@ -221,7 +221,7 @@ Service images can be overridden from TOML with an `[images]` table. The JUnit e
 [source,toml]
 ----
 [images]
-kerberos = "openprojectx/kerby-kdc:latest"
+kerberos = "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest"
 hdfs = "apache/hadoop:3.5.0"
 hiveMetastore = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4"
 hiveMetastorePostgres = "postgres:16-alpine"

@@ -14,7 +14,7 @@ data class BigDataTestKitOptions(
 
 data class KerberosOptions(
     val enabled: Boolean = false,
-    val image: String = "openprojectx/kerby-kdc:latest",
+    val image: String = "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest",
     val realm: String = "EXAMPLE.COM",
     val domain: String = "example.com",
     val clientPrincipal: String = "app_user@EXAMPLE.COM",

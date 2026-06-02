@@ -77,6 +77,7 @@ internal class BigDataContainerFactory(
             addIfEnabled(options.kafka.kafkaUiKerberos)
             if (options.kafka.kerberos.enabled && options.kafka.kafkaUiEnabled) addPrincipal(options.kafka.kafkaUiKerberos)
         }
+        writeContainerKerberosConf(kerberos)
 
         val container = GenericBigDataContainer(kerberos.image)
             .withNetwork(network)
@@ -875,6 +876,7 @@ internal class BigDataContainerFactory(
     }
 
     private fun mountKerberos(container: GenericContainer<*>) {
+        writeContainerKerberosConf(options.kerberos)
         container.withFileSystemBind(kerberosDirectory(), "/kerby", BindMode.READ_ONLY)
     }
 
@@ -946,28 +948,33 @@ internal class BigDataContainerFactory(
     private fun writeLocalKerberosConf(options: KerberosOptions, host: String, port: Int): String {
         val path = Path.of(localKerberosPath("/kerby/client/krb5.conf"))
         Files.createDirectories(path.parent)
-        Files.writeString(
-            path,
-            """
-            [libdefaults]
-              default_realm = ${options.realm}
-              dns_lookup_realm = false
-              dns_lookup_kdc = false
-              rdns = false
-              udp_preference_limit = 1
-
-            [realms]
-              ${options.realm} = {
-                kdc = $host:$port
-                admin_server = $host:$port
-              }
-
-            [domain_realm]
-              .${options.domain} = ${options.realm}
-              ${options.domain} = ${options.realm}
-            """.trimIndent(),
-            StandardCharsets.UTF_8,
-        )
+        Files.writeString(path, kerberosConf(options, host, port), StandardCharsets.UTF_8)
         return path.toString()
     }
+
+    private fun writeContainerKerberosConf(options: KerberosOptions) {
+        val path = Path.of(kerberosDirectory()).resolve("client/krb5.conf")
+        Files.createDirectories(path.parent)
+        Files.writeString(path, kerberosConf(options, "kerby-kdc", 88), StandardCharsets.UTF_8)
+    }
+
+    private fun kerberosConf(options: KerberosOptions, host: String, port: Int): String =
+        """
+        [libdefaults]
+          default_realm = ${options.realm}
+          dns_lookup_realm = false
+          dns_lookup_kdc = false
+          rdns = false
+          udp_preference_limit = 1
+
+        [realms]
+          ${options.realm} = {
+            kdc = $host:$port
+            admin_server = $host:$port
+          }
+
+        [domain_realm]
+          .${options.domain} = ${options.realm}
+          ${options.domain} = ${options.realm}
+        """.trimIndent()
 }
