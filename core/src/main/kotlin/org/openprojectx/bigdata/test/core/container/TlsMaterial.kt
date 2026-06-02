@@ -73,6 +73,32 @@ internal class TlsMaterial(
         return pem
     }
 
+    fun keyStore(name: String, domain: String, sanDomains: List<String> = emptyList()): KeyStoreMaterial {
+        val keyPair = rsaKeyPair()
+        val cert = signedCertificate(
+            subject = X500Name("CN=$domain"),
+            subjectKeyPair = keyPair,
+            issuer = X500Name(ca.certificate.subjectX500Principal.name),
+            issuerKey = ca.privateKey,
+            issuerCert = ca.certificate,
+            sanDomains = (listOf(domain, "localhost") + sanDomains).distinct(),
+        )
+        val path = directory.resolve("${name.replace(Regex("[^A-Za-z0-9._-]"), "_")}.p12")
+        val password = options.trustStorePassword
+        val keyStore = KeyStore.getInstance("PKCS12")
+        keyStore.load(null, password.toCharArray())
+        keyStore.setKeyEntry(
+            "bigdata-test-$name",
+            keyPair.private,
+            password.toCharArray(),
+            arrayOf(cert, ca.certificate),
+        )
+        Files.newOutputStream(path).use { output ->
+            keyStore.store(output, password.toCharArray())
+        }
+        return KeyStoreMaterial(path = path, password = password, type = "PKCS12")
+    }
+
     fun properties(): Map<String, String> =
         mapOf(
             "javax.net.ssl.trustStore" to trustStorePath.toString(),
@@ -195,5 +221,11 @@ internal class TlsMaterial(
     private data class CertificateKeyPair(
         val certificate: X509Certificate,
         val privateKey: PrivateKey,
+    )
+
+    data class KeyStoreMaterial(
+        val path: Path,
+        val password: String,
+        val type: String,
     )
 }

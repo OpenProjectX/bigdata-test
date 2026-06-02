@@ -98,7 +98,8 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         val hiveMetastore = annotation.hiveMetastore || services.hiveMetastore == true
         val clouderaHms = annotation.clouderaHms || services.clouderaHms == true
         val hiveMetastoreKerberos = annotation.hiveMetastoreKerberos || services.hiveMetastoreKerberos == true
-        val kafka = annotation.kafka || services.kafka == true
+        val kafkaTls = annotation.kafkaTls || config.kafkaTls.enabled == true
+        val kafka = annotation.kafka || services.kafka == true || kafkaTls
         val kafkaKerberos = annotation.kafkaKerberos || services.kafkaKerberos == true
         val schemaRegistry = annotation.schemaRegistry || services.schemaRegistry == true
         val kafkaUi = annotation.kafkaUi || services.kafkaUi == true
@@ -107,6 +108,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         val fakeGcs = annotation.fakeGcs || services.fakeGcs == true
         val tlsEnabled = tls.enabled == true ||
             config.hdfsWebTls.enabled == true ||
+            kafkaTls ||
             config.schemaRegistryTls.enabled == true ||
             config.kafkaUiTls.enabled == true ||
             config.localStackS3Tls.enabled == true ||
@@ -181,6 +183,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 KafkaOptions(
                     enabled = true,
                     image = images.kafka ?: "apache/kafka:4.1.2",
+                    tls = config.kafkaTls.toHttpTls("localhost").copy(enabled = kafkaTls),
                     schemaRegistryEnabled = schemaRegistry,
                     schemaRegistryImage = images.schemaRegistry ?: "confluentinc/cp-schema-registry:7.8.0",
                     schemaRegistryTls = config.schemaRegistryTls.toHttpTls("localhost"),

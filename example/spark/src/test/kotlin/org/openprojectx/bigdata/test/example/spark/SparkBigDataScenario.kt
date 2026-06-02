@@ -48,6 +48,7 @@ abstract class SparkBigDataScenario {
                     securityProtocol = context.environment.kafkaSecurityProtocol,
                     kerberosServiceName = context.environment.kafkaKerberosServiceName,
                     jaasConfig = context.environment.kafkaJaasConfig,
+                    sslProperties = context.environment.kafkaSslProperties,
                 )
             },
         )
@@ -145,6 +146,7 @@ abstract class SparkBigDataScenario {
             kafkaKerberosServiceName = extensions.optional("kerberos-material.kafka.service-name")
                 ?: kafka.properties["sasl.kerberos.service.name"],
             kafkaJaasConfig = kafka.properties["sasl.jaas.config"],
+            kafkaSslProperties = kafka.properties.filterKeys { it.startsWith("ssl.") },
         )
     }
 
@@ -243,6 +245,7 @@ abstract class SparkBigDataScenario {
         securityProtocol: String?,
         kerberosServiceName: String?,
         jaasConfig: String?,
+        sslProperties: Map<String, String>,
     ) {
         val reader = spark.read()
             .format("kafka")
@@ -251,9 +254,14 @@ abstract class SparkBigDataScenario {
             .option("startingOffsets", "earliest")
             .option("endingOffsets", "latest")
 
-        if (securityProtocol == "SASL_PLAINTEXT") {
+        if (securityProtocol != null) {
+            reader.option("kafka.security.protocol", securityProtocol)
+        }
+        sslProperties.forEach { (key, value) ->
+            reader.option("kafka.$key", value)
+        }
+        if (securityProtocol == "SASL_PLAINTEXT" || securityProtocol == "SASL_SSL") {
             reader
-                .option("kafka.security.protocol", securityProtocol)
                 .option("kafka.sasl.mechanism", "GSSAPI")
                 .option("kafka.sasl.kerberos.service.name", kerberosServiceName ?: "kafka")
                 .option("kafka.sasl.jaas.config", jaasConfig ?: "")
@@ -428,4 +436,5 @@ data class SparkScenarioEnvironment(
     val kafkaSecurityProtocol: String?,
     val kafkaKerberosServiceName: String?,
     val kafkaJaasConfig: String?,
+    val kafkaSslProperties: Map<String, String>,
 )

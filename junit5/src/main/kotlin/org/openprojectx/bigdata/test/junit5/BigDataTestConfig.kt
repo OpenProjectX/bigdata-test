@@ -9,6 +9,7 @@ internal data class BigDataTestConfig(
     val services: BigDataTestServiceConfig = BigDataTestServiceConfig(),
     val tls: BigDataTestTlsConfig = BigDataTestTlsConfig(),
     val hdfsWebTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
+    val kafkaTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val schemaRegistryTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val kafkaUiTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val localStackS3Tls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
@@ -22,6 +23,7 @@ internal data class BigDataTestConfig(
             services = services.merge(override.services),
             tls = tls.merge(override.tls),
             hdfsWebTls = hdfsWebTls.merge(override.hdfsWebTls),
+            kafkaTls = kafkaTls.merge(override.kafkaTls),
             schemaRegistryTls = schemaRegistryTls.merge(override.schemaRegistryTls),
             kafkaUiTls = kafkaUiTls.merge(override.kafkaUiTls),
             localStackS3Tls = localStackS3Tls.merge(override.localStackS3Tls),
@@ -186,6 +188,7 @@ internal class BigDataTestConfigLoader(
         val services = tables["services"].orEmpty()
         val tls = tables["tls"].orEmpty()
         val hdfsWebTls = tables["hdfsWebTls"].orEmpty()
+        val kafkaTls = tables["kafkaTls"].orEmpty()
         val schemaRegistryTls = tables["schemaRegistryTls"].orEmpty()
         val kafkaUiTls = tables["kafkaUiTls"].orEmpty()
         val localStackS3Tls = tables["localStackS3Tls"].orEmpty()
@@ -229,6 +232,7 @@ internal class BigDataTestConfigLoader(
                 haproxyImage = tls.string("haproxyImage"),
             ),
             hdfsWebTls = httpTls(hdfsWebTls),
+            kafkaTls = httpTls(kafkaTls),
             schemaRegistryTls = httpTls(schemaRegistryTls),
             kafkaUiTls = httpTls(kafkaUiTls),
             localStackS3Tls = httpTls(localStackS3Tls),
@@ -275,6 +279,7 @@ internal class BigDataTestConfigLoader(
             "services",
             "tls",
             "hdfsWebTls",
+            "kafkaTls",
             "schemaRegistryTls",
             "kafkaUiTls",
             "localStackS3Tls",

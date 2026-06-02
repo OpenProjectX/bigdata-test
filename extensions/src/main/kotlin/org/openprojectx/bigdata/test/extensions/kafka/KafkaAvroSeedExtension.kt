@@ -44,6 +44,9 @@ data class KafkaAvroSeedExtension(
             "sasl.mechanism",
             "sasl.kerberos.service.name",
             "sasl.jaas.config",
+            "ssl.truststore.location",
+            "ssl.truststore.password",
+            "ssl.truststore.type",
         ).mapNotNull { key ->
             properties[key]?.let { key to it }
         }.toMap()

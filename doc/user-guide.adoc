@@ -282,6 +282,10 @@ domain = "schema-registry.local"
 enabled = true
 domain = "kafka-ui.local"
 
+[kafkaTls]
+enabled = true
+domain = "localhost"
+
 [hdfsWebTls]
 enabled = true
 domain = "hdfs.local"
@@ -309,7 +313,23 @@ schemaRegistryTls = 8443
 
 Available TLS port fields are `hdfsWebTls`, `schemaRegistryTls`, `kafkaUiTls`, `localStackS3Tls`, and `fakeGcsTls`.
 
-Non-HTTP services should use their native TLS implementation rather than HAProxy to avoid protocol compatibility issues. Kafka TLS is intentionally not implemented as a generic HAProxy gateway because Kafka clients depend on broker metadata and advertised listeners.
+Non-HTTP services use their native TLS implementation rather than HAProxy to avoid protocol compatibility issues. Kafka TLS is native broker TLS because Kafka clients depend on broker metadata and advertised listeners.
+
+Kafka TLS can be enabled from the annotation or TOML:
+
+[source,kotlin]
+----
+@BigDataTest(kafkaTls = true)
+----
+
+[source,toml]
+----
+[kafkaTls]
+enabled = true
+domain = "localhost"
+----
+
+The Kafka endpoint then exposes `security.protocol=SSL` for plaintext Kafka or `security.protocol=SASL_SSL` when Kafka Kerberos is also enabled. It also exposes `ssl.truststore.location`, `ssl.truststore.password`, and `ssl.truststore.type` for Kafka clients.
 
 === Dynamic and Fixed Ports
 
@@ -406,7 +426,7 @@ Each started service exposes a `BigDataEndpoint` with named ports and connection
 |`BigDataService.KAFKA`
 |`bootstrap`
 |`9092`
-|`bootstrap.servers`, `spring.kafka.bootstrap-servers`, `bootstrap.servers.internal`, `kafka.kerberos.service-name`, `sasl.jaas.config`
+|`bootstrap.servers`, `spring.kafka.bootstrap-servers`, `bootstrap.servers.internal`, `security.protocol`, `kafka.kerberos.service-name`, `sasl.jaas.config`, `ssl.truststore.location`, `ssl.truststore.password`, `ssl.truststore.type`
 
 |`BigDataService.SCHEMA_REGISTRY`
 |`http`, `https`

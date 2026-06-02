@@ -257,13 +257,16 @@ internal class BigDataContainerFactory(
 
     private fun kafka(): BigDataServiceContainer {
         val kafka = options.kafka
-        if (!kafka.kerberos.enabled) return plaintextKafka(kafka)
+        if (!kafka.kerberos.enabled) {
+            return if (kafka.tls.enabled) tlsKafka(kafka) else plaintextKafka(kafka)
+        }
 
         val kafkaHostPort = options.portBindings.hostPort(9092, options.portBindings.kafka)
+        val externalProtocol = if (kafka.tls.enabled) "SASL_SSL" else "SASL_PLAINTEXT"
         val advertisedListener = if (kafkaHostPort > 0) {
-            "SASL_PLAINTEXT://localhost:$kafkaHostPort"
+            "$externalProtocol://localhost:$kafkaHostPort"
         } else {
-            "SASL_PLAINTEXT://broker1.example.com:9092"
+            "$externalProtocol://broker1.example.com:9092"
         }
         val container = GenericBigDataContainer(kafka.image)
             .withNetwork(network)
@@ -284,11 +287,14 @@ internal class BigDataContainerFactory(
             .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(3)))
         mountKerberos(container)
         container
-            .withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "CONTROLLER:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT,PLAINTEXT:PLAINTEXT")
+            .withEnv(
+                "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP",
+                "CONTROLLER:PLAINTEXT,$externalProtocol:$externalProtocol,PLAINTEXT:PLAINTEXT",
+            )
             .withEnv("KAFKA_ADVERTISED_LISTENERS", "$advertisedListener,PLAINTEXT://kafka:19092")
-            .withEnv("KAFKA_LISTENERS", "SASL_PLAINTEXT://0.0.0.0:9092,PLAINTEXT://0.0.0.0:19092,CONTROLLER://kafka:29093")
+            .withEnv("KAFKA_LISTENERS", "$externalProtocol://0.0.0.0:9092,PLAINTEXT://0.0.0.0:19092,CONTROLLER://kafka:29093")
             .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@kafka:29093")
-            .withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "SASL_PLAINTEXT")
+            .withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", externalProtocol)
             .withEnv("KAFKA_SASL_ENABLED_MECHANISMS", "GSSAPI")
             .withEnv("KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL", "GSSAPI")
             .withEnv("KAFKA_SASL_KERBEROS_SERVICE_NAME", kafka.kerberos.servicePrincipal.substringBefore("/"))
@@ -298,6 +304,7 @@ internal class BigDataContainerFactory(
                 Transferable.of(kafkaJaas(kafka.kerberos)),
                 "/etc/kafka/kerberos/kafka_server_jaas.conf",
             )
+        val sslProperties = if (kafka.tls.enabled) configureKafkaBrokerTls(container, kafka, "SASL_SSL") else emptyMap()
 
         return BigDataServiceContainer(BigDataService.KAFKA, attachLogs("kafka", container)) {
             val bootstrapServers = "${container.host}:${container.getMappedPort(9092)}"
@@ -308,7 +315,41 @@ internal class BigDataContainerFactory(
                 properties = mapOf(
                     "bootstrap.servers" to bootstrapServers,
                     "spring.kafka.bootstrap-servers" to bootstrapServers,
-                ) + kerberosProperties("kafka", kafka.kerberos) + kafkaClientKerberosProperties(kafka.kerberos, options.kerberos),
+                ) + kerberosProperties("kafka", kafka.kerberos) +
+                    kafkaClientKerberosProperties(kafka.kerberos, options.kerberos, kafka.tls.enabled) +
+                    sslProperties,
+            )
+        }
+    }
+
+    private fun tlsKafka(kafka: KafkaOptions): BigDataServiceContainer {
+        val kafkaHostPort = options.portBindings.hostPort(9092, options.portBindings.kafka)
+        val container = if (kafkaHostPort == 0) {
+            KafkaContainer(DockerImageName.parse(kafka.image))
+        } else {
+            FixedPortKafkaContainer(DockerImageName.parse(kafka.image)).withServicePort(9092, kafkaHostPort)
+        }
+        container
+            .withNetwork(network)
+            .withNetworkAliases("kafka")
+            .withStartupTimeout(Duration.ofMinutes(3))
+            .withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "BROKER:SSL,PLAINTEXT:SSL,CONTROLLER:PLAINTEXT")
+            .withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "BROKER")
+            .withEnv("KAFKA_SSL_CLIENT_AUTH", "none")
+            .withEnv("KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM", "")
+        val sslProperties = configureKafkaBrokerTls(container, kafka, "SSL")
+
+        return BigDataServiceContainer(BigDataService.KAFKA, attachLogs("kafka", container)) {
+            val bootstrapServers = container.bootstrapServers
+            BigDataEndpoint(
+                service = BigDataService.KAFKA,
+                host = container.host,
+                ports = mapOf("bootstrap" to container.getMappedPort(9092)),
+                properties = mapOf(
+                    "bootstrap.servers" to bootstrapServers,
+                    "spring.kafka.bootstrap-servers" to bootstrapServers,
+                    "bootstrap.servers.internal" to "kafka:9093",
+                ) + sslProperties,
             )
         }
     }
@@ -351,6 +392,16 @@ internal class BigDataContainerFactory(
             .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:8085")
             .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:19092")
             .waitingFor(Wait.forHttp("/subjects").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(3)))
+        if (kafka.tls.enabled && !kafka.kerberos.enabled) {
+            container
+                .withFileSystemBind(tlsMaterial.trustStorePath.toString(), "/etc/schema-registry/tls/truststore.p12", BindMode.READ_ONLY)
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "SSL://kafka:9093")
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL", "SSL")
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_LOCATION", "/etc/schema-registry/tls/truststore.p12")
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_PASSWORD", tlsMaterial.trustStorePassword)
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_TYPE", "PKCS12")
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM", "")
+        }
         return BigDataServiceContainer(BigDataService.SCHEMA_REGISTRY, attachLogs("schema-registry", container)) {
             val tlsEndpoint = httpTlsEndpoint(
                 name = "schema-registry",
@@ -384,10 +435,21 @@ internal class BigDataContainerFactory(
             container
                 .withEnv("JAVA_OPTS", "-Djava.security.krb5.conf=/kerby/client/krb5.conf")
                 .withEnv("KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS", "broker1.example.com:9092")
-                .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL", "SASL_PLAINTEXT")
+                .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL", if (kafka.tls.enabled) "SASL_SSL" else "SASL_PLAINTEXT")
                 .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM", "GSSAPI")
                 .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SASL_KERBEROS_SERVICE_NAME", "kafka")
                 .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG", inlineJaas(kafka.kafkaUiKerberos))
+        }
+        if (kafka.tls.enabled) {
+            val trustStore = tlsMaterial.trustStorePath
+            container
+                .withFileSystemBind(trustStore.toString(), "/etc/kafka/tls/truststore.p12", BindMode.READ_ONLY)
+                .withEnv("KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS", if (kafka.kerberos.enabled) "broker1.example.com:9092" else "kafka:9093")
+                .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL", if (kafka.kerberos.enabled) "SASL_SSL" else "SSL")
+                .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION", "/etc/kafka/tls/truststore.p12")
+                .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_PASSWORD", tlsMaterial.trustStorePassword)
+                .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_TYPE", "PKCS12")
+                .withEnv("KAFKA_CLUSTERS_0_PROPERTIES_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM", "")
         }
 
         return BigDataServiceContainer(BigDataService.KAFKA_UI, attachLogs("kafka-ui", container)) {
@@ -629,6 +691,35 @@ internal class BigDataContainerFactory(
         return configuredHostPort
     }
 
+    private fun configureKafkaBrokerTls(
+        container: GenericContainer<*>,
+        kafka: KafkaOptions,
+        securityProtocol: String,
+    ): Map<String, String> {
+        val keyStore = tlsMaterial.keyStore(
+            name = "kafka",
+            domain = kafka.tls.domain,
+            sanDomains = listOf("kafka", "broker1.example.com"),
+        )
+        container
+            .withFileSystemBind(keyStore.path.toString(), "/etc/kafka/tls/kafka.keystore.p12", BindMode.READ_ONLY)
+            .withFileSystemBind(tlsMaterial.trustStorePath.toString(), "/etc/kafka/tls/kafka.truststore.p12", BindMode.READ_ONLY)
+            .withEnv("KAFKA_SSL_KEYSTORE_LOCATION", "/etc/kafka/tls/kafka.keystore.p12")
+            .withEnv("KAFKA_SSL_KEYSTORE_PASSWORD", keyStore.password)
+            .withEnv("KAFKA_SSL_KEYSTORE_TYPE", keyStore.type)
+            .withEnv("KAFKA_SSL_KEY_PASSWORD", keyStore.password)
+            .withEnv("KAFKA_SSL_TRUSTSTORE_LOCATION", "/etc/kafka/tls/kafka.truststore.p12")
+            .withEnv("KAFKA_SSL_TRUSTSTORE_PASSWORD", tlsMaterial.trustStorePassword)
+            .withEnv("KAFKA_SSL_TRUSTSTORE_TYPE", "PKCS12")
+
+        return mapOf(
+            "security.protocol" to securityProtocol,
+            "ssl.truststore.location" to tlsMaterial.trustStorePath.toString(),
+            "ssl.truststore.password" to tlsMaterial.trustStorePassword,
+            "ssl.truststore.type" to "PKCS12",
+        ) + tlsMaterial.properties()
+    }
+
     private data class HttpTlsEndpoint(
         val host: String? = null,
         val port: Int? = null,
@@ -758,11 +849,15 @@ internal class BigDataContainerFactory(
             emptyMap()
         }
 
-    private fun kafkaClientKerberosProperties(service: KerberosAuthOptions, client: KerberosOptions): Map<String, String> =
+    private fun kafkaClientKerberosProperties(
+        service: KerberosAuthOptions,
+        client: KerberosOptions,
+        tlsEnabled: Boolean = false,
+    ): Map<String, String> =
         if (service.enabled) {
             val clientKeytab = localKerberosPath("/kerby/keytabs/client.keytab")
             mapOf(
-                "security.protocol" to "SASL_PLAINTEXT",
+                "security.protocol" to if (tlsEnabled) "SASL_SSL" else "SASL_PLAINTEXT",
                 "sasl.mechanism" to "GSSAPI",
                 "sasl.kerberos.service.name" to service.servicePrincipal.substringBefore("/"),
                 "sasl.jaas.config" to inlineJaas(client.clientPrincipal, clientKeytab),

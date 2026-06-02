@@ -88,6 +88,7 @@ enum class HiveMetastoreDistribution {
 data class KafkaOptions(
     val enabled: Boolean = false,
     val image: String = "apache/kafka:4.1.2",
+    val tls: HttpTlsOptions = HttpTlsOptions(),
     val schemaRegistryEnabled: Boolean = false,
     val schemaRegistryImage: String = "confluentinc/cp-schema-registry:7.8.0",
     val schemaRegistryTls: HttpTlsOptions = HttpTlsOptions(),
