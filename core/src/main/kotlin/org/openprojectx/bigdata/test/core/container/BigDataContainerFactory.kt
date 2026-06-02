@@ -199,9 +199,10 @@ internal class BigDataContainerFactory(
         val tlsProperties = if (hive.tls.enabled) configureHiveMetastoreTls(container, hive.tls) else emptyMap()
         configureHiveDockerObjectStores(container)
         if (hive.extraConfiguration.isNotEmpty() || hive.kerberos.enabled || hive.tls.enabled) {
-            container
-                .withEnv("HIVE_CUSTOM_CONF_DIR", "/bigdata-test/hive-conf")
-                .withFileSystemBind(openSourceHiveConfigurationDirectory().toString(), "/bigdata-test/hive-conf", BindMode.READ_ONLY)
+            container.withEnv("HIVE_CUSTOM_CONF_DIR", "/bigdata-test/hive-conf")
+            openSourceHiveConfigurationFiles().forEach { (fileName, content) ->
+                container.withCopyToContainer(Transferable.of(content), "/bigdata-test/hive-conf/$fileName")
+            }
         }
 
         return BigDataServiceContainer(BigDataService.HIVE_METASTORE, attachLogs("hive-metastore", container)) {
@@ -591,9 +592,8 @@ internal class BigDataContainerFactory(
         }
     }
 
-    private fun openSourceHiveConfigurationDirectory(): Path {
+    private fun openSourceHiveConfigurationFiles(): Map<String, String> {
         val hive = options.hiveMetastore
-        val dir = Files.createTempDirectory("bigdata-test-hive-conf-")
         val metastoreProperties = linkedMapOf(
             "hive.metastore.warehouse.dir" to hive.warehouseDir,
             "javax.jdo.option.ConnectionURL" to "jdbc:postgresql://hive-metastore-postgres:5432/${hive.databaseName}",
@@ -615,28 +615,28 @@ internal class BigDataContainerFactory(
         metastoreProperties += hive.extraConfiguration
         val hadoopProperties = hiveMetastoreObjectStoreConfiguration()
 
-        writeConfigurationXml(dir.resolve("hive-site.xml"), metastoreProperties + hadoopProperties)
-        writeConfigurationXml(dir.resolve("metastore-site.xml"), metastoreProperties + hadoopProperties)
-        writeConfigurationXml(dir.resolve("core-site.xml"), hadoopProperties)
-        return dir
+        return mapOf(
+            "hive-site.xml" to configurationXml(metastoreProperties + hadoopProperties),
+            "metastore-site.xml" to configurationXml(metastoreProperties + hadoopProperties),
+            "core-site.xml" to configurationXml(hadoopProperties),
+        )
     }
 
     private fun writeConfigurationXml(path: Path, properties: Map<String, String>) {
-        Files.writeString(
-            path,
-            buildString {
-                appendLine("<configuration>")
-                properties.forEach { (key, value) ->
-                    appendLine("  <property>")
-                    appendLine("    <name>${xmlEscape(key)}</name>")
-                    appendLine("    <value>${xmlEscape(value)}</value>")
-                    appendLine("  </property>")
-                }
-                appendLine("</configuration>")
-            },
-            StandardCharsets.UTF_8,
-        )
+        Files.writeString(path, configurationXml(properties), StandardCharsets.UTF_8)
     }
+
+    private fun configurationXml(properties: Map<String, String>): String =
+        buildString {
+            appendLine("<configuration>")
+            properties.forEach { (key, value) ->
+                appendLine("  <property>")
+                appendLine("    <name>${xmlEscape(key)}</name>")
+                appendLine("    <value>${xmlEscape(value)}</value>")
+                appendLine("  </property>")
+            }
+            appendLine("</configuration>")
+        }
 
     private fun httpTlsEndpoint(
         name: String,
@@ -744,7 +744,7 @@ internal class BigDataContainerFactory(
             sanDomains = listOf("hive-metastore", "hive-metastore.example.com"),
         )
         val keyStorePath = "/bigdata-test/tls/hive-metastore.p12"
-        container.withFileSystemBind(keyStore.path.toString(), keyStorePath, BindMode.READ_ONLY)
+        container.withCopyToContainer(Transferable.of(Files.readAllBytes(keyStore.path)), keyStorePath)
         if (options.hiveMetastore.distribution == HiveMetastoreDistribution.CLOUDERA) {
             container.withEnv(
                 "HMS_EXTRA_CONF",
