@@ -73,6 +73,36 @@ The `extensions` module keeps Hadoop, Kafka, Avro, Schema Registry, and serializ
 
 If an application needs to force its own runtime versions, use normal Gradle dependency constraints, platforms, or exclusions in the consuming build. Future extension modules can split these integrations further by feature so users can depend only on the extension families they need.
 
+== Publishing Local Snapshots
+
+Publish all snapshot artifacts to Maven local when another local project needs to consume the current checkout:
+
+[source,bash]
+----
+GRADLE_USER_HOME=/data/.gradle ./gradlew publishToMavenLocal
+----
+
+Publish only selected modules when you do not need the full repository:
+
+[source,bash]
+----
+GRADLE_USER_HOME=/data/.gradle ./gradlew :core:publishToMavenLocal
+GRADLE_USER_HOME=/data/.gradle ./gradlew :junit5:publishToMavenLocal
+GRADLE_USER_HOME=/data/.gradle ./gradlew :extensions:publishToMavenLocal
+----
+
+The consuming build must include `mavenLocal()` before remote repositories if it should prefer the local snapshot:
+
+[source,kotlin]
+----
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+----
+
+Use the current project version from `gradle.properties` or the root build. For example, if this checkout is `0.1.1-SNAPSHOT`, consume `org.openprojectx.bigdata.test:core:0.1.1-SNAPSHOT`, `org.openprojectx.bigdata.test:junit5:0.1.1-SNAPSHOT`, or `org.openprojectx.bigdata.test:extensions:0.1.1-SNAPSHOT`.
+
 == Programmatic Usage
 
 Use `BigDataTestKit.builder()` when you want direct lifecycle control.
@@ -1103,6 +1133,36 @@ The aggregate task runs these cells:
 The Kerberos axis currently enables the shared KDC and Kafka Kerberos path used by the Spark Kafka source. The HMS axis switches between the open-source Hive 3 HMS image and the Cloudera HMS image for Apache Spark/Hadoop dependencies. Cloudera Spark/Hadoop dependencies always run with Cloudera HMS because that Hive client calls HMS Thrift APIs, such as `get_database_req`, that the open-source Hive 3.1.3 HMS server does not implement. The dependency axis switches the test JVM runtime classpath; it is intentionally implemented in Gradle rather than TOML.
 
 `sparkClouderaDepsApacheHmsTest` and `sparkClouderaDepsApacheHmsKerberosTest` are compatibility task names only; both use Cloudera HMS.
+
+To inspect the resolved dependency tree for each Spark dependency line, use Gradle's `dependencies` task with the resolvable classpath configurations from `example/spark/build.gradle.kts`:
+
+[source,bash]
+----
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:dependencies \
+  --configuration apacheSparkRuntimeClasspath
+
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:dependencies \
+  --configuration clouderaSparkRuntimeClasspath
+----
+
+Use `dependencyInsight` when checking why a specific module or version is present:
+
+[source,bash]
+----
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:dependencyInsight \
+  --configuration apacheSparkRuntimeClasspath \
+  --dependency org.apache.spark:spark-sql_2.12
+
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:dependencyInsight \
+  --configuration clouderaSparkRuntimeClasspath \
+  --dependency org.apache.hadoop:hadoop-common
+
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:dependencyInsight \
+  --configuration clouderaSparkRuntimeClasspath \
+  --dependency org.apache.iceberg
+----
+
+`testRuntimeClasspath` is not the right configuration for comparing the matrix lines because the Spark matrix overrides each test task's runtime classpath. Use `apacheSparkRuntimeClasspath` for the Apache Spark/Hadoop line and `clouderaSparkRuntimeClasspath` for the Cloudera line.
 
 Legacy HMS-only task aliases are still present:
 
