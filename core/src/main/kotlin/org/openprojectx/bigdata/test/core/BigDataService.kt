@@ -22,7 +22,13 @@ enum class BigDataService(
     ),
     HIVE_METASTORE(
         defaultPorts = mapOf("thrift" to 9083),
-        endpointProperties = setOf("hive.metastore.uris", "spring.bigdata.test.hive-metastore.thrift-uri"),
+        endpointProperties = setOf(
+            "hive.metastore.uris",
+            "spring.bigdata.test.hive-metastore.thrift-uri",
+            "hive.metastore.use.SSL",
+            "hive.metastore.truststore.path",
+            "hive.metastore.truststore.password",
+        ),
     ),
     KAFKA(
         defaultPorts = mapOf("bootstrap" to 9092),

@@ -9,3 +9,7 @@ kafka = 19092
 [kafkaTls]
 enabled = true
 domain = "localhost"
+
+[hiveMetastoreTls]
+enabled = true
+domain = "localhost"

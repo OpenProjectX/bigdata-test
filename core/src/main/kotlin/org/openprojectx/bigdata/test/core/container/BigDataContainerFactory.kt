@@ -189,14 +189,16 @@ internal class BigDataContainerFactory(
             .withPostgres("hive-metastore-postgres", 5432, hive.databaseName, hive.databaseUser, hive.databasePassword)
             .withWarehousePath(hive.warehouseDir)
         container.withServicePort(9083, options.portBindings.hostPort(9083, options.portBindings.hiveMetastore))
+        container.waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
         if (hive.kerberos.enabled) {
             mountKerberos(container)
             container
                 .withEnv("KRB5_CONFIG", "/kerby/client/krb5.conf")
                 .withEnv("SERVICE_OPTS", "-Djava.security.krb5.conf=/kerby/client/krb5.conf")
         }
+        val tlsProperties = if (hive.tls.enabled) configureHiveMetastoreTls(container, hive.tls) else emptyMap()
         configureHiveDockerObjectStores(container)
-        if (hive.extraConfiguration.isNotEmpty() || hive.kerberos.enabled) {
+        if (hive.extraConfiguration.isNotEmpty() || hive.kerberos.enabled || hive.tls.enabled) {
             container
                 .withEnv("HIVE_CUSTOM_CONF_DIR", "/bigdata-test/hive-conf")
                 .withFileSystemBind(openSourceHiveConfigurationDirectory().toString(), "/bigdata-test/hive-conf", BindMode.READ_ONLY)
@@ -211,7 +213,7 @@ internal class BigDataContainerFactory(
                 properties = mapOf(
                     "hive.metastore.uris" to thriftUri,
                     "spring.bigdata.test.hive-metastore.thrift-uri" to thriftUri,
-                ) + kerberosProperties("hive.metastore", hive.kerberos),
+                ) + tlsProperties + kerberosProperties("hive.metastore", hive.kerberos),
             )
         }
     }
@@ -233,6 +235,7 @@ internal class BigDataContainerFactory(
                 .withEnv("HMS_CONF_HIVE_METASTORE_KERBEROS_KEYTAB_FILE", hive.kerberos.keytabPath)
                 .withEnv("HMS_CONF_HADOOP_SECURITY_AUTHENTICATION", "kerberos")
         }
+        val tlsProperties = if (hive.tls.enabled) configureHiveMetastoreTls(container, hive.tls) else emptyMap()
 
         hiveMetastoreObjectStoreConfiguration().forEach { (key, value) ->
             container.withEnv("HMS_CONF_${encodeConfigKey(key)}", value)
@@ -250,7 +253,7 @@ internal class BigDataContainerFactory(
                 properties = mapOf(
                     "hive.metastore.uris" to thriftUri,
                     "spring.bigdata.test.hive-metastore.thrift-uri" to thriftUri,
-                ) + kerberosProperties("hive.metastore", hive.kerberos),
+                ) + tlsProperties + kerberosProperties("hive.metastore", hive.kerberos),
             )
         }
     }
@@ -606,6 +609,9 @@ internal class BigDataContainerFactory(
                 "hadoop.security.authentication" to "kerberos",
             )
         }
+        if (hive.tls.enabled) {
+            metastoreProperties += hiveMetastoreServerTlsProperties("/bigdata-test/tls/hive-metastore.p12")
+        }
         metastoreProperties += hive.extraConfiguration
         val hadoopProperties = hiveMetastoreObjectStoreConfiguration()
 
@@ -727,6 +733,39 @@ internal class BigDataContainerFactory(
             "ssl.truststore.type" to "PKCS12",
         ) + tlsMaterial.properties()
     }
+
+    private fun configureHiveMetastoreTls(
+        container: GenericContainer<*>,
+        tls: HttpTlsOptions,
+    ): Map<String, String> {
+        val keyStore = tlsMaterial.keyStore(
+            name = "hive-metastore",
+            domain = tls.domain,
+            sanDomains = listOf("hive-metastore", "hive-metastore.example.com"),
+        )
+        val keyStorePath = "/bigdata-test/tls/hive-metastore.p12"
+        container.withFileSystemBind(keyStore.path.toString(), keyStorePath, BindMode.READ_ONLY)
+        if (options.hiveMetastore.distribution == HiveMetastoreDistribution.CLOUDERA) {
+            container.withEnv(
+                "HMS_EXTRA_CONF",
+                hiveMetastoreServerTlsProperties(keyStorePath)
+                    .map { (key, value) -> "$key=$value" }
+                    .joinToString("\n"),
+            )
+        }
+        return mapOf(
+            "hive.metastore.use.SSL" to "true",
+            "hive.metastore.truststore.path" to tlsMaterial.trustStorePath.toString(),
+            "hive.metastore.truststore.password" to tlsMaterial.trustStorePassword,
+        ) + tlsMaterial.properties()
+    }
+
+    private fun hiveMetastoreServerTlsProperties(keyStorePath: String): Map<String, String> =
+        mapOf(
+            "hive.metastore.use.SSL" to "true",
+            "hive.metastore.keystore.path" to keyStorePath,
+            "hive.metastore.keystore.password" to tlsMaterial.trustStorePassword,
+        )
 
     private data class HttpTlsEndpoint(
         val host: String? = null,

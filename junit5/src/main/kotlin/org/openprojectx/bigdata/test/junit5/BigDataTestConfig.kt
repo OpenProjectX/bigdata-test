@@ -9,6 +9,7 @@ internal data class BigDataTestConfig(
     val services: BigDataTestServiceConfig = BigDataTestServiceConfig(),
     val tls: BigDataTestTlsConfig = BigDataTestTlsConfig(),
     val hdfsWebTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
+    val hiveMetastoreTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val kafkaTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val schemaRegistryTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val kafkaUiTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
@@ -23,6 +24,7 @@ internal data class BigDataTestConfig(
             services = services.merge(override.services),
             tls = tls.merge(override.tls),
             hdfsWebTls = hdfsWebTls.merge(override.hdfsWebTls),
+            hiveMetastoreTls = hiveMetastoreTls.merge(override.hiveMetastoreTls),
             kafkaTls = kafkaTls.merge(override.kafkaTls),
             schemaRegistryTls = schemaRegistryTls.merge(override.schemaRegistryTls),
             kafkaUiTls = kafkaUiTls.merge(override.kafkaUiTls),
@@ -188,6 +190,7 @@ internal class BigDataTestConfigLoader(
         val services = tables["services"].orEmpty()
         val tls = tables["tls"].orEmpty()
         val hdfsWebTls = tables["hdfsWebTls"].orEmpty()
+        val hiveMetastoreTls = tables["hiveMetastoreTls"].orEmpty()
         val kafkaTls = tables["kafkaTls"].orEmpty()
         val schemaRegistryTls = tables["schemaRegistryTls"].orEmpty()
         val kafkaUiTls = tables["kafkaUiTls"].orEmpty()
@@ -232,6 +235,7 @@ internal class BigDataTestConfigLoader(
                 haproxyImage = tls.string("haproxyImage"),
             ),
             hdfsWebTls = httpTls(hdfsWebTls),
+            hiveMetastoreTls = httpTls(hiveMetastoreTls),
             kafkaTls = httpTls(kafkaTls),
             schemaRegistryTls = httpTls(schemaRegistryTls),
             kafkaUiTls = httpTls(kafkaUiTls),
@@ -279,6 +283,7 @@ internal class BigDataTestConfigLoader(
             "services",
             "tls",
             "hdfsWebTls",
+            "hiveMetastoreTls",
             "kafkaTls",
             "schemaRegistryTls",
             "kafkaUiTls",

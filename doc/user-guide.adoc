@@ -286,6 +286,10 @@ domain = "kafka-ui.local"
 enabled = true
 domain = "localhost"
 
+[hiveMetastoreTls]
+enabled = true
+domain = "localhost"
+
 [hdfsWebTls]
 enabled = true
 domain = "hdfs.local"
@@ -313,7 +317,7 @@ schemaRegistryTls = 8443
 
 Available TLS port fields are `hdfsWebTls`, `schemaRegistryTls`, `kafkaUiTls`, `localStackS3Tls`, and `fakeGcsTls`.
 
-Non-HTTP services use their native TLS implementation rather than HAProxy to avoid protocol compatibility issues. Kafka TLS is native broker TLS because Kafka clients depend on broker metadata and advertised listeners.
+Non-HTTP services use their native TLS implementation rather than HAProxy to avoid protocol compatibility issues. Kafka TLS is native broker TLS because Kafka clients depend on broker metadata and advertised listeners. Hive Metastore TLS is native Thrift TLS on the normal metastore port.
 
 Kafka TLS can be enabled from the annotation or TOML:
 
@@ -328,6 +332,31 @@ Kafka TLS can be enabled from the annotation or TOML:
 enabled = true
 domain = "localhost"
 ----
+
+Hive Metastore TLS can be enabled for either `hiveMetastore` or `clouderaHms`:
+
+[source,kotlin]
+----
+@BigDataTest(hiveMetastore = true, hiveMetastoreTls = true)
+----
+
+[source,toml]
+----
+[services]
+hiveMetastore = true
+
+[hiveMetastoreTls]
+enabled = true
+domain = "localhost"
+----
+
+The HMS endpoint keeps the normal `thrift://host:port` URI. Hive clients switch to TLS through endpoint properties:
+
+* `hive.metastore.use.SSL=true`
+* `hive.metastore.truststore.path`
+* `hive.metastore.truststore.password`
+
+The JUnit extension also installs the generated truststore as JVM TLS properties for clients that use JSSE defaults.
 
 The Kafka endpoint then exposes `security.protocol=SSL` for plaintext Kafka or `security.protocol=SASL_SSL` when Kafka Kerberos is also enabled. It also exposes `ssl.truststore.location`, `ssl.truststore.password`, and `ssl.truststore.type` for Kafka clients.
 
@@ -421,7 +450,7 @@ Each started service exposes a `BigDataEndpoint` with named ports and connection
 |`BigDataService.HIVE_METASTORE`
 |`thrift`
 |`9083`
-|`hive.metastore.uris`, `spring.bigdata.test.hive-metastore.thrift-uri`
+|`hive.metastore.uris`, `spring.bigdata.test.hive-metastore.thrift-uri`, `hive.metastore.use.SSL`, `hive.metastore.truststore.path`, `hive.metastore.truststore.password`
 
 |`BigDataService.KAFKA`
 |`bootstrap`

@@ -84,6 +84,7 @@ abstract class SparkBigDataScenario {
                 )
                 assertHiveMetastoreTable(
                     hiveMetastoreUri = context.environment.hiveMetastoreUri,
+                    hiveMetastoreTlsProperties = context.environment.hiveMetastoreTlsProperties,
                     database = "hms_demo_$runId",
                     table = "events_hms",
                 )
@@ -92,6 +93,7 @@ abstract class SparkBigDataScenario {
                 assertHiveExternalParquetTable(
                     spark = context.spark,
                     hiveMetastoreUri = context.environment.hiveMetastoreUri,
+                    hiveMetastoreTlsProperties = context.environment.hiveMetastoreTlsProperties,
                     database = "hive_s3_demo_$runId",
                     table = "events_parquet_s3",
                     location = "s3a://${context.environment.s3Bucket}/hive-parquet/events_parquet_s3",
@@ -102,6 +104,7 @@ abstract class SparkBigDataScenario {
                 assertHiveExternalParquetTable(
                     spark = context.spark,
                     hiveMetastoreUri = context.environment.hiveMetastoreUri,
+                    hiveMetastoreTlsProperties = context.environment.hiveMetastoreTlsProperties,
                     database = "hive_gcs_demo_$runId",
                     table = "events_parquet_gcs",
                     location = context.environment.gcsIcebergDataPath,
@@ -147,6 +150,11 @@ abstract class SparkBigDataScenario {
                 ?: kafka.properties["sasl.kerberos.service.name"],
             kafkaJaasConfig = kafka.properties["sasl.jaas.config"],
             kafkaSslProperties = kafka.properties.filterKeys { it.startsWith("ssl.") },
+            hiveMetastoreTlsProperties = hiveMetastore.properties.filterKeys {
+                it == "hive.metastore.use.SSL" ||
+                    it == "hive.metastore.truststore.path" ||
+                    it == "hive.metastore.truststore.password"
+            },
         )
     }
 
@@ -185,6 +193,7 @@ abstract class SparkBigDataScenario {
                 .config("spark.sql.warehouse.dir", "file:${Files.createTempDirectory("bigdata-test-spark-warehouse-")}")
                 .config("spark.sql.statistics.size.autoUpdate.enabled", "false")
                 .config("hive.metastore.uris", environment.hiveMetastoreUri)
+                .configureHiveMetastoreTls(environment)
                 .config("spark.hadoop.fs.defaultFS", environment.hdfsUri)
                 .config("spark.hadoop.hadoop.security.credential.provider.path", environment.s3CredentialProviderPath)
                 .config("spark.hadoop.fs.s3a.endpoint", environment.s3Endpoint)
@@ -227,6 +236,16 @@ abstract class SparkBigDataScenario {
         }
         environment.kafkaJaasConfig?.let {
             config("spark.hadoop.bigdata.test.kafka.jaas.config", it)
+        }
+        return this
+    }
+
+    private fun SparkSession.Builder.configureHiveMetastoreTls(
+        environment: SparkScenarioEnvironment,
+    ): SparkSession.Builder {
+        environment.hiveMetastoreTlsProperties.forEach { (key, value) ->
+            config(key, value)
+            config("spark.hadoop.$key", value)
         }
         return this
     }
@@ -298,9 +317,13 @@ abstract class SparkBigDataScenario {
         check(count == 2L) { "Expected two Iceberg rows in $identifier" }
     }
 
-    protected fun assertHiveMetastoreTable(hiveMetastoreUri: String, database: String, table: String) {
-        val conf = HiveConf()
-        conf.setVar(HiveConf.ConfVars.METASTOREURIS, hiveMetastoreUri)
+    protected fun assertHiveMetastoreTable(
+        hiveMetastoreUri: String,
+        hiveMetastoreTlsProperties: Map<String, String>,
+        database: String,
+        table: String,
+    ) {
+        val conf = hiveMetastoreConf(hiveMetastoreUri, hiveMetastoreTlsProperties)
         val client = hiveMetastoreClient(conf)
         try {
             check(client.getAllDatabases().contains(database)) { "Expected HMS database $database" }
@@ -321,6 +344,7 @@ abstract class SparkBigDataScenario {
     protected fun assertHiveExternalParquetTable(
         spark: SparkSession,
         hiveMetastoreUri: String,
+        hiveMetastoreTlsProperties: Map<String, String>,
         database: String,
         table: String,
         location: String,
@@ -351,7 +375,7 @@ abstract class SparkBigDataScenario {
         val count = spark.table(identifier).where("storage = '$storageName'").count()
         check(count == 2L) { "Expected two Hive external Parquet rows in $identifier" }
         assertParquetFiles(spark, location)
-        assertHiveMetastoreExternalParquetTable(hiveMetastoreUri, database, table, location)
+        assertHiveMetastoreExternalParquetTable(hiveMetastoreUri, hiveMetastoreTlsProperties, database, table, location)
     }
 
     private fun assertParquetFiles(spark: SparkSession, location: String) {
@@ -363,12 +387,12 @@ abstract class SparkBigDataScenario {
 
     private fun assertHiveMetastoreExternalParquetTable(
         hiveMetastoreUri: String,
+        hiveMetastoreTlsProperties: Map<String, String>,
         database: String,
         table: String,
         location: String
     ) {
-        val conf = HiveConf()
-        conf.setVar(HiveConf.ConfVars.METASTOREURIS, hiveMetastoreUri)
+        val conf = hiveMetastoreConf(hiveMetastoreUri, hiveMetastoreTlsProperties)
         val client = hiveMetastoreClient(conf)
         try {
             val hmsTable = client.getTable(database, table)
@@ -394,6 +418,16 @@ abstract class SparkBigDataScenario {
             .firstOrNull()
             ?: error("No supported HiveMetaStoreClient constructor found")
         return constructor.newInstance(conf) as IMetaStoreClient
+    }
+
+    private fun hiveMetastoreConf(
+        hiveMetastoreUri: String,
+        hiveMetastoreTlsProperties: Map<String, String>,
+    ): HiveConf {
+        val conf = HiveConf()
+        conf.setVar(HiveConf.ConfVars.METASTOREURIS, hiveMetastoreUri)
+        hiveMetastoreTlsProperties.forEach { (key, value) -> conf.set(key, value) }
+        return conf
     }
 
     private fun icebergTableProperties(vararg properties: Pair<String, String?>): String {
@@ -437,4 +471,5 @@ data class SparkScenarioEnvironment(
     val kafkaKerberosServiceName: String?,
     val kafkaJaasConfig: String?,
     val kafkaSslProperties: Map<String, String>,
+    val hiveMetastoreTlsProperties: Map<String, String>,
 )

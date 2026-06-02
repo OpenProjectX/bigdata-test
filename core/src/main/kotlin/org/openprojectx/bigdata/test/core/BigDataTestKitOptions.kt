@@ -74,6 +74,7 @@ data class HiveMetastoreOptions(
     val databasePassword: String = "hive",
     val warehouseDir: String = "/user/hive/warehouse",
     val extraConfiguration: Map<String, String> = emptyMap(),
+    val tls: HttpTlsOptions = HttpTlsOptions(),
     val kerberos: KerberosAuthOptions = KerberosAuthOptions(
         servicePrincipal = "hive/hive-metastore.example.com@EXAMPLE.COM",
         keytabPath = "/kerby/keytabs/hive-metastore.keytab",

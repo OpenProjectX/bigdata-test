@@ -98,6 +98,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         val hiveMetastore = annotation.hiveMetastore || services.hiveMetastore == true
         val clouderaHms = annotation.clouderaHms || services.clouderaHms == true
         val hiveMetastoreKerberos = annotation.hiveMetastoreKerberos || services.hiveMetastoreKerberos == true
+        val hiveMetastoreTls = annotation.hiveMetastoreTls || config.hiveMetastoreTls.enabled == true
         val kafkaTls = annotation.kafkaTls || config.kafkaTls.enabled == true
         val kafka = annotation.kafka || services.kafka == true || kafkaTls
         val kafkaKerberos = annotation.kafkaKerberos || services.kafkaKerberos == true
@@ -108,6 +109,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         val fakeGcs = annotation.fakeGcs || services.fakeGcs == true
         val tlsEnabled = tls.enabled == true ||
             config.hdfsWebTls.enabled == true ||
+            hiveMetastoreTls ||
             kafkaTls ||
             config.schemaRegistryTls.enabled == true ||
             config.kafkaUiTls.enabled == true ||
@@ -153,7 +155,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         require(!(hiveMetastore && clouderaHms)) {
             "Use only one HMS implementation: hiveMetastore or clouderaHms"
         }
-        if (hiveMetastore || clouderaHms || hiveMetastoreKerberos) {
+        if (hiveMetastore || clouderaHms || hiveMetastoreKerberos || hiveMetastoreTls) {
             val distribution = if (clouderaHms) {
                 HiveMetastoreDistribution.CLOUDERA
             } else {
@@ -170,6 +172,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                             images.clouderaHms ?: "ghcr.io/openprojectx/cloudera-hms:0.1.16"
                     },
                     databaseImage = images.hiveMetastorePostgres ?: "postgres:16-alpine",
+                    tls = config.hiveMetastoreTls.toHttpTls("localhost").copy(enabled = hiveMetastoreTls),
                     kerberos = KerberosAuthOptions(
                         enabled = hiveMetastoreKerberos,
                         servicePrincipal = "hive/hive-metastore.example.com@EXAMPLE.COM",
