@@ -255,13 +255,61 @@ Container data-driven tests can be TOML-driven because service images, ports, Ke
 
 HTTP services can be exposed through an HAProxy HTTPS gateway. The service container still speaks its normal HTTP protocol internally; HAProxy listens on container port `443`, terminates TLS, and forwards to the service over the shared Docker network. This matches local environments where users normally expose one HTTPS endpoint and configure local DNS or `/etc/hosts` for the chosen domain.
 
-TLS certificates are generated in the JVM. No `openssl` binary is required. By default, `bigdata-test` generates a temporary root CA, service certificates, and a PKCS12 truststore. You can provide your own root CA certificate and key:
+TLS certificates are generated in the JVM. No `openssl` binary is required. By default, `bigdata-test` generates a temporary root CA, service certificates, and a PKCS12 truststore. The root CA signs the per-service certificates. The truststore contains the root CA, so clients trust any service certificate generated from that CA.
+
+==== Stable CA Files
+
+For a stable project CA, generate the CA once and keep both files. The test framework will load that CA and generate per-service leaf certificates from it:
+
+[source,kotlin]
+----
+BigDataTlsCertificates.ensureCertificateAuthority(
+    Path.of("build/tls/root-ca.crt"),
+    Path.of("build/tls/root-ca.key"),
+)
+----
+
+[source,java]
+----
+BigDataTlsCertificates.ensureCertificateAuthority(
+    Path.of("build/tls/root-ca.crt"),
+    Path.of("build/tls/root-ca.key")
+);
+----
+
+`ensureCertificateAuthority` creates both files if neither exists and reuses them if both exist. If only one file exists, it fails so the CA is not accidentally rotated. Use `generateCertificateAuthority(..., overwrite = true)` only when you intentionally want to replace the CA.
+
+The CA certificate is PEM. JVM clients normally trust certificates through a keystore/truststore, not directly from PEM. Generate a JVM-ready PKCS12 truststore from the CA when you want to use `javax.net.ssl.trustStore` yourself:
+
+[source,kotlin]
+----
+BigDataTlsCertificates.generateTrustStore(
+    certificatePath = Path.of("build/tls/root-ca.crt"),
+    trustStorePath = Path.of("build/tls/truststore.p12"),
+    password = "changeit",
+    overwrite = true,
+)
+----
+
+[source,java]
+----
+BigDataTlsCertificates.generateTrustStore(
+    Path.of("build/tls/root-ca.crt"),
+    Path.of("build/tls/truststore.p12"),
+    "changeit",
+    "bigdata-test-root-ca",
+    "PKCS12",
+    true
+);
+----
+
+Reference the generated CA from TOML. `trustStorePath` is the PKCS12 truststore that `bigdata-test` writes for the current run. It can be stable as a path, but the CA is only stable when `caCertPath` and `caKeyPath` are stable:
 
 [source,toml]
 ----
 [tls]
-caCertPath = "/path/to/root-ca.crt"
-caKeyPath = "/path/to/root-ca.key"
+caCertPath = "build/tls/root-ca.crt"
+caKeyPath = "build/tls/root-ca.key"
 trustStorePath = "build/bigdata-test-truststore.p12"
 trustStorePassword = "changeit"
 haproxyImage = "haproxy:3.0-alpine"
@@ -295,16 +343,96 @@ enabled = true
 domain = "hdfs.local"
 ----
 
+Do not commit the CA private key for a real shared environment. For local-only test certificates, keep it under a developer-controlled path such as `.bigdata-test/tls/root-ca.key` and add it to `.gitignore`. In CI, store the CA files as secrets or generate them before the test task and point TOML at the generated files.
+
 The HTTPS endpoint replaces the normal endpoint property for that service. For example, `aws.endpoint-url.s3` becomes `https://<domain>:<mapped-port>` when `localStackS3Tls.enabled=true`.
 
-Endpoint properties also include JVM truststore settings:
+==== JVM Truststore Handling
+
+Every TLS-enabled endpoint includes JVM truststore settings:
 
 * `javax.net.ssl.trustStore`
 * `javax.net.ssl.trustStorePassword`
 * `javax.net.ssl.trustStoreType`
 * `bigdata.test.tls.ca-cert`
 
-Use those properties for clients that build their own `SSLContext`, or pass them as JVM system properties for libraries that use the default JSSE truststore.
+With `@BigDataTest`, the JUnit extension applies those settings automatically before tests run:
+
+* saves the current `javax.net.ssl.trustStore`, `javax.net.ssl.trustStorePassword`, and `javax.net.ssl.trustStoreType` values;
+* sets them to the test truststore generated from `[tls]`;
+* installs a matching default `SSLContext`;
+* restores the previous JVM properties and default `SSLContext` after the test class.
+
+This means HTTP clients and libraries that use the default JSSE trust configuration can connect during the test without extra setup.
+
+With direct `BigDataTestKit.builder()` usage, the core module does not mutate global JVM properties. Read the endpoint properties and apply them yourself when the client needs JVM-default trust:
+
+[source,kotlin]
+----
+val endpoint = kit.endpoint(BigDataService.LOCALSTACK_S3)
+System.setProperty("javax.net.ssl.trustStore", endpoint.property("javax.net.ssl.trustStore"))
+System.setProperty("javax.net.ssl.trustStorePassword", endpoint.property("javax.net.ssl.trustStorePassword"))
+System.setProperty("javax.net.ssl.trustStoreType", endpoint.property("javax.net.ssl.trustStoreType"))
+----
+
+For a permanent test JVM setup, use a stable CA and stable truststore path in TOML. The JUnit extension will still set and restore the JVM properties around the test, but the truststore file and CA identity remain predictable:
+
+[source,toml]
+----
+[tls]
+caCertPath = ".bigdata-test/tls/root-ca.crt"
+caKeyPath = ".bigdata-test/tls/root-ca.key"
+trustStorePath = ".bigdata-test/tls/truststore.p12"
+trustStorePassword = "changeit"
+----
+
+If code runs outside the JUnit extension, pass the same truststore to the JVM:
+
+[source,bash]
+----
+./gradlew test \
+  -Djavax.net.ssl.trustStore=.bigdata-test/tls/truststore.p12 \
+  -Djavax.net.ssl.trustStorePassword=changeit \
+  -Djavax.net.ssl.trustStoreType=PKCS12
+----
+
+The truststore must exist before those JVM properties are used. `bigdata-test` writes it when the kit starts, so external clients usually need either the JUnit extension, a small setup step that calls `BigDataTlsCertificates.ensureCertificateAuthority(...)`, or a checked-in/generated truststore prepared before the external client starts.
+
+==== Importing the CA into a JDK
+
+Prefer a project-local PKCS12 truststore plus `javax.net.ssl.trustStore` for tests. Importing into a JDK modifies that JDK installation and usually requires write permission. Use it only for developer machines or controlled CI images.
+
+Manual `keytool` import:
+
+[source,bash]
+----
+keytool -importcert \
+  -alias bigdata-test-root-ca \
+  -file .bigdata-test/tls/root-ca.crt \
+  -keystore "$JAVA_HOME/lib/security/cacerts" \
+  -storepass changeit \
+  -noprompt
+----
+
+The API can do the same operation and creates a backup by default:
+
+[source,kotlin]
+----
+BigDataTlsCertificates.installCertificateAuthorityToJavaTrustStore(
+    javaHome = Path.of(System.getProperty("java.home")),
+    certificatePath = Path.of(".bigdata-test/tls/root-ca.crt"),
+)
+----
+
+[source,java]
+----
+BigDataTlsCertificates.installCertificateAuthorityToJavaTrustStore(
+    Path.of(System.getProperty("java.home")),
+    Path.of(".bigdata-test/tls/root-ca.crt")
+);
+----
+
+By default the API writes to `<javaHome>/lib/security/cacerts`, uses store password `changeit`, alias `bigdata-test-root-ca`, and writes a backup file next to `cacerts`. If the alias already exists, it fails unless `overwriteAlias=true`.
 
 TLS host ports are random by default even when `sameHostPorts=true`, because multiple enabled HTTP services cannot all bind localhost port `443`. Use explicit TOML port fields when a stable HTTPS port is required:
 

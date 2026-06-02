@@ -10,4 +10,7 @@ dependencies {
     api(libs.testcontainersPostgresql)
     api(libs.testcontainersKafka)
     api(libs.hiveDockerTestcontainers)
+    testImplementation(libs.junitJupiterApi)
+    testRuntimeOnly(libs.junitJupiterEngine)
+    testRuntimeOnly(libs.junitPlatformLauncher)
 }
