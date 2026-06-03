@@ -11,6 +11,11 @@ on:
         required: false
         default: ""
         type: string
+      skip_tests:
+        description: "Skip Docker verification and all test tasks, and run the release directly"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -27,6 +32,7 @@ jobs:
     env:
       GRADLE_OPTS: -Dorg.gradle.daemon=false
       EXTRA_GRADLE_ARGS: ${{ github.event.inputs.gradle_args || '' }}
+      SKIP_TESTS: ${{ github.event.inputs.skip_tests || 'false' }}
 
     steps:
       - name: Checkout
@@ -52,16 +58,18 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Verify Docker environment
+        if: env.SKIP_TESTS != 'true'
         run: |
           docker version
           docker info
 
       - name: Run Spark big data matrix tests
+        if: env.SKIP_TESTS != 'true'
         run: |
           ./gradlew --no-configuration-cache :example:spark:sparkBigDataMatrixTest --stacktrace --debug
 
       - name: Collect and print Spark diagnostics on failure
-        if: failure()
+        if: failure() && env.SKIP_TESTS != 'true'
         run: |
           set +e
           diagnostics_dir="build/github-diagnostics"
@@ -123,7 +131,7 @@ jobs:
           cp -a example/spark/build/reports/tests "${diagnostics_dir}/spark/test-reports" 2>/dev/null || true
 
       - name: Upload test reports and container logs
-        if: failure()
+        if: failure() && env.SKIP_TESTS != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: test-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
@@ -149,4 +157,8 @@ jobs:
           SIGNING_KEY_FILE: ${{ runner.temp }}/signing-key.asc
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
-          ./gradlew --no-configuration-cache release --stacktrace --info $EXTRA_GRADLE_ARGS
+          skip_test_args=""
+          if [ "$SKIP_TESTS" = "true" ]; then
+            skip_test_args="-x test -x sparkBigDataMatrixTest -x sparkApacheDepsApacheHmsTest -x sparkApacheDepsApacheHmsKerberosTest -x sparkApacheDepsClouderaHmsTest -x sparkApacheDepsClouderaHmsKerberosTest -x sparkClouderaDepsApacheHmsTest -x sparkClouderaDepsApacheHmsKerberosTest -x sparkClouderaDepsClouderaHmsTest -x sparkClouderaDepsClouderaHmsKerberosTest"
+          fi
+          ./gradlew --no-configuration-cache release --stacktrace --info $skip_test_args $EXTRA_GRADLE_ARGS
