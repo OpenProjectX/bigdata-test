@@ -82,7 +82,7 @@ internal class BigDataContainerFactory(
             .withNetworkAliases("kerby-kdc")
             .withServicePort(88, options.portBindings.hostPort(88, options.portBindings.kerberosKdc))
             .withEnv("KERBY_REALM", kerberos.realm)
-            .withEnv("KERBY_KDC_HOST", "kerby-kdc")
+            .withEnv("KERBY_KDC_HOST", "localhost")
             .withEnv("KERBY_KDC_BIND_HOST", "0.0.0.0")
             .withEnv("KERBY_CLIENT_KDC_HOST", "kerby-kdc")
             .withEnv("KERBY_CLIENT_DOMAIN", kerberos.domain)
