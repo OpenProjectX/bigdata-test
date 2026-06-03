@@ -20,6 +20,10 @@ data class KerberosOptions(
     val clientPrincipal: String = "app_user@EXAMPLE.COM",
     val clientPassword: String = "app-user-secret",
     val users: List<KerberosUserOptions> = emptyList(),
+    val startupTimeoutSeconds: Int = 120,
+    val materialTimeoutSeconds: Int = 30,
+    val adminAttempts: Int = 30,
+    val adminRetryDelaySeconds: Int = 1,
 )
 
 data class KerberosUserOptions(

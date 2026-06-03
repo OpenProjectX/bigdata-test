@@ -706,6 +706,34 @@ class MyKerberosIntegrationTest
 
 For host-side Kafka Kerberos clients, prefer an explicit fixed `kafkaPort`. Kafka must advertise the same host and port that the client uses during the SASL/GSSAPI exchange; with a random host port the framework cannot know that advertised port before the broker starts. When Schema Registry is enabled with Kafka Kerberos, it uses Kafka's internal plaintext listener while host clients keep using the Kerberos listener.
 
+Kerberos bootstrap timing is configurable from TOML. The defaults are intentionally modest for local runs; CI can use a longer window when KDC admin startup is slower:
+
+[source,toml]
+----
+[kerberos]
+startupTimeoutSeconds = 180
+materialTimeoutSeconds = 120
+adminAttempts = 120
+adminRetryDelaySeconds = 1
+----
+
+`startupTimeoutSeconds` controls how long Testcontainers waits for the KDC image to print its ready log. `materialTimeoutSeconds` controls the post-start wait for generated keytabs and client config to be readable. `adminAttempts` and `adminRetryDelaySeconds` are passed to the Kerby image as `KERBY_KADMIN_ATTEMPTS` and `KERBY_KADMIN_RETRY_DELAY_SECONDS`.
+
+Programmatic setup exposes the same options:
+
+[source,kotlin]
+----
+BigDataTestKit.builder()
+    .withKerberos(
+        KerberosOptions(
+            enabled = true,
+            startupTimeoutSeconds = 180,
+            materialTimeoutSeconds = 120,
+            adminAttempts = 120,
+        ),
+    )
+----
+
 Default principals are defined in `BigDataTestKitOptions`:
 
 [cols="1,2",options="header"]

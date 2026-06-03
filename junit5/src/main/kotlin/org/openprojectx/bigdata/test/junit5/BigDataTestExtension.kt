@@ -50,6 +50,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         val config = BigDataTestConfigLoader(context.requiredTestClass.classLoader).load(configLocations)
         val images = config.images
         val services = config.services
+        val kerberosConfig = config.kerberos
         val ports = config.ports
         val tls = config.tls
         val containerLogs = config.containerLogs
@@ -129,12 +130,17 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         }
 
         if (kerberos || hdfsKerberos || hiveMetastoreKerberos || kafkaKerberos || kafkaUiKerberos) {
+            val defaultKerberos = KerberosOptions()
             builder.withKerberos(
                 KerberosOptions(
                     enabled = true,
                     image = images.kerberos ?: "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest",
                     clientPrincipal = annotation.kerberosClientPrincipal,
                     clientPassword = annotation.kerberosClientPassword,
+                    startupTimeoutSeconds = kerberosConfig.startupTimeoutSeconds ?: defaultKerberos.startupTimeoutSeconds,
+                    materialTimeoutSeconds = kerberosConfig.materialTimeoutSeconds ?: defaultKerberos.materialTimeoutSeconds,
+                    adminAttempts = kerberosConfig.adminAttempts ?: defaultKerberos.adminAttempts,
+                    adminRetryDelaySeconds = kerberosConfig.adminRetryDelaySeconds ?: defaultKerberos.adminRetryDelaySeconds,
                 ),
             )
         }

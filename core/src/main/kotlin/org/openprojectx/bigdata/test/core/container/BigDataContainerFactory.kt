@@ -68,6 +68,7 @@ internal class BigDataContainerFactory(
 
     private fun kerberos(): BigDataServiceContainer {
         val kerberos = options.kerberos
+        validateKerberosTiming(kerberos)
         val servicePrincipals = buildList {
             addUserKeytab(kerberos.clientPrincipal, "/kerby/keytabs/client.keytab")
             kerberos.users.forEach { addUserKeytab(it.principal, it.keytabPath) }
@@ -91,7 +92,12 @@ internal class BigDataContainerFactory(
             .withEnv("KERBY_PA_ENC_TIMESTAMP_REQUIRED", "false")
             .withEnv("KERBY_CLIENT_PRINCIPAL", kerberos.clientPrincipal)
             .withEnv("KERBY_CLIENT_PASSWORD", kerberos.clientPassword)
-            .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)))
+            .withEnv("KERBY_KADMIN_ATTEMPTS", kerberos.adminAttempts.toString())
+            .withEnv("KERBY_KADMIN_RETRY_DELAY_SECONDS", kerberos.adminRetryDelaySeconds.toString())
+            .waitingFor(
+                Wait.forLogMessage(".*Kerby KDC container ready\\..*", 1)
+                    .withStartupTimeout(Duration.ofSeconds(kerberos.startupTimeoutSeconds.toLong())),
+            )
         if (servicePrincipals.isNotEmpty()) {
             container.withEnv("KERBY_EXTRA_SERVICE_PRINCIPALS", servicePrincipals.joinToString(","))
         }
@@ -916,7 +922,7 @@ internal class BigDataContainerFactory(
 
     private fun waitForKerberosFiles(container: GenericContainer<*>, containerPaths: Set<String>) {
         val sources = containerPaths.map { it.replace("/kerby/", "/var/lib/kerby/") }
-        val deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos()
+        val deadline = System.nanoTime() + Duration.ofSeconds(options.kerberos.materialTimeoutSeconds.toLong()).toNanos()
         while (true) {
             if (!container.isRunning) {
                 error(
@@ -943,6 +949,13 @@ internal class BigDataContainerFactory(
             }
             Thread.sleep(250)
         }
+    }
+
+    private fun validateKerberosTiming(kerberos: KerberosOptions) {
+        require(kerberos.startupTimeoutSeconds > 0) { "Kerberos startupTimeoutSeconds must be positive" }
+        require(kerberos.materialTimeoutSeconds > 0) { "Kerberos materialTimeoutSeconds must be positive" }
+        require(kerberos.adminAttempts > 0) { "Kerberos adminAttempts must be positive" }
+        require(kerberos.adminRetryDelaySeconds > 0) { "Kerberos adminRetryDelaySeconds must be positive" }
     }
 
     private fun copyKerberosFileToContainer(container: GenericContainer<*>, containerPath: String) {

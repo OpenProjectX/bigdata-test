@@ -7,6 +7,7 @@ import org.openprojectx.bigdata.test.core.ContainerLogMode
 internal data class BigDataTestConfig(
     val images: BigDataTestImageConfig = BigDataTestImageConfig(),
     val services: BigDataTestServiceConfig = BigDataTestServiceConfig(),
+    val kerberos: BigDataTestKerberosConfig = BigDataTestKerberosConfig(),
     val tls: BigDataTestTlsConfig = BigDataTestTlsConfig(),
     val hdfsWebTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val hiveMetastoreTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
@@ -22,6 +23,7 @@ internal data class BigDataTestConfig(
         BigDataTestConfig(
             images = images.merge(override.images),
             services = services.merge(override.services),
+            kerberos = kerberos.merge(override.kerberos),
             tls = tls.merge(override.tls),
             hdfsWebTls = hdfsWebTls.merge(override.hdfsWebTls),
             hiveMetastoreTls = hiveMetastoreTls.merge(override.hiveMetastoreTls),
@@ -32,6 +34,21 @@ internal data class BigDataTestConfig(
             fakeGcsTls = fakeGcsTls.merge(override.fakeGcsTls),
             ports = ports.merge(override.ports),
             containerLogs = containerLogs.merge(override.containerLogs),
+        )
+}
+
+internal data class BigDataTestKerberosConfig(
+    val startupTimeoutSeconds: Int? = null,
+    val materialTimeoutSeconds: Int? = null,
+    val adminAttempts: Int? = null,
+    val adminRetryDelaySeconds: Int? = null,
+) {
+    fun merge(override: BigDataTestKerberosConfig): BigDataTestKerberosConfig =
+        BigDataTestKerberosConfig(
+            startupTimeoutSeconds = override.startupTimeoutSeconds ?: startupTimeoutSeconds,
+            materialTimeoutSeconds = override.materialTimeoutSeconds ?: materialTimeoutSeconds,
+            adminAttempts = override.adminAttempts ?: adminAttempts,
+            adminRetryDelaySeconds = override.adminRetryDelaySeconds ?: adminRetryDelaySeconds,
         )
 }
 
@@ -188,6 +205,7 @@ internal class BigDataTestConfigLoader(
         val tables = parseTables(readText(location))
         val images = tables["images"].orEmpty()
         val services = tables["services"].orEmpty()
+        val kerberos = tables["kerberos"].orEmpty()
         val tls = tables["tls"].orEmpty()
         val hdfsWebTls = tables["hdfsWebTls"].orEmpty()
         val hiveMetastoreTls = tables["hiveMetastoreTls"].orEmpty()
@@ -225,6 +243,12 @@ internal class BigDataTestConfigLoader(
                 kafkaUiKerberos = services.boolean("kafkaUiKerberos"),
                 localStackS3 = services.boolean("localStackS3"),
                 fakeGcs = services.boolean("fakeGcs"),
+            ),
+            kerberos = BigDataTestKerberosConfig(
+                startupTimeoutSeconds = kerberos.int("startupTimeoutSeconds"),
+                materialTimeoutSeconds = kerberos.int("materialTimeoutSeconds"),
+                adminAttempts = kerberos.int("adminAttempts"),
+                adminRetryDelaySeconds = kerberos.int("adminRetryDelaySeconds"),
             ),
             tls = BigDataTestTlsConfig(
                 enabled = tls.boolean("enabled"),
@@ -281,6 +305,7 @@ internal class BigDataTestConfigLoader(
         val knownTables = setOf(
             "images",
             "services",
+            "kerberos",
             "tls",
             "hdfsWebTls",
             "hiveMetastoreTls",
