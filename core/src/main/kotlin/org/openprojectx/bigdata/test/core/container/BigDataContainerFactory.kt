@@ -918,8 +918,24 @@ internal class BigDataContainerFactory(
         val sources = containerPaths.map { it.replace("/kerby/", "/var/lib/kerby/") }
         val deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos()
         while (true) {
+            if (!container.isRunning) {
+                error(
+                    "Kerberos KDC stopped before generating expected keytab files: " +
+                        "${sources.joinToString(", ")}\n${container.logs}",
+                )
+            }
             val missing = sources.filterNot { source ->
-                container.execInContainer("sh", "-lc", "test -s '$source'").exitCode == 0
+                try {
+                    container.execInContainer("sh", "-lc", "test -s '$source'").exitCode == 0
+                } catch (e: RuntimeException) {
+                    if (!container.isRunning) {
+                        error(
+                            "Kerberos KDC stopped before generating expected keytab files: " +
+                                "${sources.joinToString(", ")}\n${container.logs}",
+                        )
+                    }
+                    throw e
+                }
             }
             if (missing.isEmpty()) return
             if (System.nanoTime() >= deadline) {
