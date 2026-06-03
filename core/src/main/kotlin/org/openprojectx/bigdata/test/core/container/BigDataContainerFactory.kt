@@ -86,6 +86,7 @@ internal class BigDataContainerFactory(
             .withEnv("KERBY_KDC_BIND_HOST", "0.0.0.0")
             .withEnv("KERBY_CLIENT_KDC_HOST", "kerby-kdc")
             .withEnv("KERBY_CLIENT_DOMAIN", kerberos.domain)
+            .withEnv("JAVA_TOOL_OPTIONS", "-Djava.security.krb5.conf=/opt/kerby/conf/krb5.conf")
             .withEnv("KERBY_PREAUTH_REQUIRED", "false")
             .withEnv("KERBY_PA_ENC_TIMESTAMP_REQUIRED", "false")
             .withEnv("KERBY_CLIENT_PRINCIPAL", kerberos.clientPrincipal)
