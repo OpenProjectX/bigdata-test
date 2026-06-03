@@ -141,6 +141,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     materialTimeoutSeconds = kerberosConfig.materialTimeoutSeconds ?: defaultKerberos.materialTimeoutSeconds,
                     adminAttempts = kerberosConfig.adminAttempts ?: defaultKerberos.adminAttempts,
                     adminRetryDelaySeconds = kerberosConfig.adminRetryDelaySeconds ?: defaultKerberos.adminRetryDelaySeconds,
+                    debug = kerberosConfig.debug ?: defaultKerberos.debug,
                 ),
             )
         }

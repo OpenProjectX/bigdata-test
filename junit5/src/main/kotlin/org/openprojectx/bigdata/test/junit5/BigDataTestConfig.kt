@@ -42,6 +42,7 @@ internal data class BigDataTestKerberosConfig(
     val materialTimeoutSeconds: Int? = null,
     val adminAttempts: Int? = null,
     val adminRetryDelaySeconds: Int? = null,
+    val debug: Boolean? = null,
 ) {
     fun merge(override: BigDataTestKerberosConfig): BigDataTestKerberosConfig =
         BigDataTestKerberosConfig(
@@ -49,6 +50,7 @@ internal data class BigDataTestKerberosConfig(
             materialTimeoutSeconds = override.materialTimeoutSeconds ?: materialTimeoutSeconds,
             adminAttempts = override.adminAttempts ?: adminAttempts,
             adminRetryDelaySeconds = override.adminRetryDelaySeconds ?: adminRetryDelaySeconds,
+            debug = override.debug ?: debug,
         )
 }
 
@@ -249,6 +251,7 @@ internal class BigDataTestConfigLoader(
                 materialTimeoutSeconds = kerberos.int("materialTimeoutSeconds"),
                 adminAttempts = kerberos.int("adminAttempts"),
                 adminRetryDelaySeconds = kerberos.int("adminRetryDelaySeconds"),
+                debug = kerberos.boolean("debug"),
             ),
             tls = BigDataTestTlsConfig(
                 enabled = tls.boolean("enabled"),

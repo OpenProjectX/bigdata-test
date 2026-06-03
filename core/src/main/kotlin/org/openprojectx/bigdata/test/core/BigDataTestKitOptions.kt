@@ -24,6 +24,7 @@ data class KerberosOptions(
     val materialTimeoutSeconds: Int = 30,
     val adminAttempts: Int = 30,
     val adminRetryDelaySeconds: Int = 1,
+    val debug: Boolean = false,
 )
 
 data class KerberosUserOptions(

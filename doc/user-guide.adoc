@@ -715,9 +715,12 @@ startupTimeoutSeconds = 180
 materialTimeoutSeconds = 120
 adminAttempts = 120
 adminRetryDelaySeconds = 1
+debug = true
 ----
 
 `startupTimeoutSeconds` controls how long Testcontainers waits for the KDC image to print its ready log. `materialTimeoutSeconds` controls the post-start wait for generated keytabs and client config to be readable. `adminAttempts` and `adminRetryDelaySeconds` are passed to the Kerby image as `KERBY_KADMIN_ATTEMPTS` and `KERBY_KADMIN_RETRY_DELAY_SECONDS`.
+
+Set `debug = true` when troubleshooting Kerberos startup in CI. It passes `KERBY_DEBUG=true` to the Kerby image, which enables JDK Kerberos debug output, Kerby DEBUG logs on container stdout, and dumps the generated `kdc.conf`, server `krb5.conf`, client `krb5.conf`, backend config, and admin server config into the container log.
 
 Programmatic setup exposes the same options:
 
@@ -730,6 +733,7 @@ BigDataTestKit.builder()
             startupTimeoutSeconds = 180,
             materialTimeoutSeconds = 120,
             adminAttempts = 120,
+            debug = true,
         ),
     )
 ----

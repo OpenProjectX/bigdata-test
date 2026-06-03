@@ -8,6 +8,7 @@ startupTimeoutSeconds = 180
 materialTimeoutSeconds = 120
 adminAttempts = 120
 adminRetryDelaySeconds = 1
+debug = true
 
 [ports]
 kafka = 19092

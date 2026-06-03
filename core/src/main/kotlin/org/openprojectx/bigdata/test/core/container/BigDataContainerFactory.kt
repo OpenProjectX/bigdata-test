@@ -94,6 +94,7 @@ internal class BigDataContainerFactory(
             .withEnv("KERBY_CLIENT_PASSWORD", kerberos.clientPassword)
             .withEnv("KERBY_KADMIN_ATTEMPTS", kerberos.adminAttempts.toString())
             .withEnv("KERBY_KADMIN_RETRY_DELAY_SECONDS", kerberos.adminRetryDelaySeconds.toString())
+            .withEnv("KERBY_DEBUG", kerberos.debug.toString())
             .waitingFor(
                 Wait.forLogMessage(".*Kerby KDC container ready\\..*", 1)
                     .withStartupTimeout(Duration.ofSeconds(kerberos.startupTimeoutSeconds.toLong())),
