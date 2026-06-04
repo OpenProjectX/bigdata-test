@@ -78,6 +78,26 @@ domain = "localhost"
 
 The endpoint properties then return HTTPS URLs and JVM truststore settings such as `javax.net.ssl.trustStore`.
 
+For image-specific troubleshooting, containers can be customized from TOML:
+
+```toml
+[containers.hdfs.env]
+HADOOP_OPTS = "-Dsun.security.krb5.debug=true"
+
+[containers.hdfs.files]
+"/tmp/message.txt" = "text:created by bigdata-test"
+```
+
+Programmatic tests can also call `customizeContainer(...)` for last-resort Testcontainers access.
+
+Optional CLI health checks can run after container startup:
+
+```toml
+[healthChecks]
+hdfs = "cli"
+localStackS3 = "cli"
+```
+
 ## Run Examples
 
 Use the shared Gradle home when running this repository locally:

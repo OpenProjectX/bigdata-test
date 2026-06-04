@@ -47,6 +47,7 @@ val apacheSparkVersion = libs.versions.spark.get()
 val apacheHadoopVersion = libs.versions.hadoop.get()
 val icebergVersion = libs.versions.iceberg.get()
 val apacheSparkJacksonVersion = "2.15.2"
+val clouderaSparkJacksonDatabindVersion = "2.12.7.1"
 val testImplementationConfiguration = configurations.named("testImplementation")
 val testRuntimeOnlyConfiguration = configurations.named("testRuntimeOnly")
 
@@ -70,6 +71,12 @@ fun createSparkRuntimeClasspath(name: String, dependencyLine: String) = configur
             }
             if (requested.group.startsWith("com.fasterxml.jackson")) {
                 useVersion(apacheSparkJacksonVersion)
+            }
+        }
+    } else if (dependencyLine == "cloudera") {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "com.fasterxml.jackson.core" && requested.name == "jackson-databind") {
+                useVersion(clouderaSparkJacksonDatabindVersion)
             }
         }
     }

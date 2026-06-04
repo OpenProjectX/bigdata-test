@@ -1,5 +1,7 @@
 package org.openprojectx.bigdata.test.core
 
+import org.testcontainers.containers.GenericContainer
+
 data class BigDataTestKitOptions(
     val kerberos: KerberosOptions = KerberosOptions(),
     val tls: TlsOptions = TlsOptions(),
@@ -10,6 +12,8 @@ data class BigDataTestKitOptions(
     val fakeGcs: ObjectStoreOptions = ObjectStoreOptions(image = "fsouza/fake-gcs-server:1.54"),
     val portBindings: PortBindingOptions = PortBindingOptions(),
     val containerLogs: ContainerLogOptions = ContainerLogOptions(),
+    val containerCustomizations: Map<BigDataService, ContainerCustomizationOptions> = emptyMap(),
+    val healthChecks: Map<BigDataService, BigDataHealthCheckOptions> = emptyMap(),
 )
 
 data class KerberosOptions(
@@ -61,6 +65,8 @@ data class HdfsOptions(
     val enabled: Boolean = false,
     val image: String = "apache/hadoop:3.5.0",
     val nameNodePort: Int = 8020,
+    val dataNodePort: Int = 9866,
+    val dataNodeHostname: String = "hdfs",
     val webPort: Int = 9870,
     val webTls: HttpTlsOptions = HttpTlsOptions(),
     val kerberos: KerberosAuthOptions = KerberosAuthOptions(
@@ -124,6 +130,7 @@ data class PortBindingOptions(
     val sameHostPorts: Boolean = false,
     val kerberosKdc: Int = 0,
     val hdfsNameNode: Int = 0,
+    val hdfsDataNode: Int = 0,
     val hdfsWeb: Int = 0,
     val hdfsWebTls: Int = 0,
     val hiveMetastore: Int = 0,
@@ -157,3 +164,88 @@ data class ContainerLogOptions(
     val mode: ContainerLogMode = ContainerLogMode.NONE,
     val directory: String = "build/bigdata-test-container-logs",
 )
+
+enum class BigDataHealthCheckMode {
+    NONE,
+    BASIC,
+    CLI,
+}
+
+data class BigDataHealthCheckOptions(
+    val mode: BigDataHealthCheckMode = BigDataHealthCheckMode.BASIC,
+    val timeoutSeconds: Long = 60,
+)
+
+data class ContainerCustomizationOptions(
+    val environment: Map<String, String> = emptyMap(),
+    val files: List<ContainerFileTransferOptions> = emptyList(),
+    val mounts: List<ContainerMountOptions> = emptyList(),
+    val ports: List<ContainerPortOptions> = emptyList(),
+    val customizers: List<BigDataContainerCustomizer> = emptyList(),
+) {
+    fun merge(override: ContainerCustomizationOptions): ContainerCustomizationOptions =
+        ContainerCustomizationOptions(
+            environment = environment + override.environment,
+            files = files + override.files,
+            mounts = mounts + override.mounts,
+            ports = ports + override.ports,
+            customizers = customizers + override.customizers,
+        )
+}
+
+data class ContainerFileTransferOptions(
+    val containerPath: String,
+    val hostPath: String? = null,
+    val content: ByteArray? = null,
+    val fileMode: Int? = null,
+) {
+    init {
+        require(containerPath.isNotBlank()) { "Container file path must not be blank" }
+        require((hostPath == null) != (content == null)) {
+            "Exactly one of hostPath or content must be set for container file transfer"
+        }
+    }
+
+    companion object {
+        @JvmStatic
+        fun hostPath(hostPath: String, containerPath: String, fileMode: Int? = null): ContainerFileTransferOptions =
+            ContainerFileTransferOptions(containerPath = containerPath, hostPath = hostPath, fileMode = fileMode)
+
+        @JvmStatic
+        fun content(content: String, containerPath: String, fileMode: Int? = null): ContainerFileTransferOptions =
+            ContainerFileTransferOptions(
+                containerPath = containerPath,
+                content = content.toByteArray(Charsets.UTF_8),
+                fileMode = fileMode,
+            )
+
+        @JvmStatic
+        fun content(content: ByteArray, containerPath: String, fileMode: Int? = null): ContainerFileTransferOptions =
+            ContainerFileTransferOptions(containerPath = containerPath, content = content, fileMode = fileMode)
+    }
+}
+
+data class ContainerMountOptions(
+    val hostPath: String,
+    val containerPath: String,
+    val readOnly: Boolean = true,
+) {
+    init {
+        require(hostPath.isNotBlank()) { "Host mount path must not be blank" }
+        require(containerPath.isNotBlank()) { "Container mount path must not be blank" }
+    }
+}
+
+data class ContainerPortOptions(
+    val containerPort: Int,
+    val hostPort: Int = 0,
+) {
+    init {
+        require(containerPort > 0) { "Container port must be positive" }
+        require(hostPort >= 0) { "Host port must be 0 for random binding or a positive fixed port" }
+    }
+}
+
+fun interface BigDataContainerCustomizer {
+    fun customize(container: GenericContainer<*>)
+}

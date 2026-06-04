@@ -17,8 +17,14 @@ enum class BigDataService(
         ),
     ),
     HDFS(
-        defaultPorts = mapOf("namenode" to 8020, "web" to 9870, "web-tls" to 443),
-        endpointProperties = setOf("fs.defaultFS", "spring.hadoop.fs-uri", "dfs.namenode.https-address"),
+        defaultPorts = mapOf("namenode" to 8020, "datanode" to 9866, "web" to 9870, "web-tls" to 443),
+        endpointProperties = setOf(
+            "fs.defaultFS",
+            "spring.hadoop.fs-uri",
+            "dfs.client.use.datanode.hostname",
+            "dfs.datanode.hostname",
+            "dfs.namenode.https-address",
+        ),
     ),
     HIVE_METASTORE(
         defaultPorts = mapOf("thrift" to 9083),

@@ -1,7 +1,9 @@
 package org.openprojectx.bigdata.test.core
 
 import org.openprojectx.bigdata.test.core.container.BigDataContainerFactory
+import org.testcontainers.containers.GenericContainer
 import org.testcontainers.lifecycle.Startable
+import java.util.function.Consumer
 
 class BigDataTestKit private constructor(
     private val options: BigDataTestKitOptions,
@@ -16,7 +18,9 @@ class BigDataTestKit private constructor(
         serviceContainers.forEach {
             it.container.start()
             it.afterStart()
-            endpoints[it.service] = it.endpoint()
+            val endpoint = it.endpoint()
+            endpoints[it.service] = endpoint
+            factory.healthCheck(it.service, it.container, endpoint)
         }
         started = true
     }
@@ -57,6 +61,8 @@ class BigDataTestKit private constructor(
         private var fakeGcs = ObjectStoreOptions(image = "fsouza/fake-gcs-server:1.54")
         private var portBindings = PortBindingOptions()
         private var containerLogs = ContainerLogOptions()
+        private var containerCustomizations = emptyMap<BigDataService, ContainerCustomizationOptions>()
+        private var healthChecks = emptyMap<BigDataService, BigDataHealthCheckOptions>()
 
         fun withKerberos(options: KerberosOptions = KerberosOptions(enabled = true)): Builder =
             apply { kerberos = options.copy(enabled = true) }
@@ -103,6 +109,43 @@ class BigDataTestKit private constructor(
         fun withContainerLogsToDirectory(directory: String = "build/bigdata-test-container-logs"): Builder =
             withContainerLogs(ContainerLogOptions(mode = ContainerLogMode.FILE, directory = directory))
 
+        fun withContainerCustomization(service: BigDataService, options: ContainerCustomizationOptions): Builder =
+            apply { containerCustomizations = containerCustomizations.merge(service, options) }
+
+        fun withContainerEnv(service: BigDataService, name: String, value: String): Builder =
+            withContainerCustomization(
+                service,
+                ContainerCustomizationOptions(environment = mapOf(name to value)),
+            )
+
+        fun withContainerFile(service: BigDataService, file: ContainerFileTransferOptions): Builder =
+            withContainerCustomization(service, ContainerCustomizationOptions(files = listOf(file)))
+
+        fun withContainerMount(service: BigDataService, mount: ContainerMountOptions): Builder =
+            withContainerCustomization(service, ContainerCustomizationOptions(mounts = listOf(mount)))
+
+        fun withContainerPort(service: BigDataService, port: ContainerPortOptions): Builder =
+            withContainerCustomization(service, ContainerCustomizationOptions(ports = listOf(port)))
+
+        fun customizeContainer(service: BigDataService, customizer: BigDataContainerCustomizer): Builder =
+            withContainerCustomization(service, ContainerCustomizationOptions(customizers = listOf(customizer)))
+
+        fun customizeContainer(service: BigDataService, customizer: Consumer<GenericContainer<*>>): Builder =
+            customizeContainer(service, BigDataContainerCustomizer { customizer.accept(it) })
+
+        fun withHealthCheck(service: BigDataService, options: BigDataHealthCheckOptions): Builder =
+            apply { healthChecks = healthChecks + (service to options) }
+
+        fun withCliHealthCheck(service: BigDataService): Builder =
+            withHealthCheck(service, BigDataHealthCheckOptions(mode = BigDataHealthCheckMode.CLI))
+
+        fun withCliHealthChecks(): Builder =
+            apply {
+                BigDataService.entries.forEach {
+                    withCliHealthCheck(it)
+                }
+            }
+
         fun build(): BigDataTestKit =
             BigDataTestKit(
                 BigDataTestKitOptions(
@@ -115,7 +158,15 @@ class BigDataTestKit private constructor(
                     fakeGcs = fakeGcs,
                     portBindings = portBindings,
                     containerLogs = containerLogs,
+                    containerCustomizations = containerCustomizations,
+                    healthChecks = healthChecks,
                 ),
             )
+
+        private fun Map<BigDataService, ContainerCustomizationOptions>.merge(
+            service: BigDataService,
+            options: ContainerCustomizationOptions,
+        ): Map<BigDataService, ContainerCustomizationOptions> =
+            this + (service to (this[service]?.merge(options) ?: options))
     }
 }

@@ -60,6 +60,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     sameHostPorts = annotation.sameHostPorts || (ports.sameHostPorts ?: false),
                     kerberosKdc = annotation.kerberosKdcPort.takeIfPositive() ?: ports.kerberosKdc ?: 0,
                     hdfsNameNode = annotation.hdfsNameNodePort.takeIfPositive() ?: ports.hdfsNameNode ?: 0,
+                    hdfsDataNode = annotation.hdfsDataNodePort.takeIfPositive() ?: ports.hdfsDataNode ?: 0,
                     hdfsWeb = annotation.hdfsWebPort.takeIfPositive() ?: ports.hdfsWeb ?: 0,
                     hdfsWebTls = ports.hdfsWebTls ?: 0,
                     hiveMetastore = annotation.hiveMetastorePort.takeIfPositive() ?: ports.hiveMetastore ?: 0,
@@ -92,6 +93,12 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     directory = containerLogDirectory,
                 ),
             )
+        }
+        config.containerCustomizations.customizations.forEach { (service, customization) ->
+            builder.withContainerCustomization(service, customization)
+        }
+        config.healthChecks.healthChecks.forEach { (service, healthCheck) ->
+            builder.withHealthCheck(service, healthCheck)
         }
         val kerberos = annotation.kerberos || services.kerberos == true
         val hdfs = annotation.hdfs || services.hdfs == true
@@ -150,6 +157,9 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 HdfsOptions(
                     enabled = true,
                     image = images.hdfs ?: "apache/hadoop:3.5.0",
+                    dataNodeHostname = annotation.hdfsDataNodeHostname.takeIf { it.isNotBlank() }
+                        ?: config.hdfs.dataNodeHostname
+                        ?: HdfsOptions().dataNodeHostname,
                     webTls = config.hdfsWebTls.toHttpTls("localhost"),
                     kerberos = KerberosAuthOptions(
                         enabled = hdfsKerberos,

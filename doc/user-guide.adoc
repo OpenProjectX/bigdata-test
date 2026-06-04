@@ -277,6 +277,152 @@ Extension config has the same launcher hook: `bigdata.extensions.config` and `bi
 
 Container data-driven tests can be TOML-driven because service images, ports, Kerberos flags, and extension inputs are runtime configuration. Dependency data-driven tests must be Gradle-task/classpath-driven because Spark, Hadoop, Iceberg, and vendor distributions are resolved before the test JVM starts. The Spark example uses separate resolvable runtime classpaths for Apache and Cloudera dependency lines, then pairs those classpaths with TOML service variants.
 
+HDFS-specific startup settings use the `[hdfs]` table. Keep the default `dataNodeHostname = "hdfs"` for Docker-network clients. Use `localhost` only for host-side clients that connect through mapped host ports.
+
+[source,toml]
+----
+[hdfs]
+dataNodeHostname = "localhost"
+
+[ports]
+hdfsNameNode = 8020
+hdfsDataNode = 9866
+hdfsWeb = 9870
+----
+
+=== Container Customization Escape Hatch
+
+Typed service options should cover the normal path, but integration-test containers sometimes need image-specific workarounds before the framework has first-class support. Use container customizations as an escape hatch for troubleshooting or temporary overrides.
+
+TOML supports environment variables, copied files, host mounts, and extra exposed ports:
+
+[source,toml]
+----
+[containers.hdfs.env]
+HADOOP_OPTS = "-Dsun.security.krb5.debug=true"
+
+[containers.hdfs.files]
+"/opt/hadoop/etc/hadoop/extra-site.xml" = "classpath:hadoop/extra-site.xml"
+"/tmp/message.txt" = "text:created by bigdata-test"
+
+[containers.hdfs.mounts]
+"/tmp/local-hadoop-conf" = "/opt/hadoop-extra:ro"
+
+[containers.hdfs.ports]
+"9866" = 9866
+----
+
+File sources must use one of these prefixes:
+
+* `classpath:` reads a test classpath resource and copies its bytes into the container.
+* `file:` copies a host file path into the container.
+* `text:` writes inline UTF-8 text into the container.
+
+Mounts are useful for local debugging, but copied files are more reliable in CI because they do not depend on Docker host path sharing. Prefer copied files for certificates, keytabs, Hadoop XML, JAAS, and other test fixtures.
+
+Available service names in container TOML are `kerberos`, `hdfs`, `hiveMetastore`, `hms`, `kafka`, `schemaRegistry`, `kafkaUi`, `localStackS3`, and `fakeGcs`.
+
+Programmatic tests can use the same portable operations:
+
+[source,kotlin]
+----
+val kit = BigDataTestKit.builder()
+    .withHdfs()
+    .withContainerEnv(BigDataService.HDFS, "HADOOP_OPTS", "-Dsun.security.krb5.debug=true")
+    .withContainerFile(
+        BigDataService.HDFS,
+        ContainerFileTransferOptions.content(
+            "<configuration/>",
+            "/opt/hadoop/etc/hadoop/extra-site.xml",
+        ),
+    )
+    .withContainerPort(BigDataService.HDFS, ContainerPortOptions(containerPort = 9866, hostPort = 9866))
+    .build()
+----
+
+For cases that cannot be represented declaratively, use the Testcontainers callback. The callback runs after `bigdata-test` applies its built-in container settings and before the container starts:
+
+[source,kotlin]
+----
+val kit = BigDataTestKit.builder()
+    .withHdfs()
+    .customizeContainer(BigDataService.HDFS) { container ->
+        container.withCommand("sh", "-lc", "env && exec /entrypoint.sh")
+    }
+    .build()
+----
+
+Do not use the callback as the normal configuration API for reusable tests. If a setting is stable and generally useful, prefer a typed option or TOML field so it can be documented, data-driven from Gradle tasks, and used from Java.
+
+=== Startup Health Checks
+
+Every service still uses a Testcontainers wait strategy to detect process startup. Optional health checks run after a service starts and after its endpoint is registered. Use these when a test should fail early if a service is not actually usable.
+
+Health check modes:
+
+* `basic` keeps the default behavior: rely on the service's Testcontainers wait strategy.
+* `cli` runs a service-specific command inside the service container.
+* `none` disables the post-start health check.
+
+[source,toml]
+----
+[healthChecks]
+hdfs = "cli"
+kafka = "cli"
+localStackS3 = "cli"
+
+[healthCheckTimeouts]
+hdfs = 90
+kafka = 60
+----
+
+Programmatic setup uses the same options:
+
+[source,kotlin]
+----
+val kit = BigDataTestKit.builder()
+    .withHdfs()
+    .withHealthCheck(
+        BigDataService.HDFS,
+        BigDataHealthCheckOptions(mode = BigDataHealthCheckMode.CLI, timeoutSeconds = 90),
+    )
+    .build()
+----
+
+Current CLI probes:
+
+[cols="1,3", options="header"]
+|===
+|Service
+|CLI probe
+
+|Kerberos
+|Verifies generated client `krb5.conf` and keytab files exist in the Kerby container.
+
+|HDFS
+|Uses `hdfs dfs` to create a directory, write a small file, read it back, and remove it. This validates NameNode plus DataNode block transfer from the container network.
+
+|Hive Metastore
+|Checks the Thrift port from inside the HMS container. HMS does not provide a good standalone metadata CLI unless a client stack is also present.
+
+|Kafka
+|Runs `kafka-topics.sh --list` against the in-container broker endpoint. This is best for plaintext-compatible listeners; TLS or Kerberos Kafka may need service-specific client properties before this probe can be enabled.
+
+|Schema Registry
+|Uses `wget` or `curl` against `/subjects`.
+
+|Kafka UI
+|Uses `wget` or `curl` against `/`.
+
+|LocalStack S3
+|Uses `awslocal s3 ls` when available, then falls back to `aws --endpoint-url`, then HTTP health.
+
+|fake-gcs-server
+|Uses `wget` or `curl` against `/storage/v1/b`.
+|===
+
+CLI probes validate the container's own environment. For host-side behavior, such as Windows HDFS clients connecting through mapped ports, use a host/JVM smoke test as well because an in-container `hdfs dfs` command cannot prove host network reachability.
+
 `hiveMetastore` is the open-source HMS image and defaults to `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4`. Hive 4 images can be tested by overriding this image key, but Spark 3.x brings a Hive 2.3 metastore client and should use the Hive 3 image unless that client stack is changed. The open-source HMS path starts an external PostgreSQL support container using `hiveMetastorePostgres`.
 
 `clouderaHms` is the embedded-Postgres Cloudera HMS image. Use the `clouderaHms = true` annotation flag when you want this implementation. A test class must not enable both `hiveMetastore` and `clouderaHms`.
@@ -527,12 +673,18 @@ Host ports are dynamic by default. Keep port fields set to `0` unless an externa
 @BigDataTest(
     hdfs = true,
     kafka = true,
+    hdfsDataNodeHostname = "localhost",
     hdfsNameNodePort = 18020,
+    hdfsDataNodePort = 9866,
     hdfsWebPort = 19870,
     kafkaPort = 19092,
 )
 class MyFixedPortTest
 ----
+
+For host-side HDFS clients, including Windows clients using Docker Desktop, keep the HDFS DataNode transfer port stable and set the advertised DataNode hostname to a host-reachable name. The client first connects to the NameNode, then the NameNode returns DataNode block locations. By default the framework advertises `hdfs`, which is correct for other containers on the Testcontainers network. Host-side clients usually need `hdfsDataNodeHostname = "localhost"` plus `sameHostPorts=true` or `hdfsDataNodePort = 9866`.
+
+If both host processes and other Docker containers need to access the same HDFS instance, use an advertised hostname that is reachable from both sides. In practice that means either keeping the default `hdfs` for container-only clients, using `localhost` for host-only clients, or providing a user-managed DNS/hosts name that resolves appropriately in both environments.
 
 To bind each enabled service to the same localhost port it uses inside the container, enable `sameHostPorts`.
 
@@ -550,7 +702,7 @@ To bind each enabled service to the same localhost port it uses inside the conta
 class MySameHostPortTest
 ----
 
-This maps common service ports directly, for example HDFS `8020` and `9870`, Hive Metastore `9083`, Kafka `9092`, Schema Registry `8085`, LocalStack `4566`, and fake GCS `4443`. Explicit per-service port fields still take priority over `sameHostPorts`.
+This maps common service ports directly, for example HDFS `8020`, `9866`, and `9870`, Hive Metastore `9083`, Kafka `9092`, Schema Registry `8085`, LocalStack `4566`, and fake GCS `4443`. Explicit per-service port fields still take priority over `sameHostPorts`.
 
 TLS gateway ports are not affected by `sameHostPorts`, because every gateway listens on container port `443`. Configure the per-service TLS port fields explicitly if a stable HTTPS host port is needed.
 
@@ -569,6 +721,7 @@ Available port fields:
 
 * `kerberosKdcPort`
 * `hdfsNameNodePort`
+* `hdfsDataNodePort`
 * `hdfsWebPort`
 * `hdfsWebTls`
 * `hiveMetastorePort`
@@ -601,9 +754,9 @@ Each started service exposes a `BigDataEndpoint` with named ports and connection
 |`bigdata.test.kerberos.realm`, `bigdata.test.kerberos.kdc`, `bigdata.test.kerberos.krb5-conf`, `bigdata.test.kerberos.client-principal`, `bigdata.test.kerberos.client-password`, `bigdata.test.kerberos.client-keytab`
 
 |`BigDataService.HDFS`
-|`namenode`, `web`, `web-tls`
-|`8020`, `9870`, `443`
-|`fs.defaultFS`, `spring.hadoop.fs-uri`, `dfs.namenode.https-address`
+|`namenode`, `datanode`, `web`, `web-tls`
+|`8020`, `9866`, `9870`, `443`
+|`fs.defaultFS`, `spring.hadoop.fs-uri`, `dfs.client.use.datanode.hostname`, `dfs.datanode.hostname`, `dfs.namenode.https-address`
 
 |`BigDataService.HIVE_METASTORE`
 |`thrift`
