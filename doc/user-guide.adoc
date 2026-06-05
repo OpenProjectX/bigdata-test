@@ -233,6 +233,8 @@ localStackS3 = "localstack/localstack:4.14.0"
 fakeGcs = "fsouza/fake-gcs-server:1.54"
 ----
 
+Kafka and the open-source HMS PostgreSQL sidecar use typed Testcontainers classes instead of plain generic containers. When you override those images, `bigdata-test` marks the configured Kafka image as a compatible substitute for `apache/kafka` and the configured PostgreSQL image as a compatible substitute for `postgres`, so private mirrors or rebuilt images can still pass Testcontainers image checks.
+
 You can place `[images]` in the same TOML files used by `@BigDataExtensions`, because `@BigDataTest` reads those locations before startup when the extensions annotation is present:
 
 [source,kotlin]

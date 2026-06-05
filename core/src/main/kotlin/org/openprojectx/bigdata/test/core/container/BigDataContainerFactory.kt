@@ -207,7 +207,7 @@ internal class BigDataContainerFactory(
         if (hive.distribution == HiveMetastoreDistribution.CLOUDERA) {
             return clouderaHms()
         }
-        val postgres = PostgreSQLContainer(DockerImageName.parse(hive.databaseImage))
+        val postgres = PostgreSQLContainer(compatiblePostgresImage(hive.databaseImage))
             .withNetwork(network)
             .withNetworkAliases("hive-metastore-postgres")
             .withDatabaseName(hive.databaseName)
@@ -256,6 +256,9 @@ internal class BigDataContainerFactory(
             )
         }
     }
+
+    private fun compatiblePostgresImage(image: String): DockerImageName =
+        DockerImageName.parse(image).asCompatibleSubstituteFor("postgres")
 
     private fun clouderaHms(): BigDataServiceContainer {
         val hive = options.hiveMetastore
@@ -370,9 +373,9 @@ internal class BigDataContainerFactory(
     private fun tlsKafka(kafka: KafkaOptions): BigDataServiceContainer {
         val kafkaHostPort = options.portBindings.hostPort(9092, options.portBindings.kafka)
         val container = if (kafkaHostPort == 0) {
-            KafkaContainer(DockerImageName.parse(kafka.image))
+            KafkaContainer(compatibleKafkaImage(kafka.image))
         } else {
-            FixedPortKafkaContainer(DockerImageName.parse(kafka.image)).withServicePort(9092, kafkaHostPort)
+            FixedPortKafkaContainer(compatibleKafkaImage(kafka.image)).withServicePort(9092, kafkaHostPort)
         }
         container
             .withNetwork(network)
@@ -402,9 +405,9 @@ internal class BigDataContainerFactory(
     private fun plaintextKafka(kafka: KafkaOptions): BigDataServiceContainer {
         val kafkaHostPort = options.portBindings.hostPort(9092, options.portBindings.kafka)
         val container = if (kafkaHostPort == 0) {
-            KafkaContainer(DockerImageName.parse(kafka.image))
+            KafkaContainer(compatibleKafkaImage(kafka.image))
         } else {
-            FixedPortKafkaContainer(DockerImageName.parse(kafka.image)).withServicePort(9092, kafkaHostPort)
+            FixedPortKafkaContainer(compatibleKafkaImage(kafka.image)).withServicePort(9092, kafkaHostPort)
         }
         container
             .withNetwork(network)
@@ -426,6 +429,9 @@ internal class BigDataContainerFactory(
             )
         }
     }
+
+    private fun compatibleKafkaImage(image: String): DockerImageName =
+        DockerImageName.parse(image).asCompatibleSubstituteFor("apache/kafka")
 
     private fun schemaRegistry(): BigDataServiceContainer {
         val kafka = options.kafka
@@ -1206,16 +1212,22 @@ internal class BigDataContainerFactory(
           com.sun.security.auth.module.Krb5LoginModule required
           useKeyTab=true
           storeKey=true
-          keyTab="${options.keytabPath}"
-          principal="${options.servicePrincipal}";
+          keyTab="${jaasKeytab(options.keytabPath)}"
+          principal="${jaasValue(options.servicePrincipal)}";
         };
         """.trimIndent()
 
     private fun inlineJaas(options: KerberosAuthOptions): String =
-        """com.sun.security.auth.module.Krb5LoginModule required useKeyTab=true storeKey=true keyTab="${options.keytabPath}" principal="${options.servicePrincipal}";"""
+        """com.sun.security.auth.module.Krb5LoginModule required useKeyTab=true storeKey=true keyTab="${jaasKeytab(options.keytabPath)}" principal="${jaasValue(options.servicePrincipal)}";"""
 
     private fun inlineJaas(principal: String, keytabPath: String): String =
-        """com.sun.security.auth.module.Krb5LoginModule required useKeyTab=true storeKey=true keyTab="$keytabPath" principal="$principal";"""
+        """com.sun.security.auth.module.Krb5LoginModule required useKeyTab=true storeKey=true keyTab="${jaasKeytab(keytabPath)}" principal="${jaasValue(principal)}";"""
+
+    private fun jaasKeytab(path: String): String =
+        jaasValue(path.replace('\\', '/'))
+
+    private fun jaasValue(value: String): String =
+        value.replace("\\", "\\\\").replace("\"", "\\\"")
 
     private fun localKerberosPath(containerPath: String): String =
         when {
