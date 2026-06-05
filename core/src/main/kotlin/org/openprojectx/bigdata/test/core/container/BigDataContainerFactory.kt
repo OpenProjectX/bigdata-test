@@ -851,6 +851,7 @@ internal class BigDataContainerFactory(
 
     private fun <T : GenericContainer<*>> applyContainerCustomizations(service: BigDataService, container: T): T {
         val customization = options.containerCustomizations[service] ?: return container
+        customization.networkMode?.let { container.withNetworkMode(it) }
         customization.ports.forEach { container.addPort(it) }
         customization.environment.forEach { (name, value) -> container.withEnv(name, value) }
         customization.files.forEach { container.addFile(it) }

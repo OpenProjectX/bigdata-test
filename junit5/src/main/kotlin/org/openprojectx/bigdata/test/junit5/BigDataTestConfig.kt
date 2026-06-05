@@ -468,16 +468,20 @@ internal class BigDataTestConfigLoader(
         tables.forEach { (table, values) ->
             if (!table.startsWith("containers.")) return@forEach
             val parts = table.split('.')
-            require(parts.size == 3) {
-                "TOML table '$table' must use containers.<service>.<env|files|mounts|ports>"
+            require(parts.size == 2 || parts.size == 3) {
+                "TOML table '$table' must use containers.<service> or containers.<service>.<env|files|mounts|ports>"
             }
             val service = parseService(parts[1], table)
-            val options = when (parts[2]) {
-                "env" -> ContainerCustomizationOptions(environment = values.stringMap(table))
-                "files" -> ContainerCustomizationOptions(files = values.containerFiles())
-                "mounts" -> ContainerCustomizationOptions(mounts = values.containerMounts())
-                "ports" -> ContainerCustomizationOptions(ports = values.containerPorts(table))
-                else -> error("TOML table '$table' must end with env, files, mounts, or ports")
+            val options = if (parts.size == 2) {
+                ContainerCustomizationOptions(networkMode = values.string("networkMode"))
+            } else {
+                when (parts[2]) {
+                    "env" -> ContainerCustomizationOptions(environment = values.stringMap(table))
+                    "files" -> ContainerCustomizationOptions(files = values.containerFiles())
+                    "mounts" -> ContainerCustomizationOptions(mounts = values.containerMounts())
+                    "ports" -> ContainerCustomizationOptions(ports = values.containerPorts(table))
+                    else -> error("TOML table '$table' must end with env, files, mounts, or ports")
+                }
             }
             customizations[service] = customizations[service]?.merge(options) ?: options
         }

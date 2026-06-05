@@ -13,6 +13,8 @@ hiveDockerTestcontainers = "0.1.4"
 spark = "3.5.7"
 hadoop = "3.4.2"
 kafka = "4.1.2"
+javaDns = "0.1.1"
+slf4j = "2.0.17"
 
 junitJupiter = "5.14.1"
 junitPlatform = "1.14.1"
@@ -57,6 +59,7 @@ avro = { module = "org.apache.avro:avro", version.ref = "avro" }
 junitJupiterApi = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }
 junitJupiterEngine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiter" }
 junitPlatformLauncher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }
+slf4jSimple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 bouncycastlePkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 bouncycastleProvider = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 
@@ -66,3 +69,4 @@ kotlinxEcosystem = ["kotlinxDatetime", "kotlinxSerialization", "kotlinxCoroutine
 
 [plugins]
 kotlinPluginSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+javaDns = { id = "org.openprojectx.java.dns", version.ref = "javaDns" }

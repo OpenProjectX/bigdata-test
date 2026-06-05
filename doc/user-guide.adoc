@@ -277,7 +277,7 @@ Extension config has the same launcher hook: `bigdata.extensions.config` and `bi
 
 Container data-driven tests can be TOML-driven because service images, ports, Kerberos flags, and extension inputs are runtime configuration. Dependency data-driven tests must be Gradle-task/classpath-driven because Spark, Hadoop, Iceberg, and vendor distributions are resolved before the test JVM starts. The Spark example uses separate resolvable runtime classpaths for Apache and Cloudera dependency lines, then pairs those classpaths with TOML service variants.
 
-HDFS-specific startup settings use the `[hdfs]` table. Keep the default `dataNodeHostname = "hdfs"` for Docker-network clients. Use `localhost` only for host-side clients that connect through mapped host ports.
+HDFS-specific startup settings use the `[hdfs]` table. Keep the default `dataNodeHostname = "hdfs"` for Docker-network clients. Use `localhost`, or a stable hostname that resolves to `127.0.0.1`, only for host-side clients that connect through mapped host ports. Host-side clients must also use `dfs.client.use.datanode.hostname=true`; the framework exposes this endpoint property by default.
 
 [source,toml]
 ----
@@ -310,6 +310,9 @@ HADOOP_OPTS = "-Dsun.security.krb5.debug=true"
 
 [containers.hdfs.ports]
 "9866" = 9866
+
+[containers.hdfs]
+networkMode = "host"
 ----
 
 File sources must use one of these prefixes:
@@ -317,6 +320,8 @@ File sources must use one of these prefixes:
 * `classpath:` reads a test classpath resource and copies its bytes into the container.
 * `file:` copies a host file path into the container.
 * `text:` writes inline UTF-8 text into the container.
+
+`networkMode = "host"` is passed through to Testcontainers as Docker host networking. It is useful only when the local Docker runtime supports it for the target platform. The default bridge network remains the most portable option, especially when multiple test containers need to communicate through Testcontainers network aliases.
 
 Mounts are useful for local debugging, but copied files are more reliable in CI because they do not depend on Docker host path sharing. Prefer copied files for certificates, keytabs, Hadoop XML, JAAS, and other test fixtures.
 
@@ -329,6 +334,7 @@ Programmatic tests can use the same portable operations:
 val kit = BigDataTestKit.builder()
     .withHdfs()
     .withContainerEnv(BigDataService.HDFS, "HADOOP_OPTS", "-Dsun.security.krb5.debug=true")
+    .withContainerNetworkMode(BigDataService.HDFS, "host")
     .withContainerFile(
         BigDataService.HDFS,
         ContainerFileTransferOptions.content(
@@ -682,9 +688,34 @@ Host ports are dynamic by default. Keep port fields set to `0` unless an externa
 class MyFixedPortTest
 ----
 
-For host-side HDFS clients, including Windows clients using Docker Desktop, keep the HDFS DataNode transfer port stable and set the advertised DataNode hostname to a host-reachable name. The client first connects to the NameNode, then the NameNode returns DataNode block locations. By default the framework advertises `hdfs`, which is correct for other containers on the Testcontainers network. Host-side clients usually need `hdfsDataNodeHostname = "localhost"` plus `sameHostPorts=true` or `hdfsDataNodePort = 9866`.
+For host-side HDFS clients, including Windows clients using Docker Desktop, keep the HDFS DataNode transfer port stable and set the advertised DataNode hostname to a host-reachable name. The client first connects to the NameNode, then the NameNode returns DataNode block locations. The client only uses the reported hostname when `dfs.client.use.datanode.hostname=true`; otherwise it may use the DataNode IP from the report and ignore the advertised hostname.
 
-If both host processes and other Docker containers need to access the same HDFS instance, use an advertised hostname that is reachable from both sides. In practice that means either keeping the default `hdfs` for container-only clients, using `localhost` for host-only clients, or providing a user-managed DNS/hosts name that resolves appropriately in both environments.
+By default the framework advertises `hdfs`, which is correct for other containers on the Testcontainers network. Host-side clients usually need `hdfsDataNodeHostname = "localhost"` plus `sameHostPorts=true` or `hdfsDataNodePort = 9866`.
+
+If both host processes and other Docker containers need to access the same HDFS instance, use an advertised hostname that is reachable from both sides. In practice that means either keeping the default `hdfs` for container-only clients, using `localhost` for host-only clients, or providing a user-managed DNS/hosts name that resolves appropriately in both environments. For JVM tests, the `org.openprojectx.java.dns` Gradle plugin can map a stable name such as `hdfs.test.local` to `127.0.0.1` without editing the OS hosts file:
+
+[source,kotlin]
+----
+plugins {
+    id("org.openprojectx.java.dns") version "0.1.1"
+}
+
+javadns {
+    hosts.put("hdfs.test.local", "127.0.0.1")
+}
+----
+
+Then configure HDFS to advertise `hdfs.test.local` and keep the DataNode host port fixed. The Java DNS plugin affects only the client JVM's hostname resolution; the DataNode still has to register the stable hostname with the NameNode.
+
+Docker host networking can also be requested for a service:
+
+[source,toml]
+----
+[containers.hdfs]
+networkMode = "host"
+----
+
+Host networking support depends on the Docker runtime. On Linux it maps directly to the host network namespace; on Docker Desktop it depends on the Desktop version and settings. Prefer the fixed-port plus stable-hostname approach for portable tests.
 
 To bind each enabled service to the same localhost port it uses inside the container, enable `sameHostPorts`.
 

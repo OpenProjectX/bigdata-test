@@ -112,6 +112,9 @@ class BigDataTestKit private constructor(
         fun withContainerCustomization(service: BigDataService, options: ContainerCustomizationOptions): Builder =
             apply { containerCustomizations = containerCustomizations.merge(service, options) }
 
+        fun withContainerNetworkMode(service: BigDataService, networkMode: String): Builder =
+            withContainerCustomization(service, ContainerCustomizationOptions(networkMode = networkMode))
+
         fun withContainerEnv(service: BigDataService, name: String, value: String): Builder =
             withContainerCustomization(
                 service,

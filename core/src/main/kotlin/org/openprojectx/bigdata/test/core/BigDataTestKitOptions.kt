@@ -177,6 +177,7 @@ data class BigDataHealthCheckOptions(
 )
 
 data class ContainerCustomizationOptions(
+    val networkMode: String? = null,
     val environment: Map<String, String> = emptyMap(),
     val files: List<ContainerFileTransferOptions> = emptyList(),
     val mounts: List<ContainerMountOptions> = emptyList(),
@@ -185,6 +186,7 @@ data class ContainerCustomizationOptions(
 ) {
     fun merge(override: ContainerCustomizationOptions): ContainerCustomizationOptions =
         ContainerCustomizationOptions(
+            networkMode = override.networkMode ?: networkMode,
             environment = environment + override.environment,
             files = files + override.files,
             mounts = mounts + override.mounts,
