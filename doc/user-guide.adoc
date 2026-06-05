@@ -294,10 +294,15 @@ hdfsWeb = 9870
 
 Typed service options should cover the normal path, but integration-test containers sometimes need image-specific workarounds before the framework has first-class support. Use container customizations as an escape hatch for troubleshooting or temporary overrides.
 
+Container customizations run before the service container starts. Use them for Docker/Testcontainers-level concerns such as network mode, extra ports, environment variables, copied files, host mounts, image-specific startup flags, and temporary workarounds. Use extensions for post-start provisioning such as creating buckets, generating JCEKS files, creating Kafka topics, or producing seed records.
+
 TOML supports environment variables, copied files, host mounts, and extra exposed ports:
 
 [source,toml]
 ----
+[containers.hdfs]
+networkMode = "host"
+
 [containers.hdfs.env]
 HADOOP_OPTS = "-Dsun.security.krb5.debug=true"
 
@@ -310,9 +315,6 @@ HADOOP_OPTS = "-Dsun.security.krb5.debug=true"
 
 [containers.hdfs.ports]
 "9866" = 9866
-
-[containers.hdfs]
-networkMode = "host"
 ----
 
 File sources must use one of these prefixes:
@@ -333,8 +335,8 @@ Programmatic tests can use the same portable operations:
 ----
 val kit = BigDataTestKit.builder()
     .withHdfs()
-    .withContainerEnv(BigDataService.HDFS, "HADOOP_OPTS", "-Dsun.security.krb5.debug=true")
     .withContainerNetworkMode(BigDataService.HDFS, "host")
+    .withContainerEnv(BigDataService.HDFS, "HADOOP_OPTS", "-Dsun.security.krb5.debug=true")
     .withContainerFile(
         BigDataService.HDFS,
         ContainerFileTransferOptions.content(
@@ -346,6 +348,28 @@ val kit = BigDataTestKit.builder()
     .build()
 ----
 
+The lower-level `withContainerCustomization` method is useful when a test wants to build the customization object dynamically:
+
+[source,kotlin]
+----
+val customization = ContainerCustomizationOptions(
+    networkMode = if (useHostNetwork) "host" else null,
+    environment = mapOf("HADOOP_OPTS" to "-Dsun.security.krb5.debug=true"),
+    files = listOf(
+        ContainerFileTransferOptions.content(
+            "<configuration/>",
+            "/opt/hadoop/etc/hadoop/extra-site.xml",
+        ),
+    ),
+    ports = listOf(ContainerPortOptions(containerPort = 9866, hostPort = 9866)),
+)
+
+val kit = BigDataTestKit.builder()
+    .withHdfs()
+    .withContainerCustomization(BigDataService.HDFS, customization)
+    .build()
+----
+
 For cases that cannot be represented declaratively, use the Testcontainers callback. The callback runs after `bigdata-test` applies its built-in container settings and before the container starts:
 
 [source,kotlin]
@@ -354,6 +378,18 @@ val kit = BigDataTestKit.builder()
     .withHdfs()
     .customizeContainer(BigDataService.HDFS) { container ->
         container.withCommand("sh", "-lc", "env && exec /entrypoint.sh")
+    }
+    .build()
+----
+
+The callback receives the actual `GenericContainer<*>`, so users can call Testcontainers APIs directly. This is the most flexible workaround path when `bigdata-test` does not expose a typed option yet. For example, before `networkMode` was first-class, the same host-network workaround could be written as:
+
+[source,kotlin]
+----
+val kit = BigDataTestKit.builder()
+    .withHdfs()
+    .customizeContainer(BigDataService.HDFS) { container ->
+        container.withNetworkMode("host")
     }
     .build()
 ----
