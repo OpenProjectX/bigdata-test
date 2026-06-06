@@ -17,5 +17,8 @@ schemaRegistry = true
 localStackS3 = true
 fakeGcs = true
 
+[ports]
+hdfsDataNode = 9866
+
 [containerLogs]
 mode = "FILE"

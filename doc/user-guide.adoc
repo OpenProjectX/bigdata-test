@@ -1117,6 +1117,7 @@ Outputs:
 === S3 JCEKS Extension
 
 The `s3Jceks` extension creates a Hadoop credential provider file in HDFS and stores LocalStack S3 credentials in it.
+It builds its Hadoop client configuration from the active HDFS endpoint properties, including `fs.defaultFS`, `dfs.client.use.datanode.hostname`, `dfs.datanode.hostname`, and any HDFS TLS properties exposed by the test kit.
 
 [source,toml]
 ----

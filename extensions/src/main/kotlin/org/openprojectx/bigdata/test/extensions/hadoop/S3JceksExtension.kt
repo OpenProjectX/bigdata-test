@@ -20,7 +20,7 @@ data class S3JceksExtension(
         val s3 = context.endpoint(BigDataService.LOCALSTACK_S3)
         val providerPath = HadoopCredentialProviders.hdfsJceksPath(hdfsDir, fileName)
         HadoopCredentialProviders.createHdfsJceks(
-            hdfsUri = hdfs.property("fs.defaultFS"),
+            hdfsProperties = hdfs.properties,
             configDir = hdfsDir,
             providerPath = providerPath,
             credentials = mapOf(

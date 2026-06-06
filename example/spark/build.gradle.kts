@@ -8,6 +8,7 @@ plugins {
     id("buildsrc.convention.kotlin-jvm")
     id("org.openprojectx.spark.platform") version "0.1.41"
     id("org.openprojectx.hadoop-native-loader") version "0.1.1"
+    alias(libs.plugins.javaDns)
 
 }
 
@@ -110,6 +111,10 @@ tasks.withType<Test>().configureEach {
         "--add-opens=java.base/java.nio=ALL-UNNAMED",
         "--add-opens=java.base/java.net=ALL-UNNAMED",
     )
+}
+
+javadns {
+    hosts.put("hdfs", "127.0.0.1")
 }
 
 tasks.named<Test>("test") {

@@ -16,9 +16,25 @@ object HadoopCredentialProviders {
         providerPath: String,
         credentials: Map<String, String>,
     ) {
-        val conf = Configuration(false)
-        conf.set("fs.defaultFS", hdfsUri)
+        createHdfsJceks(
+            hdfsProperties = mapOf("fs.defaultFS" to hdfsUri),
+            configDir = configDir,
+            providerPath = providerPath,
+            credentials = credentials,
+        )
+    }
+
+    fun createHdfsJceks(
+        hdfsProperties: Map<String, String>,
+        configDir: String,
+        providerPath: String,
+        credentials: Map<String, String>,
+    ) {
+        val conf = hdfsConfiguration(hdfsProperties)
         conf.set(CredentialProviderFactory.CREDENTIAL_PROVIDER_PATH, providerPath)
+        val hdfsUri = requireNotNull(hdfsProperties["fs.defaultFS"]?.takeIf { it.isNotBlank() }) {
+            "HDFS properties must include non-blank fs.defaultFS"
+        }
         FileSystem.get(URI.create(hdfsUri), conf).use { fs -> fs.mkdirs(Path(configDir)) }
 
         val provider = CredentialProviderFactory.getProviders(conf).single()
@@ -32,8 +48,16 @@ object HadoopCredentialProviders {
     }
 
     fun exists(hdfsUri: String, path: String): Boolean {
-        val conf = Configuration(false)
-        conf.set("fs.defaultFS", hdfsUri)
+        val conf = hdfsConfiguration(mapOf("fs.defaultFS" to hdfsUri))
         return FileSystem.get(URI.create(hdfsUri), conf).use { fs -> fs.exists(Path(path)) }
     }
+
+    private fun hdfsConfiguration(properties: Map<String, String>): Configuration =
+        Configuration(false).apply {
+            properties.forEach { (key, value) ->
+                if (value.isNotBlank()) {
+                    set(key, value)
+                }
+            }
+        }
 }

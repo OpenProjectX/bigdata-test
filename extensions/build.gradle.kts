@@ -24,4 +24,6 @@ dependencies {
 
 javadns {
     hosts.put("hdfs.test.local", "127.0.0.1")
+    hosts.put("hdfs", "127.0.0.1")
+
 }
