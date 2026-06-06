@@ -161,7 +161,19 @@ jobs:
         run: |
           printf '%s' "$SIGNING_KEY_ASC" > "$RUNNER_TEMP/signing-key.asc"
 
+      - name: Capture release metadata
+        run: |
+          release_version="$(awk -F= '/^[[:space:]]*version[[:space:]]*=/{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}' gradle.properties)"
+          if [ -z "$release_version" ]; then
+            echo "Could not read version from gradle.properties" >&2
+            exit 1
+          fi
+          release_version="${release_version%-SNAPSHOT}"
+          echo "RELEASE_VERSION=${release_version}" >> "$GITHUB_ENV"
+          echo "GITHUB_MAVEN_REPOSITORY=https://maven.pkg.github.com/OpenProjectX/bigdata-test" >> "$GITHUB_ENV"
+
       - name: Run release
+        id: run_release
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
@@ -175,3 +187,61 @@ jobs:
             skip_test_args="-x test -x sparkBigDataMatrixTest -x sparkApacheDepsApacheHmsTest -x sparkApacheDepsApacheHmsKerberosTest -x sparkApacheDepsClouderaHmsTest -x sparkApacheDepsClouderaHmsKerberosTest -x sparkClouderaDepsApacheHmsTest -x sparkClouderaDepsApacheHmsKerberosTest -x sparkClouderaDepsClouderaHmsTest -x sparkClouderaDepsClouderaHmsKerberosTest"
           fi
           ./gradlew --no-configuration-cache release --stacktrace --info $skip_test_args $EXTRA_GRADLE_ARGS
+
+      - name: Write release publish summary
+        if: always() && env.RELEASE_VERSION != ''
+        env:
+          RELEASE_OUTCOME: ${{ steps.run_release.outcome }}
+        run: |
+          group_id="org.openprojectx.bigdata.test.core"
+          version="${RELEASE_VERSION}"
+          github_repo_url="${GITHUB_MAVEN_REPOSITORY}"
+          artifacts=(
+            "core"
+            "junit5"
+            "extensions"
+            "bigdata-test-spring-boot-autoconfigure"
+            "bigdata-test-spring-boot-starter"
+          )
+
+          {
+            if [ "$RELEASE_OUTCOME" = "success" ]; then
+              echo "## Release publish summary"
+            else
+              echo "## Release publish attempt"
+            fi
+            echo
+            echo "- Version: \`${version}\`"
+            echo "- Release result: \`${RELEASE_OUTCOME}\`"
+            echo "- Maven group: \`${group_id}\`"
+            echo "- GitHub Maven repository: \`${github_repo_url}\`"
+            echo "- GitHub Packages index: https://github.com/orgs/OpenProjectX/packages?ecosystem=maven"
+            echo
+            if [ "$RELEASE_OUTCOME" != "success" ]; then
+              echo "> The release step did not complete successfully. The artifacts below are the planned publication coordinates; check the Gradle log to confirm whether any partial uploads happened before the failure."
+              echo
+            fi
+            echo "| Artifact | Maven coordinate | GitHub Packages | Maven Central |"
+            echo "|---|---|---|---|"
+            for artifact in "${artifacts[@]}"; do
+              package_name="${group_id}.${artifact}"
+              coordinate="${group_id}:${artifact}:${version}"
+              github_package_url="https://github.com/orgs/OpenProjectX/packages/maven/${package_name}"
+              central_url="https://central.sonatype.com/artifact/${group_id}/${artifact}/${version}"
+              echo "| \`${artifact}\` | \`${coordinate}\` | [package](${github_package_url}) | [artifact](${central_url}) |"
+            done
+            echo
+            echo "> Maven Central search can lag for a short time after Sonatype release completes."
+            echo
+            echo "### GitHub Packages repository"
+            echo
+            echo '```kotlin'
+            echo 'maven {'
+            echo "    url = uri(\"${github_repo_url}\")"
+            echo '    credentials {'
+            echo '        username = System.getenv("GITHUB_ACTOR")'
+            echo '        password = System.getenv("GITHUB_TOKEN")'
+            echo '    }'
+            echo '}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

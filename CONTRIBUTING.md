@@ -152,6 +152,8 @@ The workflow needs `packages: write` permission and passes `GITHUB_PACKAGES_USER
 GRADLE_USER_HOME=/data/.gradle ./gradlew publishAllPublicationsToGitHubPackagesRepository --dry-run
 ```
 
+Successful release workflow runs write a GitHub Actions job summary with the released version, Maven coordinates, GitHub Packages links, Maven Central links, and the GitHub Packages repository snippet for consumers.
+
 Push-triggered release workflow runs can be skipped with common commit-message markers:
 
 ```text
