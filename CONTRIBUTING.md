@@ -152,6 +152,19 @@ The workflow needs `packages: write` permission and passes `GITHUB_PACKAGES_USER
 GRADLE_USER_HOME=/data/.gradle ./gradlew publishAllPublicationsToGitHubPackagesRepository --dry-run
 ```
 
+Push-triggered release workflow runs can be skipped with common commit-message markers:
+
+```text
+[skip ci]
+[ci skip]
+[no ci]
+[skip actions]
+[actions skip]
+skip-checks:true
+```
+
+Manual `workflow_dispatch` releases ignore these markers and still run.
+
 ## Troubleshooting During Development
 
 Use file logs when investigating container startup or service-side behavior:
