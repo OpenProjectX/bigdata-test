@@ -233,7 +233,12 @@ internal class BigDataContainerFactory(
         }
         val tlsProperties = if (hive.tls.enabled) configureHiveMetastoreTls(container, hive.tls) else emptyMap()
         configureHiveDockerObjectStores(container)
-        if (hive.extraConfiguration.isNotEmpty() || hive.kerberos.enabled || hive.tls.enabled) {
+        if (
+            hive.extraConfiguration.isNotEmpty() ||
+            hive.kerberos.enabled ||
+            hive.tls.enabled ||
+            hiveMetastoreObjectStoreConfiguration().isNotEmpty()
+        ) {
             container.withEnv("HIVE_CUSTOM_CONF_DIR", "/bigdata-test/hive-conf")
             openSourceHiveConfigurationFiles().forEach { (fileName, content) ->
                 container.withCopyToContainer(Transferable.of(content), "/bigdata-test/hive-conf/$fileName")
@@ -602,6 +607,11 @@ internal class BigDataContainerFactory(
 
     private fun hiveMetastoreObjectStoreConfiguration(): Map<String, String> =
         buildMap {
+            if (options.hdfs.enabled) {
+                put("fs.defaultFS", "hdfs://hdfs:${options.hdfs.nameNodePort}")
+                put("dfs.client.use.datanode.hostname", "true")
+                put("dfs.datanode.hostname", options.hdfs.dataNodeHostname)
+            }
             if (options.localStackS3.enabled) {
                 put("fs.s3a.endpoint", "http://localstack:4566")
                 put("fs.s3a.endpoint.region", "us-east-1")
@@ -624,6 +634,11 @@ internal class BigDataContainerFactory(
                 put("fs.gs.create.items.conflict.check.enable", "false")
                 put("fs.gs.implicit.dir.repair.enable", "false")
                 put("fs.gs.hierarchical.namespace.folders.enable", "false")
+                put("fs.gs.max.requests.per.batch", "1")
+                put("fs.gs.operation.move.enable", "false")
+                put("fs.gs.copy.with.rewrite.enable", "false")
+                put("fs.gs.client.upload.type", "WRITE_TO_DISK_THEN_UPLOAD")
+                put("fs.gs.outputstream.direct.upload.enable", "false")
             }
         }
 

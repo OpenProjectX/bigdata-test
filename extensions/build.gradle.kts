@@ -9,17 +9,42 @@ description = "Config-driven bigdata-test extensions for Hadoop credential provi
 dependencies {
     api(project(":junit5"))
 
-    implementation(libs.hadoopClientApi)
-    implementation(libs.hadoopClientRuntime)
-    implementation(libs.kafkaAvroSerializer)
-    implementation(libs.kafkaSchemaRegistryClient)
-    implementation(libs.avro)
+    compileOnly(libs.hadoopClientApi)
+    compileOnly(libs.hadoopClientRuntime)
+    compileOnly(libs.kafkaAvroSerializer)
+    compileOnly(libs.kafkaSchemaRegistryClient)
+    compileOnly(libs.avro)
+    compileOnly(libs.sparkSql)
+    compileOnly(libs.sparkHive)
     implementation(libs.kotlinxSerialization)
 
     testImplementation(libs.junitJupiterApi)
+    testImplementation(libs.hadoopClientApi)
+    testImplementation(libs.hadoopClientRuntime)
+    testImplementation(libs.kafkaAvroSerializer)
+    testImplementation(libs.kafkaSchemaRegistryClient)
+    testImplementation(libs.avro)
+    testImplementation(libs.sparkSql)
+    testImplementation(libs.sparkHive)
     testRuntimeOnly(libs.junitJupiterEngine)
     testRuntimeOnly(libs.junitPlatformLauncher)
     testRuntimeOnly(libs.slf4jSimple)
+}
+
+configurations.matching { it.name.startsWith("test") }.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group.startsWith("com.fasterxml.jackson")) {
+            useVersion("2.15.2")
+        }
+    }
+}
+
+tasks.withType<Test>().configureEach {
+    jvmArgs(
+        "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED",
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/java.net=ALL-UNNAMED",
+    )
 }
 
 javadns {

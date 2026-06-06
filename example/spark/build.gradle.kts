@@ -30,6 +30,11 @@ sparkPlatform {
 dependencies {
     testImplementation(project(":junit5"))
     testImplementation(project(":extensions"))
+    testImplementation(libs.hadoopClientApi)
+    testImplementation(libs.hadoopClientRuntime)
+    testImplementation(libs.kafkaAvroSerializer)
+    testImplementation(libs.kafkaSchemaRegistryClient)
+    testImplementation(libs.avro)
     testImplementation("org.apache.spark:spark-sql_2.12")
     testImplementation("org.apache.spark:spark-hive_2.12")
     testImplementation("org.apache.spark:spark-sql-kafka-0-10_2.12")

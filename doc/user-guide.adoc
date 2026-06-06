@@ -20,7 +20,7 @@ The project currently provides containers and test integration for:
 * fake-gcs-server
 * Kerberos KDC and service principals
 
-The project is split so lightweight users can depend on `core` or `junit5` without pulling Spark, Hadoop client utilities, or storage SDKs. Heavier setup such as JCEKS creation and Kafka Avro seeding lives in the `extensions` module.
+The project is split so lightweight users can depend on `core` or `junit5` without pulling Spark, Hadoop client utilities, or storage SDKs. Heavier setup such as JCEKS creation, Kafka Avro seeding, and Spark SQL preparation lives in the `extensions` module.
 
 == Module Layout
 
@@ -35,7 +35,7 @@ The project is split so lightweight users can depend on `core` or `junit5` witho
 |JUnit 5 annotation and parameter injection for `BigDataTestKit`.
 
 |`extensions`
-|Config-driven lifecycle extensions. Current built-ins create S3 JCEKS files and seed Kafka Avro records.
+|Config-driven lifecycle extensions. Current built-ins create S3 JCEKS files, create object-store buckets, seed Kafka Avro records, and run Spark SQL preparation.
 
 |`bigdata-test-spring-boot-autoconfigure`
 |Spring Boot auto-configuration that starts a `BigDataTestKit` from application properties.
@@ -69,7 +69,9 @@ External consumers should import the same BOM in their own dependency-management
 * `org.testcontainers:testcontainers-junit-jupiter`
 * `org.testcontainers:testcontainers-postgresql`
 
-The `extensions` module keeps Hadoop, Kafka, Avro, Schema Registry, and serialization libraries as implementation dependencies. They are required at runtime for the built-in extensions, but they are not part of the extension module's compile API. This reduces compile-classpath conflicts for user applications that already use their own Hadoop or Kafka client versions.
+The `extensions` module compiles against Hadoop, Kafka, Avro, Schema Registry, and Spark as provided dependencies. They are needed only when the corresponding extension runs, and they are not part of the extension module's compile or runtime API. This reduces dependency conflicts for user applications that already use their own Hadoop, Kafka, or Spark client versions.
+
+Kafka-only or JCEKS-only users do not need Spark on their runtime classpath. Tests that enable Spark SQL preparation must provide either Apache Spark or the matching vendor Spark distribution themselves.
 
 If an application needs to force its own runtime versions, use normal Gradle dependency constraints, platforms, or exclusions in the consuming build. Future extension modules can split these integrations further by feature so users can depend only on the extension families they need.
 
@@ -1156,6 +1158,75 @@ records = [
 
 Records can be supplied inline as compact TOML arrays or from a resource. Use this extension when test data should be declarative and reproducible instead of manually wired in every test.
 
+=== Spark SQL Preparation Extension
+
+The `spark-sql-prep` extension starts an in-process `SparkSession` after the requested containers are running, executes configured SQL statements or SQL script resources, then stops Spark and clears Spark session state by default. Use it to prepare Hive Metastore databases, Iceberg tables, Hive Parquet tables, and seed data against the test HMS, S3, and GCS services before the test method runs.
+
+The extension uses Spark from the consuming test runtime classpath. This is important for matrix tests: Apache Spark tasks should put Apache Spark on the test runtime classpath, and Cloudera Spark tasks should put the Cloudera Spark dependency line on the test runtime classpath. The extension does not choose or publish a Spark version.
+
+[source,toml]
+----
+[[extensions]]
+type = "spark-sql-prep"
+id = "prepare-tables"
+master = "local[2]"
+enableHiveSupport = true
+stopAfterRun = true
+statements = [
+  "CREATE DATABASE IF NOT EXISTS demo",
+]
+scripts = [
+  "classpath:sql/create_tables.sql",
+]
+
+[extensions.configs]
+"spark.sql.extensions" = "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions"
+"spark.sql.catalog.s3" = "org.apache.iceberg.spark.SparkCatalog"
+"spark.sql.catalog.s3.type" = "hadoop"
+"spark.sql.catalog.gcs_local" = "org.apache.iceberg.spark.SparkCatalog"
+"spark.sql.catalog.gcs_local.type" = "hadoop"
+----
+
+When `useKitEndpoints = true`, the default, the extension wires known endpoint properties from the active kit:
+
+* Hive Metastore URI and HMS TLS properties
+* HDFS default filesystem and DataNode hostname setting
+* LocalStack S3 endpoint and test credentials
+* fake-gcs-server endpoint using unauthenticated GCS connector settings
+* Kerberos client `krb5.conf`, principal, and keytab properties when Kerberos is enabled
+
+Explicit `configs` are applied after endpoint defaults and therefore override generated Spark config.
+
+Programmatic declaration is useful when table names or warehouse locations include a runtime suffix:
+
+[source,kotlin]
+----
+extensions.sparkSqlPreparation {
+    id = "prepare-tables"
+    statement("CREATE DATABASE IF NOT EXISTS demo_$suffix")
+    script("classpath:sql/create_tables.sql")
+    config("spark.sql.shuffle.partitions", "1")
+}
+----
+
+Java configurers can use the same builder through the `Consumer` overload:
+
+[source,java]
+----
+extensions.sparkSqlPreparation(spark -> {
+    spark.setId("prepare-tables");
+    spark.statement("CREATE DATABASE IF NOT EXISTS demo");
+    spark.config("spark.sql.shuffle.partitions", "1");
+});
+----
+
+Outputs:
+
+* `prepare-tables.engine`
+* `prepare-tables.executed-statements`
+
+The cleanup defaults are intentionally conservative for user application isolation: `stopAfterRun = true`, `clearSparkSessions = true`, and `closeHadoopFileSystems = true`. They reduce pollution of the test JVM, but in-process Spark is still less isolated than a separate Spark container because Spark, Hadoop, and connector libraries share the same JVM classpath as the test.
+
 === Extension Lifecycle
 
 Extensions implement `BigDataExtension` and receive lifecycle events:
@@ -1240,6 +1311,16 @@ When Hive Metastore starts with LocalStack S3 enabled, `bigdata-test` injects HM
 
 This allows Hive external table DDL with `s3a://` locations to validate against the internal LocalStack endpoint. The Spark example includes this path and verifies the HMS table location through `HiveMetaStoreClient`.
 
+=== HMS Server-Side HDFS
+
+When Hive Metastore starts with HDFS enabled, `bigdata-test` injects HMS-side HDFS client configuration:
+
+* `fs.defaultFS=hdfs://hdfs:<namenode-port>`
+* `dfs.client.use.datanode.hostname=true`
+* `dfs.datanode.hostname=<configured-data-node-hostname>`
+
+This lets HMS resolve `hdfs://` warehouse and table locations from inside the Docker network. The default namenode host is the container network alias `hdfs`; if you override HDFS ports or datanode advertisement, the HMS config follows the same test-kit options.
+
 === HMS Server-Side GCS
 
 When Hive Metastore starts with fake GCS enabled, `bigdata-test` injects HMS-side GCS configuration based on the Google Cloud Storage connector configuration model:
@@ -1255,6 +1336,11 @@ When Hive Metastore starts with fake GCS enabled, `bigdata-test` injects HMS-sid
 * `fs.gs.create.items.conflict.check.enable=false`
 * `fs.gs.implicit.dir.repair.enable=false`
 * `fs.gs.hierarchical.namespace.folders.enable=false`
+* `fs.gs.max.requests.per.batch=1`
+* `fs.gs.operation.move.enable=false`
+* `fs.gs.copy.with.rewrite.enable=false`
+* `fs.gs.client.upload.type=WRITE_TO_DISK_THEN_UPLOAD`
+* `fs.gs.outputstream.direct.upload.enable=false`
 
 This configuration does not fail HMS startup by itself. HMS can start with these keys even if the GCS connector jar is not present. Creating or validating a `gs://` Hive external table requires the HMS image to include the GCS connector and its runtime dependencies. The default open-source HMS image and the `ghcr.io/openprojectx/cloudera-hms` image include those dependencies.
 

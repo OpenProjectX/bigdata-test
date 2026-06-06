@@ -15,6 +15,7 @@ abstract class SparkBigDataScenario {
     protected abstract val runId: String
     protected abstract val s3BucketExtensionId: String
     protected abstract val gcsBucketExtensionId: String
+    protected open val sparkSqlPrepExtensionId: String = "spark-sql-prep"
 
     @Test
     fun runsSparkScenario(kit: BigDataTestKit, extensions: BigDataExtensionResult) {
@@ -55,6 +56,12 @@ abstract class SparkBigDataScenario {
 
     protected open fun targetChecks(): List<SparkScenarioCheck> =
         listOf(
+            SparkScenarioCheck { context ->
+                assertSparkSqlPreparation(
+                    spark = context.spark,
+                    environment = context.environment,
+                )
+            },
             SparkScenarioCheck { context ->
                 assertIcebergTable(
                     spark = context.spark,
@@ -138,6 +145,7 @@ abstract class SparkBigDataScenario {
             gcsEndpoint = gcs.property("google.cloud.storage.host"),
             gcsBucket = gcsBucket,
             gcsIcebergDataPath = "${extensions.required("$gcsBucketExtensionId.gs.uri")}/data/demo_$runId/events_gcs",
+            sparkSqlPrepExecutedStatements = extensions.optional("$sparkSqlPrepExtensionId.executed-statements"),
             s3CredentialProviderPath = extensions.required("s3-jceks.credential-provider.path"),
             s3CredentialProviderHdfsPath = extensions.required("s3-jceks.hdfs.path"),
             kerberosClientPrincipal = extensions.optional("kerberos-material.client.principal"),
@@ -183,6 +191,9 @@ abstract class SparkBigDataScenario {
                     "spark.sql.catalog.gcs_local.warehouse",
                     "file:${Files.createTempDirectory("bigdata-test-gcs-iceberg-warehouse-")}"
                 )
+                .config("spark.sql.catalog.prep_s3", "org.apache.iceberg.spark.SparkCatalog")
+                .config("spark.sql.catalog.prep_s3.type", "hadoop")
+                .config("spark.sql.catalog.prep_s3.warehouse", "s3a://${environment.s3Bucket}/spark-sql-prep/warehouse")
                 .config("spark.sql.catalog.hms", "org.apache.iceberg.spark.SparkCatalog")
                 .config("spark.sql.catalog.hms.type", "hive")
                 .config("spark.sql.catalog.hms.uri", environment.hiveMetastoreUri)
@@ -290,6 +301,49 @@ abstract class SparkBigDataScenario {
         check(rows.count() == 2L) { "Expected two Avro Kafka records in $topic" }
     }
 
+    protected fun assertSparkSqlPreparation(
+        spark: SparkSession,
+        environment: SparkScenarioEnvironment,
+    ) {
+        check(environment.sparkSqlPrepExecutedStatements == "4") {
+            "Expected Spark SQL preparation to execute 4 statements, got ${environment.sparkSqlPrepExecutedStatements}"
+        }
+        assertPreparedIcebergTable(
+            spark = spark,
+            identifier = "prep_s3.demo_${environment.runId}.events",
+            storageName = "prep-s3",
+        )
+        assertPreparedParquetPath(
+            spark = spark,
+            path = "gs://${environment.gcsBucket}/spark-sql-prep/data/events",
+            storageName = "prep-gcs",
+        )
+        assertHiveDatabase(
+            hiveMetastoreUri = environment.hiveMetastoreUri,
+            hiveMetastoreTlsProperties = environment.hiveMetastoreTlsProperties,
+            database = "prep_hms_${environment.runId}",
+        )
+    }
+
+    private fun assertPreparedIcebergTable(
+        spark: SparkSession,
+        identifier: String,
+        storageName: String,
+    ) {
+        val count = spark.table(identifier).where("storage = '$storageName'").count()
+        check(count == 2L) { "Expected two prepared rows in $identifier" }
+    }
+
+    private fun assertPreparedParquetPath(
+        spark: SparkSession,
+        path: String,
+        storageName: String,
+    ) {
+        val count = spark.read().parquet(path).where("storage = '$storageName'").count()
+        check(count == 2L) { "Expected two prepared Parquet rows in $path" }
+        assertParquetFiles(spark, path)
+    }
+
     protected fun assertIcebergTable(
         spark: SparkSession,
         catalog: String,
@@ -336,6 +390,20 @@ abstract class SparkBigDataScenario {
             check(hmsTable.parameters.containsKey("metadata_location")) {
                 "Expected HMS table $database.$table to contain Iceberg metadata_location"
             }
+        } finally {
+            client.close()
+        }
+    }
+
+    protected fun assertHiveDatabase(
+        hiveMetastoreUri: String,
+        hiveMetastoreTlsProperties: Map<String, String>,
+        database: String,
+    ) {
+        val conf = hiveMetastoreConf(hiveMetastoreUri, hiveMetastoreTlsProperties)
+        val client = hiveMetastoreClient(conf)
+        try {
+            check(client.getAllDatabases().contains(database)) { "Expected HMS database $database" }
         } finally {
             client.close()
         }
@@ -461,6 +529,7 @@ data class SparkScenarioEnvironment(
     val gcsEndpoint: String,
     val gcsBucket: String,
     val gcsIcebergDataPath: String,
+    val sparkSqlPrepExecutedStatements: String?,
     val s3CredentialProviderPath: String,
     val s3CredentialProviderHdfsPath: String,
     val kerberosClientPrincipal: String?,

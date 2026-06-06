@@ -13,6 +13,8 @@ import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroSeedExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroTopicSeed
 import org.openprojectx.bigdata.test.extensions.objectstore.GcsBucketExtension
 import org.openprojectx.bigdata.test.extensions.objectstore.S3BucketExtension
+import org.openprojectx.bigdata.test.extensions.spark.SparkSqlPreparationExtension
+import org.openprojectx.bigdata.test.extensions.spark.SparkSqlPreparationStatement
 import java.util.function.Consumer
 
 class BigDataExtensionsBuilder {
@@ -64,6 +66,14 @@ class BigDataExtensionsBuilder {
 
     fun gcsBucket(bucket: String, id: String) {
         gcsBucket(bucket = bucket, id = id, project = "bigdata-test")
+    }
+
+    fun sparkSqlPreparation(configure: SparkSqlPreparationBuilder.() -> Unit) {
+        extensions += SparkSqlPreparationBuilder().apply(configure).build()
+    }
+
+    fun sparkSqlPreparation(configure: Consumer<SparkSqlPreparationBuilder>) {
+        extensions += SparkSqlPreparationBuilder().also { configure.accept(it) }.build()
     }
 
     internal fun build(): List<BigDataExtension> = extensions.toList()
@@ -145,6 +155,45 @@ class KafkaAvroTopicBuilder internal constructor(
             records = records.toList(),
             partitions = partitions,
             replicationFactor = replicationFactor,
+        )
+}
+
+class SparkSqlPreparationBuilder {
+    var id: String = "spark-sql-prep"
+    var appName: String = "bigdata-test-spark-sql-prep"
+    var master: String = "local[2]"
+    var enableHiveSupport: Boolean = true
+    var stopAfterRun: Boolean = true
+    var clearSparkSessions: Boolean = true
+    var closeHadoopFileSystems: Boolean = true
+    var useKitEndpoints: Boolean = true
+    private val configs = linkedMapOf<String, String>()
+    private val sql = mutableListOf<SparkSqlPreparationStatement>()
+
+    fun config(key: String, value: String) {
+        configs[key] = value
+    }
+
+    fun statement(sql: String) {
+        this.sql += SparkSqlPreparationStatement(statement = sql)
+    }
+
+    fun script(resource: String) {
+        sql += SparkSqlPreparationStatement(resource = resource)
+    }
+
+    internal fun build(): SparkSqlPreparationExtension =
+        SparkSqlPreparationExtension(
+            id = id,
+            appName = appName,
+            master = master,
+            enableHiveSupport = enableHiveSupport,
+            stopAfterRun = stopAfterRun,
+            clearSparkSessions = clearSparkSessions,
+            closeHadoopFileSystems = closeHadoopFileSystems,
+            useKitEndpoints = useKitEndpoints,
+            configs = configs.toMap(),
+            sql = sql.toList(),
         )
 }
 

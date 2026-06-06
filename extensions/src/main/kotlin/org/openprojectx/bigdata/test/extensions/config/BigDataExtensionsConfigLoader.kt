@@ -21,6 +21,7 @@ import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroSeedExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroTopicSeed
 import org.openprojectx.bigdata.test.extensions.objectstore.GcsBucketExtension
 import org.openprojectx.bigdata.test.extensions.objectstore.S3BucketExtension
+import org.openprojectx.bigdata.test.extensions.spark.SparkSqlPreparationExtensionProvider
 import java.util.ServiceLoader
 
 class BigDataExtensionsConfigLoader(
@@ -126,7 +127,9 @@ class BigDataExtensionsConfigLoader(
         this[name]?.jsonPrimitive?.booleanOrNull ?: default
 
     private companion object {
-        val builtInProviders = listOf<BigDataExtensionProvider>()
+        val builtInProviders = listOf<BigDataExtensionProvider>(
+            SparkSqlPreparationExtensionProvider,
+        )
     }
 }
 
