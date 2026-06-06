@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: release-master
@@ -154,6 +155,8 @@ jobs:
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          GITHUB_PACKAGES_USERNAME: ${{ github.actor }}
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SIGNING_KEY_FILE: ${{ runner.temp }}/signing-key.asc
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |

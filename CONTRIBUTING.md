@@ -138,6 +138,20 @@ The Spark matrix has two kinds of axes. Container/service axes belong in TOML an
 
 The Gradle configuration-cache warning from `net.researchgate.release` is currently expected and unrelated to test behavior.
 
+## Release Publishing
+
+The release workflow publishes library modules to Maven Central through Sonatype and to GitHub Packages. GitHub Packages uses the repository Maven endpoint:
+
+```text
+https://maven.pkg.github.com/OpenProjectX/bigdata-test
+```
+
+The workflow needs `packages: write` permission and passes `GITHUB_PACKAGES_USERNAME` plus `GITHUB_PACKAGES_TOKEN` to Gradle. Local dry runs can validate task selection without uploading:
+
+```bash
+GRADLE_USER_HOME=/data/.gradle ./gradlew publishAllPublicationsToGitHubPackagesRepository --dry-run
+```
+
 ## Troubleshooting During Development
 
 Use file logs when investigating container startup or service-side behavior:

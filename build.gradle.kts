@@ -90,6 +90,19 @@ subprojects {
                     }
                 }
             }
+
+            repositories {
+                maven {
+                    name = "GitHubPackages"
+                    url = uri("https://maven.pkg.github.com/OpenProjectX/bigdata-test")
+                    credentials {
+                        username = System.getenv("GITHUB_PACKAGES_USERNAME")
+                            ?: System.getenv("GITHUB_ACTOR")
+                        password = System.getenv("GITHUB_PACKAGES_TOKEN")
+                            ?: System.getenv("GITHUB_TOKEN")
+                    }
+                }
+            }
         }
     }
 
@@ -126,7 +139,13 @@ nexusPublishing {
 }
 
 configure<ReleaseExtension> {
-    buildTasks.set(listOf("publishToSonatype", "closeAndReleaseSonatypeStagingRepository"))
+    buildTasks.set(
+        listOf(
+            "publishToSonatype",
+            "publishAllPublicationsToGitHubPackagesRepository",
+            "closeAndReleaseSonatypeStagingRepository",
+        )
+    )
     versionPropertyFile.set("gradle.properties")
     tagTemplate.set("\$name-\$version")
 
