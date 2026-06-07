@@ -132,6 +132,19 @@ GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaDepsClouder
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkClouderaDepsClouderaHmsKerberosTest
 ```
 
+Cloudera HMS Kerberos cells are currently opt-in while the Cloudera HMS image-side auth configuration is being stabilized:
+
+```bash
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkBigDataMatrixTest \
+  -Pbigdata.spark.enableClouderaHmsKerberos=true
+```
+
+Current matrix constraints:
+
+- The default matrix covers open-source Hive HMS with Kerberos, including HDFS Kerberos, Kafka Kerberos, and S3/GCS table smoke tests.
+- Cloudera HMS plaintext cells run by default.
+- Cloudera HMS Kerberos cells are disabled by default because the current Cloudera HMS image path can fail during HMS server-side Kerberos transport setup before the thrift endpoint is usable.
+
 ## Documentation
 
 - Detailed usage: [doc/user-guide.adoc](doc/user-guide.adoc)

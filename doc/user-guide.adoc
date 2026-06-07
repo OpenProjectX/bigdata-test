@@ -1714,7 +1714,7 @@ The aggregate task runs these cells:
 |`sparkApacheDepsClouderaHmsKerberosTest`
 |Apache Spark/Hadoop
 |Cloudera HMS
-|Yes
+|Opt-in
 
 |`sparkClouderaDepsApacheHmsTest`
 |Cloudera Spark/Hadoop
@@ -1724,7 +1724,7 @@ The aggregate task runs these cells:
 |`sparkClouderaDepsApacheHmsKerberosTest`
 |Cloudera Spark/Hadoop
 |Cloudera HMS
-|Yes
+|Opt-in
 
 |`sparkClouderaDepsClouderaHmsTest`
 |Cloudera Spark/Hadoop
@@ -1734,12 +1734,28 @@ The aggregate task runs these cells:
 |`sparkClouderaDepsClouderaHmsKerberosTest`
 |Cloudera Spark/Hadoop
 |Cloudera HMS
-|Yes
+|Opt-in
 |===
 
 The Kerberos axis currently enables the shared KDC and Kafka Kerberos path used by the Spark Kafka source. The HMS axis switches between the open-source Hive 3 HMS image and the Cloudera HMS image for Apache Spark/Hadoop dependencies. Cloudera Spark/Hadoop dependencies always run with Cloudera HMS because that Hive client calls HMS Thrift APIs, such as `get_database_req`, that the open-source Hive 3.1.3 HMS server does not implement. The dependency axis switches the test JVM runtime classpath; it is intentionally implemented in Gradle rather than TOML.
 
 `sparkClouderaDepsApacheHmsTest` and `sparkClouderaDepsApacheHmsKerberosTest` are compatibility task names only; both use Cloudera HMS.
+
+Cloudera HMS Kerberos cells are skipped by default while the Cloudera HMS image-side auth configuration is being stabilized. Enable them explicitly when troubleshooting that path:
+
+[source,bash]
+----
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkBigDataMatrixTest \
+  -Pbigdata.spark.enableClouderaHmsKerberos=true
+----
+
+Current constraints:
+
+* The default matrix still exercises Kerberos with the open-source Hive HMS path. That includes KDC startup, client keytab login, HDFS Kerberos, HMS access to secured HDFS, Kafka Kerberos, and the Spark S3/GCS smoke checks.
+* Cloudera HMS plaintext cells run by default.
+* Cloudera HMS Kerberos cells are disabled by default because the current Cloudera HMS image path can fail before the thrift endpoint is usable during HMS server-side Kerberos transport setup. In the failing path, HMS accepts the server principal but the client-facing Kerberos principal is not resolved correctly by the server image, so the process exits before Spark can connect.
+* Enabling HDFS Kerberos can require HMS Kerberos when HMS needs to access HDFS-backed configuration or warehouse paths. The test framework wires HMS HDFS client security and HDFS proxy-user properties for that path.
+* HMS TLS is independent from HMS Kerberos. The Kerberos matrix files do not enable HMS TLS unless the TOML explicitly sets `hiveMetastoreTls`.
 
 To inspect the resolved dependency tree for each Spark dependency line, use Gradle's `dependencies` task with the resolvable classpath configurations from `example/spark/build.gradle.kts`:
 

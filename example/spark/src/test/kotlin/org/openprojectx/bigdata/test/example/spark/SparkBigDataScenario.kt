@@ -138,6 +138,7 @@ abstract class SparkBigDataScenario {
         return SparkScenarioEnvironment(
             runId = runId,
             hdfsUri = hdfs.property("fs.defaultFS"),
+            hdfsProperties = hdfs.properties,
             hiveMetastoreUri = hiveMetastore.property("hive.metastore.uris"),
             kafkaBootstrapServers = kafka.property("bootstrap.servers"),
             s3Endpoint = s3.property("aws.endpoint-url.s3"),
@@ -161,7 +162,9 @@ abstract class SparkBigDataScenario {
             hiveMetastoreTlsProperties = hiveMetastore.properties.filterKeys {
                 it == "hive.metastore.use.SSL" ||
                     it == "hive.metastore.truststore.path" ||
-                    it == "hive.metastore.truststore.password"
+                    it == "hive.metastore.truststore.password" ||
+                    it == "hive.metastore.sasl.enabled" ||
+                    it == "hive.metastore.kerberos.principal"
             },
         )
     }
@@ -206,6 +209,7 @@ abstract class SparkBigDataScenario {
                 .config("hive.metastore.uris", environment.hiveMetastoreUri)
                 .configureHiveMetastoreTls(environment)
                 .config("spark.hadoop.fs.defaultFS", environment.hdfsUri)
+                .configureHdfs(environment)
                 .config("spark.hadoop.hadoop.security.credential.provider.path", environment.s3CredentialProviderPath)
                 .config("spark.hadoop.fs.s3a.endpoint", environment.s3Endpoint)
                 .config(
@@ -247,6 +251,15 @@ abstract class SparkBigDataScenario {
         }
         environment.kafkaJaasConfig?.let {
             config("spark.hadoop.bigdata.test.kafka.jaas.config", it)
+        }
+        return this
+    }
+
+    private fun SparkSession.Builder.configureHdfs(environment: SparkScenarioEnvironment): SparkSession.Builder {
+        environment.hdfsProperties.forEach { (key, value) ->
+            if (key == "hadoop.security.authentication" || key.startsWith("dfs.")) {
+                config("spark.hadoop.$key", value)
+            }
         }
         return this
     }
@@ -522,6 +535,7 @@ data class SparkScenarioContext(
 data class SparkScenarioEnvironment(
     val runId: String,
     val hdfsUri: String,
+    val hdfsProperties: Map<String, String>,
     val hiveMetastoreUri: String,
     val kafkaBootstrapServers: String,
     val s3Endpoint: String,

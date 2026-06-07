@@ -8,6 +8,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.apache.hadoop.fs.FileSystem
+import org.apache.hadoop.security.UserGroupInformation
 import org.apache.spark.sql.SparkSession
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtension
@@ -48,6 +49,7 @@ class SparkSqlPreparationExtension(
             }
             configs.forEach { (key, value) -> builder.config(key, value) }
             spark = if (enableHiveSupport) builder.enableHiveSupport().getOrCreate() else builder.getOrCreate()
+            loginFromKeytabIfNeeded(spark, context)
 
             var count = 0
             sql.forEach { statement ->
@@ -90,6 +92,11 @@ class SparkSqlPreparationExtension(
             endpoint.properties["fs.defaultFS"]?.let { builder.config("spark.hadoop.fs.defaultFS", it) }
             endpoint.properties["dfs.client.use.datanode.hostname"]?.let {
                 builder.config("spark.hadoop.dfs.client.use.datanode.hostname", it)
+            }
+            endpoint.properties.forEach { (key, value) ->
+                if (key == "hadoop.security.authentication" || key.startsWith("dfs.")) {
+                    builder.config("spark.hadoop.$key", value)
+                }
             }
         }
         context.kit.endpoints()[BigDataService.LOCALSTACK_S3]?.let { endpoint ->
@@ -145,6 +152,15 @@ class SparkSqlPreparationExtension(
         } else {
             System.setProperty(name, previous)
         }
+    }
+
+    private fun loginFromKeytabIfNeeded(spark: SparkSession, context: BigDataExtensionContext) {
+        val kerberos = context.kit.endpoints()[BigDataService.KERBEROS]?.properties ?: return
+        val principal = kerberos["bigdata.test.kerberos.client-principal"] ?: return
+        val keytab = kerberos["bigdata.test.kerberos.client-keytab"] ?: return
+        val conf = spark.sparkContext().hadoopConfiguration()
+        UserGroupInformation.setConfiguration(conf)
+        UserGroupInformation.loginUserFromKeytab(principal, keytab)
     }
 }
 

@@ -159,7 +159,7 @@ val sparkApacheDepsApacheHmsTest = registerSparkMatrixTest(
 
 val sparkApacheDepsApacheHmsKerberosTest = registerSparkMatrixTest(
     name = "sparkApacheDepsApacheHmsKerberosTest",
-    descriptionText = "Runs the Spark example with Apache Spark/Hadoop deps, open-source Hive 3 HMS, and Kafka Kerberos.",
+    descriptionText = "Runs the Spark example with Apache Spark/Hadoop deps, open-source Hive 3 HMS, HDFS Kerberos, and Kafka Kerberos.",
     dependencyLine = "apache",
     hmsDistribution = "apache",
     runtimeClasspath = apacheSparkRuntimeClasspath,
@@ -177,7 +177,7 @@ val sparkApacheDepsClouderaHmsTest = registerSparkMatrixTest(
 
 val sparkApacheDepsClouderaHmsKerberosTest = registerSparkMatrixTest(
     name = "sparkApacheDepsClouderaHmsKerberosTest",
-    descriptionText = "Runs the Spark example with Apache Spark/Hadoop deps, Cloudera HMS, and Kafka Kerberos.",
+    descriptionText = "Runs the Spark example with Apache Spark/Hadoop deps, Cloudera HMS, HDFS Kerberos, and Kafka Kerberos.",
     dependencyLine = "apache",
     hmsDistribution = "cloudera",
     runtimeClasspath = apacheSparkRuntimeClasspath,
@@ -195,7 +195,7 @@ val sparkClouderaDepsApacheHmsTest = registerSparkMatrixTest(
 
 val sparkClouderaDepsApacheHmsKerberosTest = registerSparkMatrixTest(
     name = "sparkClouderaDepsApacheHmsKerberosTest",
-    descriptionText = "Compatibility task: Cloudera Spark/Hadoop deps always run with Cloudera HMS and Kafka Kerberos.",
+    descriptionText = "Compatibility task: Cloudera Spark/Hadoop deps always run with Cloudera HMS, HDFS Kerberos, and Kafka Kerberos.",
     dependencyLine = "cloudera",
     hmsDistribution = "cloudera",
     runtimeClasspath = clouderaSparkRuntimeClasspath,
@@ -213,12 +213,28 @@ val sparkClouderaDepsClouderaHmsTest = registerSparkMatrixTest(
 
 val sparkClouderaDepsClouderaHmsKerberosTest = registerSparkMatrixTest(
     name = "sparkClouderaDepsClouderaHmsKerberosTest",
-    descriptionText = "Runs the Spark example with Cloudera Spark/Hadoop deps, Cloudera HMS, and Kafka Kerberos.",
+    descriptionText = "Runs the Spark example with Cloudera Spark/Hadoop deps, Cloudera HMS, HDFS Kerberos, and Kafka Kerberos.",
     dependencyLine = "cloudera",
     hmsDistribution = "cloudera",
     runtimeClasspath = clouderaSparkRuntimeClasspath,
     variantConfig = "classpath:spark-bigdata-test-cloudera-hms-kerberos.toml",
 )
+
+val clouderaHmsKerberosEnabled = providers.gradleProperty("bigdata.spark.enableClouderaHmsKerberos")
+    .map(String::toBoolean)
+    .getOrElse(false)
+
+listOf(
+    sparkApacheDepsClouderaHmsKerberosTest,
+    sparkClouderaDepsApacheHmsKerberosTest,
+    sparkClouderaDepsClouderaHmsKerberosTest,
+).forEach { taskProvider ->
+    taskProvider.configure {
+        if (!clouderaHmsKerberosEnabled) {
+            enabled = false
+        }
+    }
+}
 
 listOf(
     sparkApacheDepsApacheHmsKerberosTest to sparkApacheDepsApacheHmsTest,

@@ -240,6 +240,11 @@ internal class BigDataContainerFactory(
             container
                 .withEnv("KRB5_CONFIG", "/kerby/client/krb5.conf")
                 .withEnv("SERVICE_OPTS", "-Djava.security.krb5.conf=/kerby/client/krb5.conf")
+                .withEnv("HMS_CONF_HIVE_METASTORE_SASL_ENABLED", "true")
+                .withEnv("HMS_CONF_HIVE_METASTORE_KERBEROS_PRINCIPAL", hive.kerberos.servicePrincipal)
+                .withEnv("HMS_CONF_HIVE_METASTORE_CLIENT_KERBEROS_PRINCIPAL", hive.kerberos.servicePrincipal)
+                .withEnv("HMS_CONF_HIVE_METASTORE_KERBEROS_KEYTAB_FILE", hive.kerberos.keytabPath)
+                .withEnv("HMS_CONF_HADOOP_SECURITY_AUTHENTICATION", "kerberos")
         }
         val tlsProperties = if (hive.tls.enabled) configureHiveMetastoreTls(container, hive.tls) else emptyMap()
         configureHiveDockerObjectStores(container)
@@ -267,7 +272,9 @@ internal class BigDataContainerFactory(
                 properties = mapOf(
                     "hive.metastore.uris" to thriftUri,
                     "spring.bigdata.test.hive-metastore.thrift-uri" to thriftUri,
-                ) + tlsProperties + kerberosProperties("hive.metastore", hive.kerberos),
+                ) + tlsProperties +
+                    hiveMetastoreClientKerberosProperties(hive.kerberos) +
+                    kerberosProperties("hive.metastore", hive.kerberos),
             )
         }
     }
@@ -289,12 +296,13 @@ internal class BigDataContainerFactory(
                 .withEnv("KRB5_CONFIG", "/kerby/client/krb5.conf")
                 .withEnv("HMS_CONF_HIVE_METASTORE_SASL_ENABLED", "true")
                 .withEnv("HMS_CONF_HIVE_METASTORE_KERBEROS_PRINCIPAL", hive.kerberos.servicePrincipal)
+                .withEnv("HMS_CONF_HIVE_METASTORE_CLIENT_KERBEROS_PRINCIPAL", hive.kerberos.servicePrincipal)
                 .withEnv("HMS_CONF_HIVE_METASTORE_KERBEROS_KEYTAB_FILE", hive.kerberos.keytabPath)
                 .withEnv("HMS_CONF_HADOOP_SECURITY_AUTHENTICATION", "kerberos")
         }
         val tlsProperties = if (hive.tls.enabled) configureHiveMetastoreTls(container, hive.tls) else emptyMap()
 
-        hiveMetastoreObjectStoreConfiguration().forEach { (key, value) ->
+        hiveMetastoreHadoopConfiguration().forEach { (key, value) ->
             container.withEnv("HMS_CONF_${encodeConfigKey(key)}", value)
         }
         hive.extraConfiguration.forEach { (key, value) ->
@@ -313,7 +321,9 @@ internal class BigDataContainerFactory(
                 properties = mapOf(
                     "hive.metastore.uris" to thriftUri,
                     "spring.bigdata.test.hive-metastore.thrift-uri" to thriftUri,
-                ) + tlsProperties + kerberosProperties("hive.metastore", hive.kerberos),
+                ) + tlsProperties +
+                    hiveMetastoreClientKerberosProperties(hive.kerberos) +
+                    kerberosProperties("hive.metastore", hive.kerberos),
             )
         }
     }
@@ -652,6 +662,22 @@ internal class BigDataContainerFactory(
             }
         }
 
+    private fun hiveMetastoreHadoopConfiguration(): Map<String, String> =
+        hiveMetastoreObjectStoreConfiguration() +
+            hdfsKerberosClientProperties(options.hdfs.kerberos) +
+            hiveMetastoreProxyUserProperties(options.hiveMetastore.kerberos)
+
+    private fun hiveMetastoreProxyUserProperties(kerberos: KerberosAuthOptions): Map<String, String> =
+        if (kerberos.enabled) {
+            val shortName = kerberos.servicePrincipal.substringBefore("/")
+            mapOf(
+                "hadoop.proxyuser.$shortName.hosts" to "*",
+                "hadoop.proxyuser.$shortName.groups" to "*",
+            )
+        } else {
+            emptyMap()
+        }
+
     private fun configureHiveDockerObjectStores(container: HiveMetastoreContainer) {
         if (options.localStackS3.enabled) {
             container
@@ -700,7 +726,7 @@ internal class BigDataContainerFactory(
             metastoreProperties += hiveMetastoreServerTlsProperties("/bigdata-test/tls/hive-metastore.p12")
         }
         metastoreProperties += hive.extraConfiguration
-        val hadoopProperties = hiveMetastoreObjectStoreConfiguration()
+        val hadoopProperties = hiveMetastoreHadoopConfiguration()
 
         return mapOf(
             "hive-site.xml" to configurationXml(metastoreProperties + hadoopProperties),
@@ -1097,7 +1123,21 @@ internal class BigDataContainerFactory(
 
     private fun hdfsCoreSiteSecurity(kerberos: KerberosAuthOptions): String =
         if (kerberos.enabled) {
-            """<property><name>hadoop.security.authentication</name><value>kerberos</value></property>"""
+            """
+            <property><name>hadoop.security.authentication</name><value>kerberos</value></property>
+            ${hdfsProxyUserSecurity(options.hiveMetastore.kerberos)}
+            """.trimIndent()
+        } else {
+            ""
+        }
+
+    private fun hdfsProxyUserSecurity(kerberos: KerberosAuthOptions): String =
+        if (kerberos.enabled) {
+            val shortName = kerberos.servicePrincipal.substringBefore("/")
+            """
+            <property><name>hadoop.proxyuser.$shortName.hosts</name><value>*</value></property>
+            <property><name>hadoop.proxyuser.$shortName.groups</name><value>*</value></property>
+            """.trimIndent()
         } else {
             ""
         }
@@ -1257,6 +1297,16 @@ internal class BigDataContainerFactory(
                 "$prefix.kerberos.keytab.local" to localKerberosPath(options.keytabPath),
                 "java.security.krb5.conf" to "/kerby/client/krb5.conf",
                 "java.security.krb5.conf.local" to localKerberosPath("/kerby/client/krb5.conf"),
+            )
+        } else {
+            emptyMap()
+        }
+
+    private fun hiveMetastoreClientKerberosProperties(options: KerberosAuthOptions): Map<String, String> =
+        if (options.enabled) {
+            mapOf(
+                "hive.metastore.sasl.enabled" to "true",
+                "hive.metastore.kerberos.principal" to options.servicePrincipal,
             )
         } else {
             emptyMap()
