@@ -3,6 +3,7 @@ package org.openprojectx.bigdata.test.extensions.hadoop
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hadoop.security.alias.CredentialProviderFactory
 import java.net.URI
 
@@ -32,6 +33,7 @@ object HadoopCredentialProviders {
     ) {
         val conf = hdfsConfiguration(hdfsProperties)
         conf.set(CredentialProviderFactory.CREDENTIAL_PROVIDER_PATH, providerPath)
+        loginFromKeytabIfNeeded(conf, hdfsProperties)
         val hdfsUri = requireNotNull(hdfsProperties["fs.defaultFS"]?.takeIf { it.isNotBlank() }) {
             "HDFS properties must include non-blank fs.defaultFS"
         }
@@ -60,4 +62,17 @@ object HadoopCredentialProviders {
                 }
             }
         }
+
+    private fun loginFromKeytabIfNeeded(conf: Configuration, properties: Map<String, String>) {
+        if (!properties["hadoop.security.authentication"].equals("kerberos", ignoreCase = true)) return
+
+        val krb5Conf = properties["java.security.krb5.conf.local"]
+            ?: properties["java.security.krb5.conf"]
+        krb5Conf?.let { System.setProperty("java.security.krb5.conf", it) }
+
+        val principal = properties["bigdata.test.kerberos.client-principal"] ?: return
+        val keytab = properties["bigdata.test.kerberos.client-keytab"] ?: return
+        UserGroupInformation.setConfiguration(conf)
+        UserGroupInformation.loginUserFromKeytab(principal, keytab)
+    }
 }

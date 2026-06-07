@@ -1,5 +1,6 @@
 package org.openprojectx.bigdata.test.autoconfigure
 
+import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties("bigdata.test")
@@ -14,6 +15,8 @@ data class BigDataTestProperties(
     var kafka: Kafka = Kafka(),
     var localstackS3: ObjectStore = ObjectStore(image = "localstack/localstack:4.14.0"),
     var fakeGcs: ObjectStore = ObjectStore(image = "fsouza/fake-gcs-server:1.54"),
+    var containerLogs: ContainerLogs = ContainerLogs(),
+    var containerLogLevels: Map<String, String> = emptyMap(),
 ) {
     data class Kerberos(
         var enabled: Boolean = false,
@@ -96,5 +99,10 @@ data class BigDataTestProperties(
         var enabled: Boolean = false,
         var image: String,
         var tls: HttpTls = HttpTls(),
+    )
+
+    data class ContainerLogs(
+        var mode: ContainerLogMode = ContainerLogMode.NONE,
+        var directory: String = "build/bigdata-test-container-logs",
     )
 }

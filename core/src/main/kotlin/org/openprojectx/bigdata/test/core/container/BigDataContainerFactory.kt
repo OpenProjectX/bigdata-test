@@ -7,6 +7,7 @@ import org.openprojectx.bigdata.test.core.BigDataTestKitOptions
 import org.openprojectx.bigdata.test.core.ContainerFileTransferOptions
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerPortOptions
+import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HttpTlsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
@@ -18,6 +19,7 @@ import org.testcontainers.containers.BindMode
 import org.testcontainers.containers.Network
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.containers.wait.strategy.Wait
+import org.testcontainers.containers.wait.strategy.WaitAllStrategy
 import org.testcontainers.kafka.KafkaContainer
 import org.testcontainers.containers.output.OutputFrame
 import org.testcontainers.images.builder.Transferable
@@ -162,9 +164,14 @@ internal class BigDataContainerFactory(
             .withCommand(
                 "sh",
                 "-lc",
-                hdfsStartupCommand(hdfs.nameNodePort, hdfs.dataNodePort, hdfs.dataNodeHostname, hdfs.webPort),
+                hdfsStartupCommand(hdfs),
             )
-            .waitingFor(Wait.forHttp("/").forPort(hdfs.webPort).withStartupTimeout(Duration.ofMinutes(3)))
+            .waitingFor(
+                WaitAllStrategy()
+                    .withStrategy(Wait.forListeningPort())
+                    .withStrategy(Wait.forHttp("/").forPort(hdfs.webPort))
+                    .withStartupTimeout(Duration.ofMinutes(3)),
+            )
         if (hdfs.kerberos.enabled) {
             mountKerberos(container)
             container
@@ -197,7 +204,10 @@ internal class BigDataContainerFactory(
                     "spring.hadoop.fs-uri" to "hdfs://$nameNode",
                     "dfs.client.use.datanode.hostname" to "true",
                     "dfs.datanode.hostname" to hdfs.dataNodeHostname,
-                ) + webTls.property("dfs.namenode.https-address") + webTls.jvmProperties() + kerberosProperties("hadoop", hdfs.kerberos),
+                ) + hdfsKerberosClientProperties(hdfs.kerberos) +
+                    webTls.property("dfs.namenode.https-address") +
+                    webTls.jvmProperties() +
+                    kerberosProperties("hadoop", hdfs.kerberos),
             )
         }
     }
@@ -1037,37 +1047,87 @@ internal class BigDataContainerFactory(
     private fun sanitizeLogName(name: String): String =
         name.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
-    private fun hdfsStartupCommand(
-        nameNodePort: Int,
-        dataNodePort: Int,
-        dataNodeHostname: String,
-        webPort: Int,
-    ): String =
-        """
-        set -eu
-        cat > "${'$'}HADOOP_CONF_DIR/core-site.xml" <<EOF
-        <configuration>
-          <property><name>fs.defaultFS</name><value>hdfs://hdfs:$nameNodePort</value></property>
-        </configuration>
-        EOF
-        cat > "${'$'}HADOOP_CONF_DIR/hdfs-site.xml" <<EOF
-        <configuration>
-          <property><name>dfs.replication</name><value>1</value></property>
-          <property><name>dfs.permissions.enabled</name><value>false</value></property>
-          <property><name>dfs.namenode.name.dir</name><value>file:///tmp/hadoop-name</value></property>
-          <property><name>dfs.datanode.data.dir</name><value>file:///tmp/hadoop-data</value></property>
-          <property><name>dfs.namenode.rpc-bind-host</name><value>0.0.0.0</value></property>
-          <property><name>dfs.datanode.address</name><value>0.0.0.0:$dataNodePort</value></property>
-          <property><name>dfs.datanode.hostname</name><value>$dataNodeHostname</value></property>
-          <property><name>dfs.namenode.http-address</name><value>0.0.0.0:$webPort</value></property>
-          <property><name>dfs.namenode.http-bind-host</name><value>0.0.0.0</value></property>
-        </configuration>
-        EOF
-        hdfs namenode -format -force -nonInteractive
-        hdfs namenode &
-        hdfs datanode &
-        wait
-        """.trimIndent()
+    private fun hdfsStartupCommand(hdfs: HdfsOptions): String =
+        buildString {
+            appendLine("set -e")
+            appendLine("set -x")
+            appendLine("cat > \"${'$'}HADOOP_CONF_DIR/core-site.xml\" <<EOF")
+            appendLine("<configuration>")
+            appendLine("  <property><name>fs.defaultFS</name><value>hdfs://hdfs:${hdfs.nameNodePort}</value></property>")
+            appendLine(hdfsCoreSiteSecurity(hdfs.kerberos))
+            appendLine("</configuration>")
+            appendLine("EOF")
+            appendLine("cat > \"${'$'}HADOOP_CONF_DIR/hdfs-site.xml\" <<EOF")
+            appendLine("<configuration>")
+            appendLine("  <property><name>dfs.replication</name><value>1</value></property>")
+            appendLine("  <property><name>dfs.permissions.enabled</name><value>false</value></property>")
+            appendLine("  <property><name>dfs.namenode.name.dir</name><value>file:///tmp/hadoop-name</value></property>")
+            appendLine("  <property><name>dfs.datanode.data.dir</name><value>file:///tmp/hadoop-data</value></property>")
+            appendLine("  <property><name>dfs.namenode.rpc-address</name><value>hdfs:${hdfs.nameNodePort}</value></property>")
+            appendLine("  <property><name>dfs.namenode.rpc-bind-host</name><value>0.0.0.0</value></property>")
+            appendLine("  <property><name>dfs.datanode.address</name><value>0.0.0.0:${hdfs.dataNodePort}</value></property>")
+            appendLine("  <property><name>dfs.datanode.hostname</name><value>${hdfs.dataNodeHostname}</value></property>")
+            appendLine("  <property><name>dfs.namenode.http-address</name><value>0.0.0.0:${hdfs.webPort}</value></property>")
+            appendLine("  <property><name>dfs.namenode.http-bind-host</name><value>0.0.0.0</value></property>")
+            appendLine(hdfsSiteSecurity(hdfs.kerberos))
+            appendLine("</configuration>")
+            appendLine("EOF")
+            appendLine("hdfs namenode -format -force -nonInteractive")
+            appendLine("hdfs namenode &")
+            appendLine("namenode_pid=\"${'$'}!\"")
+            appendLine("hdfs datanode &")
+            appendLine("datanode_pid=\"${'$'}!\"")
+            appendLine("sleep 3")
+            appendLine("namenode_running=0")
+            appendLine("datanode_running=0")
+            appendLine("kill -0 \"${'$'}namenode_pid\" 2>/dev/null || namenode_running=1")
+            appendLine("kill -0 \"${'$'}datanode_pid\" 2>/dev/null || datanode_running=1")
+            appendLine("if [ \"${'$'}namenode_running\" -ne 0 ] || [ \"${'$'}datanode_running\" -ne 0 ]; then")
+            appendLine("  echo \"HDFS process exited during startup\" >&2")
+            appendLine("  find \"${'$'}HADOOP_LOG_DIR\" -maxdepth 1 -type f -print -exec sed -n '1,240p' {} \\; || true")
+            appendLine("  exit 1")
+            appendLine("fi")
+            appendLine("for log_file in \"${'$'}HADOOP_LOG_DIR\"/*.log \"${'$'}HADOOP_LOG_DIR\"/*.out; do")
+            appendLine("  if [ -e \"${'$'}log_file\" ]; then")
+            appendLine("    tail -n +1 -F \"${'$'}log_file\" &")
+            appendLine("  fi")
+            appendLine("done")
+            appendLine("wait")
+        }
+
+    private fun hdfsCoreSiteSecurity(kerberos: KerberosAuthOptions): String =
+        if (kerberos.enabled) {
+            """<property><name>hadoop.security.authentication</name><value>kerberos</value></property>"""
+        } else {
+            ""
+        }
+
+    private fun hdfsKerberosClientProperties(kerberos: KerberosAuthOptions): Map<String, String> =
+        if (kerberos.enabled) {
+            mapOf(
+                "hadoop.security.authentication" to "kerberos",
+                "dfs.namenode.kerberos.principal" to kerberos.servicePrincipal,
+                "dfs.datanode.kerberos.principal" to kerberos.servicePrincipal,
+                "dfs.data.transfer.protection" to "authentication",
+            )
+        } else {
+            emptyMap()
+        }
+
+    private fun hdfsSiteSecurity(kerberos: KerberosAuthOptions): String =
+        if (kerberos.enabled) {
+            """
+          <property><name>dfs.namenode.kerberos.principal</name><value>${kerberos.servicePrincipal}</value></property>
+          <property><name>dfs.namenode.keytab.file</name><value>${kerberos.keytabPath}</value></property>
+          <property><name>dfs.datanode.kerberos.principal</name><value>${kerberos.servicePrincipal}</value></property>
+          <property><name>dfs.datanode.keytab.file</name><value>${kerberos.keytabPath}</value></property>
+          <property><name>dfs.block.access.token.enable</name><value>true</value></property>
+          <property><name>dfs.data.transfer.protection</name><value>authentication</value></property>
+          <property><name>ignore.secure.ports.for.testing</name><value>true</value></property>
+            """.trimIndent()
+        } else {
+            ""
+        }
 
     private fun encodeConfigKey(key: String): String =
         key.lowercase(Locale.ROOT)

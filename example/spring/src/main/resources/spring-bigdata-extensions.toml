@@ -1,3 +1,6 @@
+[kerberosMaterial]
+enabled = true
+
 [s3Jceks]
 enabled = true
 hdfsDir = "/bigdata-test/spring"

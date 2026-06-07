@@ -930,6 +930,28 @@ localStackS3 = "TRACE"
 * `hive-metastore.log`
 * `hive-metastore-postgres.log`
 
+For HDFS troubleshooting, use `DEBUG` or `TRACE`. The framework maps that to Hadoop's container-side log settings and tails the NameNode/DataNode log files so startup failures show the Hadoop process output, not only the Testcontainers wait-strategy error.
+
+[source,kotlin]
+----
+val kit = BigDataTestKit.builder()
+    .withHdfs()
+    .withContainerLogLevel(BigDataService.HDFS, "DEBUG")
+    .withContainerLogsToStdout()
+    .build()
+----
+
+Use file mode when the run happens in CI or when the container may be removed before you can run `docker logs`:
+
+[source,kotlin]
+----
+val kit = BigDataTestKit.builder()
+    .withHdfs()
+    .withContainerLogLevel(BigDataService.HDFS, "TRACE")
+    .withContainerLogsToDirectory("build/bigdata-test-container-logs")
+    .build()
+----
+
 `hive-metastore-postgres.log` is only written for the open-source HMS distribution. The Cloudera HMS image keeps its PostgreSQL process inside `hive-metastore.log`.
 
 Log level and log routing are separate. `[containerLogLevels]` changes service verbosity by setting the common environment variables for each image family. `containerLogMode` or `withContainerLogs...` controls where container stdout/stderr goes. If an image uses a different log-level variable, override it directly:
@@ -1445,6 +1467,22 @@ bigdata:
 
 Leave a port as `0` or omit it to use a random host port.
 
+Spring Boot configuration also supports container log routing and per-service log levels:
+
+[source,yaml]
+----
+bigdata:
+  test:
+    container-logs:
+      mode: stdout
+      directory: build/bigdata-test-container-logs
+    container-log-levels:
+      hdfs: DEBUG
+      kerberos: DEBUG
+----
+
+`mode: stdout` streams logs to the main application process. Use `mode: file` to keep one file per service under `directory`; this is the better default for workflow artifacts and post-failure diagnostics. For HDFS, `DEBUG` or `TRACE` enables verbose Hadoop NameNode/DataNode logs.
+
 == Example Projects
 
 === JUnit Example
@@ -1461,6 +1499,19 @@ GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:check
 ----
 
 The local developer profile is fully configuration driven. The app source does not call `BigDataTestKit`; `application-local.yaml` starts Kerberos, HDFS, and LocalStack S3 and enables the REST API.
+
+The local profile also enables HDFS and Kerberos container logs on stdout:
+
+[source,yaml]
+----
+bigdata:
+  test:
+    container-logs:
+      mode: stdout
+    container-log-levels:
+      hdfs: DEBUG
+      kerberos: DEBUG
+----
 
 For Gradle, use `bootRunLocal`. It runs the app with `spring.profiles.active=local`; the Spring extension bridge reads `spring-bigdata-extensions.toml`, creates the S3 bucket, and writes the S3A JCEKS file to HDFS:
 

@@ -18,9 +18,10 @@ data class S3JceksExtension(
     override fun onEvent(event: BigDataExtensionEvent, context: BigDataExtensionContext) {
         val hdfs = context.endpoint(BigDataService.HDFS)
         val s3 = context.endpoint(BigDataService.LOCALSTACK_S3)
+        val kerberosProperties = context.kit.endpoints()[BigDataService.KERBEROS]?.properties.orEmpty()
         val providerPath = HadoopCredentialProviders.hdfsJceksPath(hdfsDir, fileName)
         HadoopCredentialProviders.createHdfsJceks(
-            hdfsProperties = hdfs.properties,
+            hdfsProperties = hdfs.properties + kerberosProperties,
             configDir = hdfsDir,
             providerPath = providerPath,
             credentials = mapOf(

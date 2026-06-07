@@ -10,13 +10,18 @@ bigdata:
       hdfs-data-node: 9866
       hdfs-web: 9870
       localstack-s3: 4566
+    container-logs:
+      mode: stdout
+    container-log-levels:
+      kerberos: DEBUG
+      hdfs: DEBUG
     kerberos:
       enabled: true
       realm: EXAMPLE.COM
       domain: example.com
     hdfs:
       enabled: true
-      kerberos-enabled: false
+      kerberos-enabled: true
       data-node-hostname: localhost
     localstack-s3:
       enabled: true
@@ -32,6 +37,8 @@ example:
     hadoop:
       fs.defaultFS: hdfs://localhost:8020
       dfs.client.use.datanode.hostname: "true"
+      hadoop.security.authentication: kerberos
+      dfs.data.transfer.protection: authentication
       fs.s3a.endpoint: http://localhost:4566
       fs.s3a.endpoint.region: us-east-1
       fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider

@@ -1,6 +1,8 @@
 package org.openprojectx.bigdata.test.autoconfigure
 
 import org.openprojectx.bigdata.test.core.BigDataTestKit
+import org.openprojectx.bigdata.test.core.BigDataService
+import org.openprojectx.bigdata.test.core.ContainerLogOptions
 import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HttpTlsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
@@ -35,6 +37,15 @@ class BigDataTestAutoConfiguration {
                     localStackS3 = properties.ports.localstackS3,
                 ),
             )
+            .withContainerLogs(
+                ContainerLogOptions(
+                    mode = properties.containerLogs.mode,
+                    directory = properties.containerLogs.directory,
+                ),
+            )
+        properties.containerLogLevels.forEach { (serviceName, level) ->
+            builder.withContainerLogLevel(serviceName.toBigDataService(), level)
+        }
 
         if (properties.kerberos.enabled) {
             builder.withKerberos(
@@ -181,4 +192,11 @@ class BigDataTestAutoConfiguration {
             kafka.kafkaUiTls.enabled ||
             localstackS3.tls.enabled ||
             fakeGcs.tls.enabled
+
+    private fun String.toBigDataService(): BigDataService =
+        BigDataService.entries.firstOrNull { service ->
+            service.name.equals(this, ignoreCase = true) ||
+                service.name.replace("_", "-").equals(this, ignoreCase = true) ||
+                service.name.replace("_", "").equals(this, ignoreCase = true)
+        } ?: error("Unknown bigdata.test.container-log-levels service '$this'")
 }
