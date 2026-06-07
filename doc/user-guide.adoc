@@ -888,6 +888,17 @@ val kit = BigDataTestKit.builder()
     .build()
 ----
 
+Set service container log levels programmatically:
+
+[source,kotlin]
+----
+val kit = BigDataTestKit.builder()
+    .withKafka()
+    .withContainerLogLevel(BigDataService.KAFKA, "DEBUG")
+    .withContainerLogsToStdout()
+    .build()
+----
+
 === JUnit Log Routing
 
 [source,kotlin]
@@ -901,6 +912,17 @@ val kit = BigDataTestKit.builder()
 class MyTroubleshootingTest
 ----
 
+Set service container log levels from TOML:
+
+[source,toml]
+----
+[containerLogLevels]
+kafka = "DEBUG"
+schemaRegistry = "DEBUG"
+hdfs = "INFO"
+localStackS3 = "TRACE"
+----
+
 `ContainerLogMode.STDOUT` prefixes each line with the service name. `ContainerLogMode.FILE` writes files such as:
 
 * `kafka.log`
@@ -909,6 +931,16 @@ class MyTroubleshootingTest
 * `hive-metastore-postgres.log`
 
 `hive-metastore-postgres.log` is only written for the open-source HMS distribution. The Cloudera HMS image keeps its PostgreSQL process inside `hive-metastore.log`.
+
+Log level and log routing are separate. `[containerLogLevels]` changes service verbosity by setting the common environment variables for each image family. `containerLogMode` or `withContainerLogs...` controls where container stdout/stderr goes. If an image uses a different log-level variable, override it directly:
+
+[source,toml]
+----
+[containers.kafka.env]
+KAFKA_LOG4J_ROOT_LOGLEVEL = "TRACE"
+----
+
+Supported typed levels are `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, and `OFF`.
 
 == Kerberos
 

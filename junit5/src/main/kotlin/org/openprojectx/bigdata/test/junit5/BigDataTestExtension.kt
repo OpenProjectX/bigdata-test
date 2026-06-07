@@ -94,6 +94,9 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 ),
             )
         }
+        config.containerLogLevels.levels.forEach { (service, level) ->
+            builder.withContainerLogLevel(service, level)
+        }
         config.containerCustomizations.customizations.forEach { (service, customization) ->
             builder.withContainerCustomization(service, customization)
         }

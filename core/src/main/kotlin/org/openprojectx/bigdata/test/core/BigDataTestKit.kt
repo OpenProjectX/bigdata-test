@@ -121,6 +121,12 @@ class BigDataTestKit private constructor(
                 ContainerCustomizationOptions(environment = mapOf(name to value)),
             )
 
+        fun withContainerLogLevel(service: BigDataService, level: String): Builder =
+            withContainerCustomization(
+                service,
+                ContainerCustomizationOptions(environment = BigDataContainerLogLevels.environment(service, level)),
+            )
+
         fun withContainerFile(service: BigDataService, file: ContainerFileTransferOptions): Builder =
             withContainerCustomization(service, ContainerCustomizationOptions(files = listOf(file)))
 

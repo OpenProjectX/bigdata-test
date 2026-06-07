@@ -26,6 +26,7 @@ internal data class BigDataTestConfig(
     val fakeGcsTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val ports: BigDataTestPortConfig = BigDataTestPortConfig(),
     val containerLogs: BigDataTestContainerLogConfig = BigDataTestContainerLogConfig(),
+    val containerLogLevels: BigDataTestContainerLogLevelConfig = BigDataTestContainerLogLevelConfig(),
     val containerCustomizations: BigDataTestContainerCustomizationConfig =
         BigDataTestContainerCustomizationConfig(),
     val healthChecks: BigDataTestHealthCheckConfig = BigDataTestHealthCheckConfig(),
@@ -46,6 +47,7 @@ internal data class BigDataTestConfig(
             fakeGcsTls = fakeGcsTls.merge(override.fakeGcsTls),
             ports = ports.merge(override.ports),
             containerLogs = containerLogs.merge(override.containerLogs),
+            containerLogLevels = containerLogLevels.merge(override.containerLogLevels),
             containerCustomizations = containerCustomizations.merge(override.containerCustomizations),
             healthChecks = healthChecks.merge(override.healthChecks),
         )
@@ -220,6 +222,13 @@ internal data class BigDataTestContainerLogConfig(
         )
 }
 
+internal data class BigDataTestContainerLogLevelConfig(
+    val levels: Map<BigDataService, String> = emptyMap(),
+) {
+    fun merge(override: BigDataTestContainerLogLevelConfig): BigDataTestContainerLogLevelConfig =
+        BigDataTestContainerLogLevelConfig(levels + override.levels)
+}
+
 internal data class BigDataTestContainerCustomizationConfig(
     val customizations: Map<BigDataService, ContainerCustomizationOptions> = emptyMap(),
 ) {
@@ -343,6 +352,7 @@ internal class BigDataTestConfigLoader(
                 mode = containerLogs.string("mode")?.let { ContainerLogMode.valueOf(it.uppercase()) },
                 directory = containerLogs.string("directory"),
             ),
+            containerLogLevels = parseContainerLogLevels(tables),
             containerCustomizations = parseContainerCustomizations(tables),
             healthChecks = parseHealthChecks(tables),
         )
@@ -376,6 +386,7 @@ internal class BigDataTestConfigLoader(
             "fakeGcsTls",
             "ports",
             "containerLogs",
+            "containerLogLevels",
             "healthChecks",
             "healthCheckTimeouts",
         )
@@ -486,6 +497,22 @@ internal class BigDataTestConfigLoader(
             customizations[service] = customizations[service]?.merge(options) ?: options
         }
         return BigDataTestContainerCustomizationConfig(customizations)
+    }
+
+    private fun parseContainerLogLevels(tables: Map<String, Map<String, TomlValue>>): BigDataTestContainerLogLevelConfig {
+        val values = tables["containerLogLevels"].orEmpty()
+        val levels = values.mapKeys { (serviceName, _) -> parseService(serviceName, "containerLogLevels") }
+            .mapValues { (service, value) -> normalizeContainerLogLevel(value.asString("container log level '$service'")) }
+        return BigDataTestContainerLogLevelConfig(levels)
+    }
+
+    private fun normalizeContainerLogLevel(level: String): String {
+        val normalized = level.trim().uppercase()
+        val supported = setOf("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF")
+        require(normalized in supported) {
+            "Container log level must be one of ${supported.joinToString()}, got '$level'"
+        }
+        return normalized
     }
 
     private fun parseService(name: String, table: String): BigDataService {
