@@ -9,5 +9,6 @@ internal class FixedPortKafkaContainer(image: DockerImageName) : KafkaContainer(
         apply {
             require(hostPort > 0) { "Fixed Kafka host port must be a positive port" }
             addFixedExposedPort(hostPort, containerPort, InternetProtocol.TCP)
+            addExposedPort(containerPort)
         }
 }

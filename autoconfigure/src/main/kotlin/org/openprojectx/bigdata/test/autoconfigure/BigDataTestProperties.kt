@@ -7,6 +7,7 @@ data class BigDataTestProperties(
     var enabled: Boolean = false,
     var kerberos: Kerberos = Kerberos(),
     var tls: Tls = Tls(),
+    var ports: Ports = Ports(),
     var hdfs: Hdfs = Hdfs(),
     var hiveMetastore: HiveMetastore = HiveMetastore(),
     var clouderaHms: ClouderaHms = ClouderaHms(),
@@ -39,6 +40,15 @@ data class BigDataTestProperties(
     data class HttpTls(
         var enabled: Boolean = false,
         var domain: String = "localhost",
+    )
+
+    data class Ports(
+        var sameHostPorts: Boolean = false,
+        var kerberosKdc: Int = 0,
+        var hdfsNameNode: Int = 0,
+        var hdfsDataNode: Int = 0,
+        var hdfsWeb: Int = 0,
+        var localstackS3: Int = 0,
     )
 
     data class Hdfs(

@@ -9,6 +9,7 @@ import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.bigdata.test.core.ObjectStoreOptions
+import org.openprojectx.bigdata.test.core.PortBindingOptions
 import org.openprojectx.bigdata.test.core.TlsOptions
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -24,6 +25,16 @@ class BigDataTestAutoConfiguration {
     @ConditionalOnMissingBean
     fun bigDataTestKit(properties: BigDataTestProperties): BigDataTestKit {
         val builder = BigDataTestKit.builder()
+            .withPortBindings(
+                PortBindingOptions(
+                    sameHostPorts = properties.ports.sameHostPorts,
+                    kerberosKdc = properties.ports.kerberosKdc,
+                    hdfsNameNode = properties.ports.hdfsNameNode,
+                    hdfsDataNode = properties.ports.hdfsDataNode,
+                    hdfsWeb = properties.ports.hdfsWeb,
+                    localStackS3 = properties.ports.localstackS3,
+                ),
+            )
 
         if (properties.kerberos.enabled) {
             builder.withKerberos(

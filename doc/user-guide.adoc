@@ -1404,6 +1404,23 @@ The bean is closed with the application context.
 
 Use `bigdata.test.cloudera-hms.enabled=true` instead of `bigdata.test.hive-metastore.enabled=true` for the embedded-Postgres Cloudera HMS image. The two HMS implementations are mutually exclusive.
 
+Spring Boot configuration also supports the same fixed-port model used by JUnit and programmatic tests:
+
+[source,yaml]
+----
+bigdata:
+  test:
+    ports:
+      same-host-ports: false
+      localstack-s3: 4566
+      hdfs-name-node: 8020
+      hdfs-data-node: 9866
+      hdfs-web: 9870
+      kerberos-kdc: 88
+----
+
+Leave a port as `0` or omit it to use a random host port.
+
 == Example Projects
 
 === JUnit Example
@@ -1412,18 +1429,48 @@ The JUnit examples live under `example/junit`. They are annotated with `@Disable
 
 === Spring Example
 
-Run the Spring example without starting containers:
+The Spring example is a normal Spring Boot web application. Its default configuration keeps the S3A REST API disabled, so CI builds do not start containers and do not include the bigdata-test Spring starter on the application runtime classpath.
 
 [source,bash]
 ----
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:check
 ----
 
-Run the Spring example with the Kerberos profile when you want it to start containers:
+The local developer profile is fully configuration driven. The app source does not call `BigDataTestKit`; the custom `bootRunLocal` task adds `bigdata-test-spring-boot-starter` only to that run, generates a local S3A JCEKS file, starts Kerberos, HDFS, and LocalStack S3 from `application-local.yaml`, and enables the REST API.
 
 [source,bash]
 ----
-GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:bootRun --args='--spring.profiles.active=kerberos'
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:bootRunLocal
+----
+
+The generated JCEKS file is written to:
+
+[source,text]
+----
+example/spring/build/spring-local/s3a.jceks
+----
+
+The local profile configures S3A with:
+
+* `fs.s3a.endpoint=http://localhost:4566`
+* `fs.s3a.aws.credentials.provider=org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`
+* `hadoop.security.credential.provider.path=jceks://file/${user.dir}/build/spring-local/s3a.jceks`
+* `hadoop.tmp.dir=${user.dir}/build/spring-local/hadoop-tmp`
+
+Use the API after `bootRunLocal` starts:
+
+[source,bash]
+----
+curl -sS -X PUT \
+  -H 'Content-Type: text/plain' \
+  --data 'hello-s3a' \
+  http://localhost:8080/api/s3/objects/demo.txt
+
+curl -sS http://localhost:8080/api/s3/objects/demo.txt
+
+curl -sS http://localhost:8080/api/s3/objects
+
+curl -sS -X DELETE http://localhost:8080/api/s3/objects/demo.txt
 ----
 
 === Spark Example

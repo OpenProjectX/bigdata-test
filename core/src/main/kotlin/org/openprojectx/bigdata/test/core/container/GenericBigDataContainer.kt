@@ -13,6 +13,7 @@ internal class GenericBigDataContainer(image: String) :
                 addExposedPort(containerPort)
             } else {
                 addFixedExposedPort(hostPort, containerPort, InternetProtocol.TCP)
+                addExposedPort(containerPort)
             }
         }
 }

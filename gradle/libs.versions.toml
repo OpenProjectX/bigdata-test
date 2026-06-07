@@ -24,6 +24,7 @@ avro = "1.12.1"
 gcsConnector = "4.0.4"
 gcsio = "4.0.4"
 bouncycastle = "1.83"
+awsSdk = "2.41.5"
 
 [libraries]
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -62,6 +63,7 @@ junitPlatformLauncher = { module = "org.junit.platform:junit-platform-launcher",
 slf4jSimple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 bouncycastlePkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 bouncycastleProvider = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+awsSdkS3 = { module = "software.amazon.awssdk:s3", version.ref = "awsSdk" }
 
 # Libraries can be bundled together for easier import
 [bundles]

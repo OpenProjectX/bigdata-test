@@ -1,0 +1,32 @@
+bigdata:
+  test:
+    enabled: true
+    ports:
+      localstack-s3: 4566
+    kerberos:
+      enabled: true
+      realm: EXAMPLE.COM
+      domain: example.com
+    hdfs:
+      enabled: true
+      kerberos-enabled: true
+    localstack-s3:
+      enabled: true
+
+example:
+  s3:
+    enabled: true
+    bucket: spring-example
+    prefix: objects
+    create-bucket-on-startup: true
+    access-key: test
+    secret-key: test
+    hadoop:
+      fs.s3a.endpoint: http://localhost:4566
+      fs.s3a.endpoint.region: us-east-1
+      fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+      fs.s3a.path.style.access: "true"
+      fs.s3a.connection.ssl.enabled: "false"
+      fs.s3a.change.detection.mode: none
+      hadoop.tmp.dir: ${user.dir}/build/spring-local/hadoop-tmp
+      hadoop.security.credential.provider.path: jceks://file/${user.dir}/build/spring-local/s3a.jceks
