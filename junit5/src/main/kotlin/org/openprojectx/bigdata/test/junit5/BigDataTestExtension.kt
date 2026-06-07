@@ -145,8 +145,14 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 KerberosOptions(
                     enabled = true,
                     image = images.kerberos ?: "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest",
-                    clientPrincipal = annotation.kerberosClientPrincipal,
-                    clientPassword = annotation.kerberosClientPassword,
+                    clientPrincipal = annotation.kerberosClientPrincipal
+                        .takeIf { it != BigDataTestDefaults.KERBEROS_CLIENT_PRINCIPAL }
+                        ?: kerberosConfig.clientPrincipal
+                        ?: defaultKerberos.clientPrincipal,
+                    clientPassword = annotation.kerberosClientPassword
+                        .takeIf { it != BigDataTestDefaults.KERBEROS_CLIENT_PASSWORD }
+                        ?: kerberosConfig.clientPassword
+                        ?: defaultKerberos.clientPassword,
                     startupTimeoutSeconds = kerberosConfig.startupTimeoutSeconds ?: defaultKerberos.startupTimeoutSeconds,
                     materialTimeoutSeconds = kerberosConfig.materialTimeoutSeconds ?: defaultKerberos.materialTimeoutSeconds,
                     adminAttempts = kerberosConfig.adminAttempts ?: defaultKerberos.adminAttempts,

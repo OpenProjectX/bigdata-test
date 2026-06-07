@@ -992,6 +992,8 @@ Kerberos bootstrap timing is configurable from TOML. The defaults are intentiona
 [source,toml]
 ----
 [kerberos]
+clientPrincipal = "app_user@EXAMPLE.COM"
+clientPassword = "app-user-secret"
 startupTimeoutSeconds = 180
 materialTimeoutSeconds = 120
 adminAttempts = 120
@@ -999,7 +1001,7 @@ adminRetryDelaySeconds = 1
 debug = true
 ----
 
-`startupTimeoutSeconds` controls how long Testcontainers waits for the KDC image to print its ready log. `materialTimeoutSeconds` controls the post-start wait for generated keytabs and client config to be readable. `adminAttempts` and `adminRetryDelaySeconds` are passed to the Kerby image as `KERBY_KADMIN_ATTEMPTS` and `KERBY_KADMIN_RETRY_DELAY_SECONDS`.
+`clientPrincipal` and `clientPassword` configure the generated app/client user and keytab. `startupTimeoutSeconds` controls how long Testcontainers waits for the KDC image to print its ready log. `materialTimeoutSeconds` controls the post-start wait for generated keytabs and client config to be readable. `adminAttempts` and `adminRetryDelaySeconds` are passed to the Kerby image as `KERBY_KADMIN_ATTEMPTS` and `KERBY_KADMIN_RETRY_DELAY_SECONDS`.
 
 Set `debug = true` when troubleshooting Kerberos startup in CI. It passes `KERBY_DEBUG=true` to the Kerby image, which enables JDK Kerberos debug output, Kerby DEBUG logs on container stdout, and dumps the generated `kdc.conf`, server `krb5.conf`, client `krb5.conf`, backend config, and admin server config into the container log.
 
@@ -1410,9 +1412,38 @@ Use the Gradle plugin when the test kit should be managed by Gradle instead of t
 [source,kotlin]
 ----
 plugins {
-    id("org.openprojectx.bigdata-test") version "0.1.9-SNAPSHOT"
+    id("org.openprojectx.bigdata-test") version "0.1.10-SNAPSHOT"
 }
 
+bigDataTest {
+    config.add("classpath:bigdata-test.toml")
+    extensionConfig.add("file:${projectDir}/src/main/resources/bigdata-extensions.toml")
+}
+----
+
+`config` loads startup TOML using the same table names as JUnit startup config where the Gradle plugin has matching fields. It is applied as Gradle property conventions, so explicit DSL values win over TOML values:
+
+[source,toml]
+----
+[services]
+kerberos = true
+hdfsKerberos = true
+localStackS3 = true
+
+[kerberos]
+clientPrincipal = "app_user@EXAMPLE.COM"
+clientPassword = "app-user-secret"
+debug = true
+
+[ports]
+hdfsNameNode = 8020
+localStackS3 = 4566
+----
+
+Use `extensionConfig` for post-start provisioning TOML such as bucket creation, JCEKS generation, Kafka messages, and Spark SQL preparation. The same startup values can also be configured directly with the DSL:
+
+[source,kotlin]
+----
 bigDataTest {
     services {
         kerberos.set(true)
@@ -1433,7 +1464,21 @@ bigDataTest {
         mode.set(ContainerLogMode.STDOUT)
     }
     containerLogLevels.put("hdfs", "DEBUG")
-    extensionConfig.add("file:${projectDir}/src/main/resources/bigdata-extensions.toml")
+}
+----
+
+Gradle configuration is Gradle-native; the plugin does not read a Maven POM. When values should come from `gradle.properties` or `-P`, wire them through Gradle providers:
+
+[source,kotlin]
+----
+bigDataTest {
+    services {
+        kerberos.set(true)
+    }
+    kerberos {
+        clientPrincipal.set(providers.gradleProperty("bigdata.test.kerberos.clientPrincipal"))
+        clientPassword.set(providers.gradleProperty("bigdata.test.kerberos.clientPassword"))
+    }
 }
 ----
 
@@ -1503,7 +1548,7 @@ example:
       hadoop.security.credential.provider.path: ${bigdata.test.extensions.s3-jceks.credential-provider.path}
 ----
 
-The plugin classpath is isolated from the application runtime classpath. Hadoop, Kafka, Avro, and Spark dependencies needed by provisioning extensions run in Gradle and are not added to the user application unless the user declares them separately.
+The plugin classpath is isolated from the application runtime classpath. Hadoop, Kafka, Avro, and Spark dependencies needed by provisioning extensions run in Gradle and are not added to the user application unless the user declares them separately. This is launched-JVM isolation, not per-extension isolation inside the Gradle daemon: the Gradle plugin distribution currently carries the extension runtime libraries needed to execute configured provisioning extensions.
 
 == Spring Boot
 

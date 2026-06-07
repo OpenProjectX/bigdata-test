@@ -40,3 +40,8 @@ annotation class BigDataTest(
     val containerLogMode: ContainerLogMode = ContainerLogMode.NONE,
     val containerLogDirectory: String = "build/bigdata-test-container-logs",
 )
+
+internal object BigDataTestDefaults {
+    const val KERBEROS_CLIENT_PRINCIPAL = "app_user@EXAMPLE.COM"
+    const val KERBEROS_CLIENT_PASSWORD = "app-user-secret"
+}

@@ -15,6 +15,7 @@ abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFac
     val injectRawEndpointProperties: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
     val injectNamespacedEndpointProperties: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
     val injectEnvironmentVariables: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
+    val config: ListProperty<String> = objects.listProperty(String::class.java).convention(emptyList())
     val extensionConfig: ListProperty<String> = objects.listProperty(String::class.java).convention(emptyList())
     val containerLogLevels: MapProperty<String, String> =
         objects.mapProperty(String::class.java, String::class.java).convention(emptyMap())

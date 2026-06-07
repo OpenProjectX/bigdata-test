@@ -1,0 +1,25 @@
+[services]
+kerberos = true
+hdfsKerberos = true
+localStackS3 = true
+
+[kerberos]
+realm = "EXAMPLE.COM"
+domain = "example.com"
+debug = true
+
+[hdfs]
+dataNodeHostname = "localhost"
+
+[ports]
+hdfsNameNode = 8020
+hdfsDataNode = 9866
+hdfsWeb = 9870
+localStackS3 = 4566
+
+[containerLogs]
+mode = "STDOUT"
+
+[containerLogLevels]
+kerberos = "DEBUG"
+hdfs = "DEBUG"

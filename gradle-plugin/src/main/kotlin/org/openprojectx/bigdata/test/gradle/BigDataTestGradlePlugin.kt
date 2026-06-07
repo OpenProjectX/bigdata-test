@@ -2,6 +2,8 @@ package org.openprojectx.bigdata.test.gradle
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.provider.MapProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
@@ -116,6 +118,8 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         }
 
         project.afterEvaluate {
+            project.applyGradleTomlConfig(extension)
+
             if (extension.enabled.get() && extension.autoConfigureJavaExecTasks.get()) {
                 project.tasks.withType(JavaExec::class.java).configureEach { task ->
                     if (task.name == "bigDataTestStart" || task.name == "bigDataTestStop") return@configureEach
@@ -145,6 +149,78 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         }
     }
 
+    private fun Project.applyGradleTomlConfig(extension: BigDataTestGradleExtension) {
+        val locations = extension.config.get().map { resolveExtensionConfigLocation(it) }
+        if (locations.isEmpty()) return
+
+        val config = BigDataTestGradleConfigLoader(javaClass.classLoader).load(locations)
+        extension.kerberos.image.tomlConvention(config.images.kerberos)
+        extension.hdfs.image.tomlConvention(config.images.hdfs)
+        extension.hiveMetastore.image.tomlConvention(config.images.hiveMetastore)
+        extension.clouderaHms.image.tomlConvention(config.images.clouderaHms)
+        extension.hiveMetastore.databaseImage.tomlConvention(config.images.hiveMetastorePostgres)
+        extension.kafka.image.tomlConvention(config.images.kafka)
+        extension.kafka.schemaRegistryImage.tomlConvention(config.images.schemaRegistry ?: config.kafka.schemaRegistryImage)
+        extension.kafka.kafkaUiImage.tomlConvention(config.images.kafkaUi ?: config.kafka.kafkaUiImage)
+        extension.localStackS3.image.tomlConvention(config.images.localStackS3)
+        extension.fakeGcs.image.tomlConvention(config.images.fakeGcs)
+
+        extension.services.kerberos.tomlConvention(config.services.kerberos)
+        extension.services.hdfs.tomlConvention(config.services.hdfs ?: config.services.hdfsKerberos)
+        extension.hdfs.kerberosEnabled.tomlConvention(config.services.hdfsKerberos)
+        extension.services.hiveMetastore.tomlConvention(config.services.hiveMetastore)
+        extension.services.clouderaHms.tomlConvention(config.services.clouderaHms)
+        extension.hiveMetastore.kerberosEnabled.tomlConvention(config.services.hiveMetastoreKerberos)
+        extension.clouderaHms.kerberosEnabled.tomlConvention(config.services.hiveMetastoreKerberos)
+        extension.services.kafka.tomlConvention(config.services.kafka ?: config.services.kafkaKerberos)
+        extension.kafka.kerberosEnabled.tomlConvention(config.services.kafkaKerberos)
+        extension.services.schemaRegistry.tomlConvention(config.services.schemaRegistry)
+        extension.services.kafkaUi.tomlConvention(config.services.kafkaUi)
+        extension.kafka.kafkaUiKerberosEnabled.tomlConvention(config.services.kafkaUiKerberos)
+        extension.services.localStackS3.tomlConvention(config.services.localStackS3)
+        extension.services.fakeGcs.tomlConvention(config.services.fakeGcs)
+
+        extension.kerberos.realm.tomlConvention(config.kerberos.realm)
+        extension.kerberos.domain.tomlConvention(config.kerberos.domain)
+        extension.kerberos.clientPrincipal.tomlConvention(config.kerberos.clientPrincipal)
+        extension.kerberos.clientPassword.tomlConvention(config.kerberos.clientPassword)
+        extension.kerberos.startupTimeoutSeconds.tomlConvention(config.kerberos.startupTimeoutSeconds)
+        extension.kerberos.materialTimeoutSeconds.tomlConvention(config.kerberos.materialTimeoutSeconds)
+        extension.kerberos.adminAttempts.tomlConvention(config.kerberos.adminAttempts)
+        extension.kerberos.adminRetryDelaySeconds.tomlConvention(config.kerberos.adminRetryDelaySeconds)
+        extension.kerberos.debug.tomlConvention(config.kerberos.debug)
+
+        extension.tls.enabled.tomlConvention(config.tls.enabled)
+        extension.tls.caCertPath.tomlConvention(config.tls.caCertPath)
+        extension.tls.caKeyPath.tomlConvention(config.tls.caKeyPath)
+        extension.tls.trustStorePath.tomlConvention(config.tls.trustStorePath)
+        extension.tls.trustStorePassword.tomlConvention(config.tls.trustStorePassword)
+        extension.tls.haproxyImage.tomlConvention(config.tls.haproxyImage)
+
+        extension.hdfs.dataNodeHostname.tomlConvention(config.hdfs.dataNodeHostname)
+        extension.hiveMetastore.databaseName.tomlConvention(config.hiveMetastore.databaseName)
+        extension.hiveMetastore.databaseUser.tomlConvention(config.hiveMetastore.databaseUser)
+        extension.hiveMetastore.databasePassword.tomlConvention(config.hiveMetastore.databasePassword)
+        extension.hiveMetastore.warehouseDir.tomlConvention(config.hiveMetastore.warehouseDir)
+        extension.clouderaHms.warehouseDir.tomlConvention(config.clouderaHms.warehouseDir)
+
+        extension.ports.sameHostPorts.tomlConvention(config.ports.sameHostPorts)
+        extension.ports.kerberosKdc.tomlConvention(config.ports.kerberosKdc)
+        extension.ports.hdfsNameNode.tomlConvention(config.ports.hdfsNameNode)
+        extension.ports.hdfsDataNode.tomlConvention(config.ports.hdfsDataNode)
+        extension.ports.hdfsWeb.tomlConvention(config.ports.hdfsWeb)
+        extension.ports.hiveMetastore.tomlConvention(config.ports.hiveMetastore)
+        extension.ports.kafka.tomlConvention(config.ports.kafka)
+        extension.ports.schemaRegistry.tomlConvention(config.ports.schemaRegistry)
+        extension.ports.kafkaUi.tomlConvention(config.ports.kafkaUi)
+        extension.ports.localStackS3.tomlConvention(config.ports.localStackS3)
+        extension.ports.fakeGcs.tomlConvention(config.ports.fakeGcs)
+
+        extension.containerLogs.mode.tomlConvention(config.containerLogs.mode)
+        extension.containerLogs.directory.tomlConvention(config.containerLogs.directory)
+        extension.containerLogLevels.tomlConvention(config.containerLogLevels.takeIf { it.isNotEmpty() })
+    }
+
     private fun Project.resolveExtensionConfigLocation(location: String): String {
         if (!location.startsWith("classpath:")) return location
         val resource = location.removePrefix("classpath:").trimStart('/')
@@ -157,5 +233,13 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             ?.map { it.resolve(resource) }
             ?.firstOrNull { it.isFile }
         return resourceFile?.let { "file:${it.absolutePath}" } ?: location
+    }
+
+    private fun <T : Any> Property<T>.tomlConvention(value: T?) {
+        if (value != null) convention(value)
+    }
+
+    private fun <K : Any, V : Any> MapProperty<K, V>.tomlConvention(value: Map<K, V>?) {
+        if (value != null) convention(value)
     }
 }

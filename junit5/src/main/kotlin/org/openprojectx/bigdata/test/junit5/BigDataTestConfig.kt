@@ -63,6 +63,8 @@ internal data class BigDataTestHdfsConfig(
 }
 
 internal data class BigDataTestKerberosConfig(
+    val clientPrincipal: String? = null,
+    val clientPassword: String? = null,
     val startupTimeoutSeconds: Int? = null,
     val materialTimeoutSeconds: Int? = null,
     val adminAttempts: Int? = null,
@@ -71,6 +73,8 @@ internal data class BigDataTestKerberosConfig(
 ) {
     fun merge(override: BigDataTestKerberosConfig): BigDataTestKerberosConfig =
         BigDataTestKerberosConfig(
+            clientPrincipal = override.clientPrincipal ?: clientPrincipal,
+            clientPassword = override.clientPassword ?: clientPassword,
             startupTimeoutSeconds = override.startupTimeoutSeconds ?: startupTimeoutSeconds,
             materialTimeoutSeconds = override.materialTimeoutSeconds ?: materialTimeoutSeconds,
             adminAttempts = override.adminAttempts ?: adminAttempts,
@@ -306,6 +310,8 @@ internal class BigDataTestConfigLoader(
                 fakeGcs = services.boolean("fakeGcs"),
             ),
             kerberos = BigDataTestKerberosConfig(
+                clientPrincipal = kerberos.string("clientPrincipal"),
+                clientPassword = kerberos.string("clientPassword"),
                 startupTimeoutSeconds = kerberos.int("startupTimeoutSeconds"),
                 materialTimeoutSeconds = kerberos.int("materialTimeoutSeconds"),
                 adminAttempts = kerberos.int("adminAttempts"),

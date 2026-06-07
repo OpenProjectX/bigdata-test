@@ -13,10 +13,11 @@ dependencies {
     runtimeOnly(libs.hadoopAws)
     implementation(libs.awsSdkS3)
 
-    if (!isCi) {
-        runtimeOnly(project(":bigdata-test-spring-boot-starter"))
-        runtimeOnly(project(":extensions"))
-    }
+//    if (!isCi) {
+//        runtimeOnly(project(":bigdata-test-spring-boot-starter"))
+//        runtimeOnly(project(":extensions"))
+//    }
+    implementation("org.apache.commons:commons-lang3")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

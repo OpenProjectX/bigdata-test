@@ -1,15 +1,13 @@
-import org.openprojectx.bigdata.test.core.ContainerLogMode
-
 plugins {
     kotlin("jvm") version "2.2.21"
     kotlin("plugin.spring") version "2.2.21"
     id("org.springframework.boot") version "4.0.5"
     id("io.spring.dependency-management") version "1.1.7"
-    id("org.openprojectx.bigdata-test") version "0.1.9-SNAPSHOT"
+    id("org.openprojectx.bigdata-test") version "0.1.10-SNAPSHOT"
 }
 
 group = "org.openprojectx.bigdata.test.example"
-version = "0.1.9-SNAPSHOT"
+version = "0.1.10-SNAPSHOT"
 
 kotlin {
     jvmToolchain(17)
@@ -32,31 +30,7 @@ dependencies {
 }
 
 bigDataTest {
-    services {
-        kerberos.set(true)
-        hdfs.set(true)
-        localStackS3.set(true)
-    }
-    kerberos {
-        realm.set("EXAMPLE.COM")
-        domain.set("example.com")
-        debug.set(true)
-    }
-    hdfs {
-        kerberosEnabled.set(true)
-        dataNodeHostname.set("localhost")
-    }
-    ports {
-        hdfsNameNode.set(8020)
-        hdfsDataNode.set(9866)
-        hdfsWeb.set(9870)
-        localStackS3.set(4566)
-    }
-    containerLogs {
-        mode.set(ContainerLogMode.STDOUT)
-    }
-    containerLogLevels.put("kerberos", "DEBUG")
-    containerLogLevels.put("hdfs", "DEBUG")
+    config.add("classpath:spring-bigdata-test.toml")
     extensionConfig.add("classpath:spring-bigdata-extensions.toml")
 }
 
