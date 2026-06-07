@@ -69,6 +69,7 @@ class BigDataTestAutoConfiguration {
                 HdfsOptions(
                     enabled = true,
                     image = properties.hdfs.image,
+                    dataNodeHostname = properties.hdfs.dataNodeHostname,
                     webTls = properties.hdfs.webTls.toCore(),
                     kerberos = KerberosAuthOptions(
                         enabled = properties.hdfs.kerberosEnabled,

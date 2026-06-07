@@ -1404,6 +1404,30 @@ The bean is closed with the application context.
 
 Use `bigdata.test.cloudera-hms.enabled=true` instead of `bigdata.test.hive-metastore.enabled=true` for the embedded-Postgres Cloudera HMS image. The two HMS implementations are mutually exclusive.
 
+The `extensions` module can also run from Spring Boot. This is opt-in and uses the same TOML extension files as JUnit tests. Add the `extensions` artifact to the application runtime classpath, then enable extension startup:
+
+[source,yaml]
+----
+bigdata:
+  extensions:
+    enabled: true
+    config:
+      - classpath:bigdata-extensions.toml
+----
+
+Spring starts the `BigDataTestKit` first, then runs configured extensions as an early `ApplicationRunner`. This allows post-start provisioning such as creating buckets and writing an S3A JCEKS file to HDFS before application runners use the services.
+
+The Spring extension bridge also accepts task-time overrides:
+
+[source,bash]
+----
+./gradlew bootRun \
+  -Dbigdata.extensions.config=file:/path/to/extensions.toml \
+  -Dbigdata.extensions.config.replace=true
+----
+
+Without `bigdata.extensions.config.replace=true`, system-property locations are appended after the YAML locations.
+
 Spring Boot configuration also supports the same fixed-port model used by JUnit and programmatic tests:
 
 [source,yaml]
@@ -1438,35 +1462,31 @@ GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:check
 
 The local developer profile is fully configuration driven. The app source does not call `BigDataTestKit`; `application-local.yaml` starts Kerberos, HDFS, and LocalStack S3 and enables the REST API.
 
-For Gradle, use `bootRunLocal`. It generates the local S3A JCEKS file and runs the app with `spring.profiles.active=local`:
+For Gradle, use `bootRunLocal`. It runs the app with `spring.profiles.active=local`; the Spring extension bridge reads `spring-bigdata-extensions.toml`, creates the S3 bucket, and writes the S3A JCEKS file to HDFS:
 
 [source,bash]
 ----
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:bootRunLocal
 ----
 
-For IntelliJ IDEA, run the JCEKS preparation task once:
+For IntelliJ IDEA, run `org.openprojectx.bigdata.test.example.spring.BigDataTestExampleApplicationKt` with active profile `local`. Because the starter and extensions dependencies are `runtimeOnly` for non-CI builds, the same config-driven container startup and provisioning works from the IDE.
 
-[source,bash]
-----
-GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:prepareSpringLocalS3Jceks
-----
-
-Then run `org.openprojectx.bigdata.test.example.spring.BigDataTestExampleApplicationKt` with active profile `local`. Because the starter dependency is `runtimeOnly` for non-CI builds, the same config-driven container startup works from the IDE.
-
-The generated JCEKS file is written to:
+The generated JCEKS file is written to HDFS:
 
 [source,text]
 ----
-example/spring/build/spring-local/s3a.jceks
+/bigdata-test/spring/s3.jceks
 ----
 
 The local profile configures S3A with:
 
 * `fs.s3a.endpoint=http://localhost:4566`
 * `fs.s3a.aws.credentials.provider=org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`
-* `hadoop.security.credential.provider.path=jceks://file/${user.dir}/build/spring-local/s3a.jceks`
+* `fs.defaultFS=hdfs://localhost:8020`
+* `hadoop.security.credential.provider.path=jceks://hdfs/bigdata-test/spring/s3.jceks`
 * `hadoop.tmp.dir=${user.dir}/build/spring-local/hadoop-tmp`
+
+The application creates its Hadoop `FileSystem` lazily so the extension-provisioned HDFS JCEKS exists before S3A tries to resolve credentials.
 
 Use the API after `bootRunLocal` starts:
 

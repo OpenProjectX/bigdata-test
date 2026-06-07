@@ -55,6 +55,7 @@ data class BigDataTestProperties(
         var enabled: Boolean = false,
         var image: String = "apache/hadoop:3.5.0",
         var kerberosEnabled: Boolean = false,
+        var dataNodeHostname: String = "hdfs",
         var webTls: HttpTls = HttpTls(),
     )
 

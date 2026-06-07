@@ -1,7 +1,14 @@
 bigdata:
+  extensions:
+    enabled: true
+    config:
+      - classpath:spring-bigdata-extensions.toml
   test:
     enabled: true
     ports:
+      hdfs-name-node: 8020
+      hdfs-data-node: 9866
+      hdfs-web: 9870
       localstack-s3: 4566
     kerberos:
       enabled: true
@@ -9,7 +16,8 @@ bigdata:
       domain: example.com
     hdfs:
       enabled: true
-      kerberos-enabled: true
+      kerberos-enabled: false
+      data-node-hostname: localhost
     localstack-s3:
       enabled: true
 
@@ -18,10 +26,12 @@ example:
     enabled: true
     bucket: spring-example
     prefix: objects
-    create-bucket-on-startup: true
+    create-bucket-on-startup: false
     access-key: test
     secret-key: test
     hadoop:
+      fs.defaultFS: hdfs://localhost:8020
+      dfs.client.use.datanode.hostname: "true"
       fs.s3a.endpoint: http://localhost:4566
       fs.s3a.endpoint.region: us-east-1
       fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
@@ -29,5 +39,5 @@ example:
       fs.s3a.connection.ssl.enabled: "false"
       fs.s3a.change.detection.mode: none
       hadoop.tmp.dir: ${user.dir}/build/spring-local/hadoop-tmp
-      hadoop.security.credential.provider.path: jceks://file/${user.dir}/build/spring-local/s3a.jceks
+      hadoop.security.credential.provider.path: jceks://hdfs/bigdata-test/spring/s3.jceks
 debug: true

@@ -1,0 +1,8 @@
+[s3Jceks]
+enabled = true
+hdfsDir = "/bigdata-test/spring"
+fileName = "s3.jceks"
+
+[[s3Buckets]]
+id = "spring-s3-bucket"
+bucket = "spring-example"

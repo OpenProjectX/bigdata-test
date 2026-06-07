@@ -9,6 +9,16 @@ description = "Config-driven bigdata-test extensions for Hadoop credential provi
 dependencies {
     api(project(":junit5"))
 
+    val bootBom = platform("org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}")
+
+    compileOnly(bootBom)
+    testImplementation(bootBom)
+
+    compileOnly("org.springframework.boot:spring-boot")
+    compileOnly("org.springframework.boot:spring-boot-autoconfigure")
+    compileOnly("org.springframework:spring-context")
+    compileOnly("org.springframework:spring-beans")
+    compileOnly("org.springframework:spring-core")
     compileOnly(libs.hadoopClientApi)
     compileOnly(libs.hadoopClientRuntime)
     compileOnly(libs.kafkaAvroSerializer)
