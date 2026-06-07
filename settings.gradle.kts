@@ -53,6 +53,7 @@ val buildFiles = fileTree(rootDir) {
         "settings.gradle",
         "settings.gradle.kts",
         "buildSrc",
+        "example/spring-gradle-plugin/**",
         "/build.gradle",
         "/build.gradle.kts",
         ".*",

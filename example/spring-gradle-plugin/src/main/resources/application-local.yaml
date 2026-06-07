@@ -1,0 +1,26 @@
+example:
+  s3:
+    enabled: true
+    bucket: spring-example
+    prefix: objects
+    create-bucket-on-startup: false
+    access-key: test
+    secret-key: test
+    hadoop:
+      fs.defaultFS: ${bigdata.test.endpoint.hdfs.properties.fs.defaultFS}
+      dfs.client.use.datanode.hostname: "true"
+      hadoop.security.authentication: kerberos
+      dfs.data.transfer.protection: authentication
+      dfs.namenode.kerberos.principal: ${bigdata.test.endpoint.hdfs.properties.dfs.namenode.kerberos.principal}
+      dfs.datanode.kerberos.principal: ${bigdata.test.endpoint.hdfs.properties.dfs.datanode.kerberos.principal}
+      java.security.krb5.conf: ${bigdata.test.endpoint.kerberos.properties.bigdata.test.kerberos.krb5-conf}
+      bigdata.test.kerberos.client-principal: ${bigdata.test.endpoint.kerberos.properties.bigdata.test.kerberos.client-principal}
+      bigdata.test.kerberos.client-keytab: ${bigdata.test.endpoint.kerberos.properties.bigdata.test.kerberos.client-keytab}
+      fs.s3a.endpoint: ${bigdata.test.endpoint.localstack-s3.properties.aws.endpoint-url.s3}
+      fs.s3a.endpoint.region: us-east-1
+      fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+      fs.s3a.path.style.access: "true"
+      fs.s3a.connection.ssl.enabled: "false"
+      fs.s3a.change.detection.mode: none
+      hadoop.tmp.dir: ${user.dir}/build/spring-local/hadoop-tmp
+      hadoop.security.credential.provider.path: ${bigdata.test.extensions.s3-jceks.credential-provider.path}

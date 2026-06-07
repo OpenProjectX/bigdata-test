@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: bigdata-test-spring-gradle-plugin-example
+
+example:
+  s3:
+    enabled: false
+    bucket: spring-example
+    prefix: objects
+    hadoop:
+      fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+      fs.s3a.path.style.access: "true"
+      fs.s3a.change.detection.mode: none

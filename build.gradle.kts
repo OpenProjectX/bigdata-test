@@ -53,7 +53,7 @@ subprojects {
         extensions.configure<PublishingExtension>("publishing") {
             publications {
                 // Create once per project
-                if (findByName("mavenJava") == null) {
+                if (project.path != ":gradle-plugin" && findByName("mavenJava") == null) {
                     create<MavenPublication>("mavenJava") {
                         from(components["java"])
 

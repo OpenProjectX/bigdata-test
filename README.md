@@ -12,6 +12,7 @@ optional `extensions` module so `core` and `junit5` stay lightweight.
 - `core`: container builder, service options, endpoints, and log routing
 - `junit5`: `@BigDataTest` extension and parameter injection
 - `extensions`: config-driven setup hooks for JCEKS, buckets, Kafka Avro, and Kerberos material
+- `gradle-plugin`: Gradle plugin that starts the test kit outside the application JVM
 - `bigdata-test-spring-boot-autoconfigure`: Spring Boot auto-configuration
 - `bigdata-test-spring-boot-starter`: Spring Boot starter
 - `example:junit`: plain JUnit 5 examples

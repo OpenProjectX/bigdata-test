@@ -3,6 +3,7 @@ package org.openprojectx.bigdata.test.example.spring
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.security.UserGroupInformation
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -35,6 +36,7 @@ class BigDataTestExampleApplication {
     fun s3aFileSystem(properties: S3aStorageProperties): FileSystem {
         val configuration = Configuration(false)
         properties.hadoop.forEach { (key, value) -> configuration.set(key, value) }
+        properties.loginFromKeytabIfNeeded(configuration)
         configuration.setIfUnset("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
         configuration.setIfUnset("fs.s3a.path.style.access", "true")
         configuration.setIfUnset("fs.s3a.change.detection.mode", "none")
@@ -92,6 +94,16 @@ data class S3aStorageProperties(
                     }
                 }
             }
+    }
+
+    fun loginFromKeytabIfNeeded(configuration: Configuration) {
+        if (!hadoop["hadoop.security.authentication"].equals("kerberos", ignoreCase = true)) return
+
+        hadoop["java.security.krb5.conf"]?.let { System.setProperty("java.security.krb5.conf", it) }
+        val principal = hadoop["bigdata.test.kerberos.client-principal"] ?: return
+        val keytab = hadoop["bigdata.test.kerberos.client-keytab"] ?: return
+        UserGroupInformation.setConfiguration(configuration)
+        UserGroupInformation.loginUserFromKeytab(principal, keytab)
     }
 }
 
