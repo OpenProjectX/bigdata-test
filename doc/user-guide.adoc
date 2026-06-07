@@ -1429,19 +1429,30 @@ The JUnit examples live under `example/junit`. They are annotated with `@Disable
 
 === Spring Example
 
-The Spring example is a normal Spring Boot web application. Its default configuration keeps the S3A REST API disabled, so CI builds do not start containers and do not include the bigdata-test Spring starter on the application runtime classpath.
+The Spring example is a normal Spring Boot web application. Its default configuration keeps the S3A REST API disabled, so CI builds do not start containers. The bigdata-test Spring starter is added to the application runtime classpath only outside CI, which lets local IDE runs use the `local` profile without making CI resolve or package the bigdata-test runtime.
 
 [source,bash]
 ----
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:check
 ----
 
-The local developer profile is fully configuration driven. The app source does not call `BigDataTestKit`; the custom `bootRunLocal` task adds `bigdata-test-spring-boot-starter` only to that run, generates a local S3A JCEKS file, starts Kerberos, HDFS, and LocalStack S3 from `application-local.yaml`, and enables the REST API.
+The local developer profile is fully configuration driven. The app source does not call `BigDataTestKit`; `application-local.yaml` starts Kerberos, HDFS, and LocalStack S3 and enables the REST API.
+
+For Gradle, use `bootRunLocal`. It generates the local S3A JCEKS file and runs the app with `spring.profiles.active=local`:
 
 [source,bash]
 ----
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:bootRunLocal
 ----
+
+For IntelliJ IDEA, run the JCEKS preparation task once:
+
+[source,bash]
+----
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:prepareSpringLocalS3Jceks
+----
+
+Then run `org.openprojectx.bigdata.test.example.spring.BigDataTestExampleApplicationKt` with active profile `local`. Because the starter dependency is `runtimeOnly` for non-CI builds, the same config-driven container startup works from the IDE.
 
 The generated JCEKS file is written to:
 

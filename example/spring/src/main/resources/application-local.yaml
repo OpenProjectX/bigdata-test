@@ -30,3 +30,4 @@ example:
       fs.s3a.change.detection.mode: none
       hadoop.tmp.dir: ${user.dir}/build/spring-local/hadoop-tmp
       hadoop.security.credential.provider.path: jceks://file/${user.dir}/build/spring-local/s3a.jceks
+debug: true

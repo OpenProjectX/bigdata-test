@@ -6,10 +6,7 @@ plugins {
 
 description = "Spring Boot example for bigdata-test"
 
-val localBigDataRuntime by configurations.creating {
-    isCanBeConsumed = false
-    isCanBeResolved = true
-}
+val isCi = gradle.extra["isCi"] as Boolean
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
@@ -18,7 +15,9 @@ dependencies {
     runtimeOnly(libs.hadoopAws)
     implementation(libs.awsSdkS3)
 
-    localBigDataRuntime(project(":bigdata-test-spring-boot-starter"))
+    if (!isCi) {
+        runtimeOnly(project(":bigdata-test-spring-boot-starter"))
+    }
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
@@ -71,7 +70,7 @@ tasks.register("prepareSpringLocalS3Jceks") {
 tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("bootRunLocal") {
     group = "application"
     description = "Run the Spring example with local bigdata-test containers and S3A JCEKS credentials."
-    classpath = sourceSets.main.get().runtimeClasspath + localBigDataRuntime
+    classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("org.openprojectx.bigdata.test.example.spring.BigDataTestExampleApplicationKt")
     dependsOn("prepareSpringLocalS3Jceks")
     systemProperty("spring.profiles.active", "local")
