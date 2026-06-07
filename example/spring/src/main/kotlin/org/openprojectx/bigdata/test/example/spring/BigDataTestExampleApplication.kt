@@ -32,40 +32,24 @@ import java.net.URI
 class BigDataTestExampleApplication {
     @Bean(destroyMethod = "close")
     @ConditionalOnProperty(prefix = "example.s3", name = ["enabled"], havingValue = "true")
-    fun s3aFileSystemProvider(properties: S3aStorageProperties): S3aFileSystemProvider =
-        S3aFileSystemProvider(properties)
-
-    @Bean
-    @ConditionalOnProperty(prefix = "example.s3", name = ["enabled"], havingValue = "true")
-    fun initializeStorage(fileSystemProvider: S3aFileSystemProvider, properties: S3aStorageProperties): ApplicationRunner =
-        ApplicationRunner {
-            if (properties.createBucketOnStartup) {
-                properties.createBucketIfMissing()
-            }
-            val fileSystem = fileSystemProvider.get()
-            fileSystem.mkdirs(properties.rootPath())
-        }
-}
-
-class S3aFileSystemProvider(
-    private val properties: S3aStorageProperties,
-) : AutoCloseable {
-    private val delegate = lazy {
+    fun s3aFileSystem(properties: S3aStorageProperties): FileSystem {
         val configuration = Configuration(false)
         properties.hadoop.forEach { (key, value) -> configuration.set(key, value) }
         configuration.setIfUnset("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
         configuration.setIfUnset("fs.s3a.path.style.access", "true")
         configuration.setIfUnset("fs.s3a.change.detection.mode", "none")
-        FileSystem.get(URI.create("s3a://${properties.bucket}"), configuration)
+        return FileSystem.get(URI.create("s3a://${properties.bucket}"), configuration)
     }
 
-    fun get(): FileSystem = delegate.value
-
-    override fun close() {
-        if (delegate.isInitialized()) {
-            delegate.value.close()
+    @Bean
+    @ConditionalOnProperty(prefix = "example.s3", name = ["enabled"], havingValue = "true")
+    fun initializeStorage(fileSystem: FileSystem, properties: S3aStorageProperties): ApplicationRunner =
+        ApplicationRunner {
+            if (properties.createBucketOnStartup) {
+                properties.createBucketIfMissing()
+            }
+            fileSystem.mkdirs(properties.rootPath())
         }
-    }
 }
 
 @ConfigurationProperties("example.s3")
@@ -115,12 +99,11 @@ data class S3aStorageProperties(
 @ConditionalOnProperty(prefix = "example.s3", name = ["enabled"], havingValue = "true")
 @RequestMapping("/api/s3", produces = [MediaType.APPLICATION_JSON_VALUE])
 class S3ObjectController(
-    private val fileSystemProvider: S3aFileSystemProvider,
+    private val fileSystem: FileSystem,
     private val properties: S3aStorageProperties,
 ) {
     @GetMapping("/objects")
     fun list(): List<S3ObjectSummary> {
-        val fileSystem = fileSystemProvider.get()
         val root = properties.rootPath()
         if (!fileSystem.exists(root)) return emptyList()
         return fileSystem.listStatus(root)
@@ -138,7 +121,6 @@ class S3ObjectController(
         @PathVariable key: String,
         @RequestBody content: String,
     ): S3ObjectSummary {
-        val fileSystem = fileSystemProvider.get()
         val path = properties.objectPath(key)
         fileSystem.mkdirs(path.parent)
         fileSystem.create(path, true).bufferedWriter(Charsets.UTF_8).use { writer ->
@@ -149,11 +131,11 @@ class S3ObjectController(
 
     @GetMapping("/objects/{*key}", produces = [MediaType.TEXT_PLAIN_VALUE])
     fun get(@PathVariable key: String): String =
-        fileSystemProvider.get().open(properties.objectPath(key)).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        fileSystem.open(properties.objectPath(key)).bufferedReader(Charsets.UTF_8).use { it.readText() }
 
     @DeleteMapping("/objects/{*key}")
     fun delete(@PathVariable key: String): Map<String, Boolean> =
-        mapOf("deleted" to fileSystemProvider.get().delete(properties.objectPath(key), false))
+        mapOf("deleted" to fileSystem.delete(properties.objectPath(key), false))
 }
 
 data class S3ObjectSummary(

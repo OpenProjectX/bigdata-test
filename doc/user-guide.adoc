@@ -1486,7 +1486,7 @@ The local profile configures S3A with:
 * `hadoop.security.credential.provider.path=jceks://hdfs/bigdata-test/spring/s3.jceks`
 * `hadoop.tmp.dir=${user.dir}/build/spring-local/hadoop-tmp`
 
-The application creates its Hadoop `FileSystem` lazily so the extension-provisioned HDFS JCEKS exists before S3A tries to resolve credentials.
+The Spring extension bootstrap runs before normal application beans are instantiated, so eager Hadoop clients can rely on extension-provisioned resources such as HDFS JCEKS files.
 
 Use the API after `bootRunLocal` starts:
 
