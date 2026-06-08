@@ -16,6 +16,11 @@ on:
         required: false
         default: false
         type: boolean
+      publish_github_packages:
+        description: "Also publish artifacts to GitHub Packages. Disabled by default because GitHub Packages can return checksum upload conflicts."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -48,6 +53,7 @@ jobs:
         -Dorg.gradle.internal.http.socketTimeout=300000
       EXTRA_GRADLE_ARGS: ${{ github.event.inputs.gradle_args || '' }}
       SKIP_TESTS: ${{ github.event.inputs.skip_tests || 'false' }}
+      PUBLISH_GITHUB_PACKAGES: ${{ github.event.inputs.publish_github_packages || 'false' }}
 
     steps:
       - name: Checkout
@@ -82,6 +88,65 @@ jobs:
         if: env.SKIP_TESTS != 'true'
         run: |
           ./gradlew --no-configuration-cache :example:spark:sparkBigDataMatrixTest --stacktrace --debug
+
+      - name: Publish local artifacts for standalone examples
+        if: env.SKIP_TESTS != 'true'
+        run: |
+          ./gradlew --no-configuration-cache publishToMavenLocal -x test -x sparkBigDataMatrixTest --stacktrace --info
+
+      - name: Run Spring Gradle plugin API smoke test
+        if: env.SKIP_TESTS != 'true'
+        run: |
+          set -euo pipefail
+          release_version="$(awk -F= '/^[[:space:]]*version[[:space:]]*=/{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}' gradle.properties)"
+          log_dir="$PWD/build/spring-gradle-plugin-ci"
+          log_file="${log_dir}/bootRunLocal.log"
+          mkdir -p "$log_dir"
+
+          cleanup() {
+            if [ -n "${boot_pid:-}" ] && kill -0 "$boot_pid" 2>/dev/null; then
+              kill "$boot_pid" 2>/dev/null || true
+              wait "$boot_pid" 2>/dev/null || true
+            fi
+            if [ -f "$log_file" ]; then
+              echo "::group::Spring Gradle plugin bootRunLocal log"
+              tail -n 400 "$log_file"
+              echo "::endgroup::"
+            fi
+          }
+          trap cleanup EXIT
+
+          (
+            cd example/spring-gradle-plugin
+            BIGDATA_TEST_PLUGIN_VERSION="$release_version" ../../gradlew bootRunLocal --stacktrace --info
+          ) > "$log_file" 2>&1 &
+          boot_pid=$!
+
+          for attempt in $(seq 1 120); do
+            if ! kill -0 "$boot_pid" 2>/dev/null; then
+              echo "bootRunLocal exited before the API became ready" >&2
+              exit 1
+            fi
+            if curl -fsS http://127.0.0.1:8080/api/s3/objects >/tmp/spring-gradle-plugin-list.json 2>/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+
+          curl -fsS -X PUT \
+            -H 'Content-Type: text/plain' \
+            --data 'hello from spring gradle plugin ci' \
+            http://127.0.0.1:8080/api/s3/objects/ci-smoke.txt \
+            | tee /tmp/spring-gradle-plugin-put.json
+          curl -fsS http://127.0.0.1:8080/api/s3/objects/ci-smoke.txt \
+            | tee /tmp/spring-gradle-plugin-get.txt
+          grep -F 'hello from spring gradle plugin ci' /tmp/spring-gradle-plugin-get.txt
+          curl -fsS http://127.0.0.1:8080/api/s3/objects \
+            | tee /tmp/spring-gradle-plugin-list-after-put.json
+          grep -F 'ci-smoke.txt' /tmp/spring-gradle-plugin-list-after-put.json
+          curl -fsS -X DELETE http://127.0.0.1:8080/api/s3/objects/ci-smoke.txt \
+            | tee /tmp/spring-gradle-plugin-delete.json
+          grep -F '"deleted":true' /tmp/spring-gradle-plugin-delete.json
 
       - name: Collect and print Spark diagnostics on failure
         if: failure() && env.SKIP_TESTS != 'true'
@@ -155,6 +220,7 @@ jobs:
             **/build/test-results/
             **/build/reports/problems/
             **/build/bigdata-test-container-logs/
+            build/spring-gradle-plugin-ci/
             build/github-diagnostics/
           if-no-files-found: ignore
           retention-days: 14

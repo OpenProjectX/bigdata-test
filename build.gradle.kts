@@ -139,12 +139,20 @@ nexusPublishing {
 }
 
 configure<ReleaseExtension> {
+    val publishGitHubPackages =
+        providers.gradleProperty("publishGitHubPackages")
+            .orElse(providers.environmentVariable("PUBLISH_GITHUB_PACKAGES"))
+            .map { it.equals("true", ignoreCase = true) }
+            .getOrElse(false)
+
+    val releaseBuildTasks = mutableListOf("publishToSonatype")
+    if (publishGitHubPackages) {
+        releaseBuildTasks.add("publishAllPublicationsToGitHubPackagesRepository")
+    }
+    releaseBuildTasks.add("closeAndReleaseSonatypeStagingRepository")
+
     buildTasks.set(
-        listOf(
-            "publishToSonatype",
-            "closeAndReleaseSonatypeStagingRepository",
-            "publishAllPublicationsToGitHubPackagesRepository",
-        )
+        releaseBuildTasks
     )
     versionPropertyFile.set("gradle.properties")
     tagTemplate.set("\$name-\$version")

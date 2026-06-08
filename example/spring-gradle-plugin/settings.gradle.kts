@@ -4,6 +4,18 @@ pluginManagement {
         gradlePluginPortal()
         mavenCentral()
     }
+
+    val bigDataTestPluginVersion =
+        providers.gradleProperty("bigdataTestPluginVersion")
+            .orElse(providers.environmentVariable("BIGDATA_TEST_PLUGIN_VERSION"))
+
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "org.openprojectx.bigdata-test" && bigDataTestPluginVersion.isPresent) {
+                useVersion(bigDataTestPluginVersion.get())
+            }
+        }
+    }
 }
 
 dependencyResolutionManagement {

@@ -140,16 +140,21 @@ The Gradle configuration-cache warning from `net.researchgate.release` is curren
 
 ## Release Publishing
 
-The release workflow publishes library modules to Maven Central through Sonatype and to GitHub Packages. GitHub Packages uses the repository Maven endpoint:
+The release workflow publishes library modules to Maven Central through Sonatype by default.
+
+GitHub Packages publishing is opt-in because GitHub's Maven registry can return `409 Conflict` for Gradle checksum sidecar uploads during retry. Enable it in a manual workflow run with `publish_github_packages=true`, or locally with `-PpublishGitHubPackages=true` or `PUBLISH_GITHUB_PACKAGES=true`.
+
+GitHub Packages uses the repository Maven endpoint:
 
 ```text
 https://maven.pkg.github.com/OpenProjectX/bigdata-test
 ```
 
-The workflow needs `packages: write` permission and passes `GITHUB_PACKAGES_USERNAME` plus `GITHUB_PACKAGES_TOKEN` to Gradle. Local dry runs can validate task selection without uploading:
+When enabled, the workflow needs `packages: write` permission and passes `GITHUB_PACKAGES_USERNAME` plus `GITHUB_PACKAGES_TOKEN` to Gradle. Local dry runs can validate task selection without uploading:
 
 ```bash
 GRADLE_USER_HOME=/data/.gradle ./gradlew publishAllPublicationsToGitHubPackagesRepository --dry-run
+GRADLE_USER_HOME=/data/.gradle ./gradlew release --dry-run -PpublishGitHubPackages=true
 ```
 
 Successful release workflow runs write a GitHub Actions job summary with the released version, Maven coordinates, GitHub Packages links, Maven Central links, and the GitHub Packages repository snippet for consumers.
