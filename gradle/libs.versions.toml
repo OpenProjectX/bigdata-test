@@ -21,6 +21,7 @@ junitPlatform = "1.14.1"
 iceberg = "1.11.0"
 confluent = "8.2.1"
 avro = "1.12.1"
+lz4 = "1.10.1"
 gcsConnector = "4.0.4"
 gcsio = "4.0.4"
 bouncycastle = "1.83"
@@ -56,6 +57,7 @@ gcsio = { module = "com.google.cloud.bigdataoss:gcsio", version.ref = "gcsio" }
 gcsUtilHadoop = { module = "com.google.cloud.bigdataoss:util-hadoop", version.ref = "gcsConnector" }
 kafkaAvroSerializer = { module = "io.confluent:kafka-avro-serializer", version.ref = "confluent" }
 kafkaSchemaRegistryClient = { module = "io.confluent:kafka-schema-registry-client", version.ref = "confluent" }
+lz4Java = { module = "at.yawk.lz4:lz4-java", version.ref = "lz4" }
 avro = { module = "org.apache.avro:avro", version.ref = "avro" }
 junitJupiterApi = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }
 junitJupiterEngine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiter" }

@@ -92,6 +92,7 @@ abstract class BigDataTestGradleExtensionRuntime @Inject constructor(objects: Ob
     val hadoopVersion: Property<String> = objects.property(String::class.java).convention("3.4.2")
     val confluentVersion: Property<String> = objects.property(String::class.java).convention("8.2.1")
     val avroVersion: Property<String> = objects.property(String::class.java).convention("1.12.1")
+    val lz4Version: Property<String> = objects.property(String::class.java).convention("1.10.1")
     val includeHadoop: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val includeKafkaAvro: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val includeSpark: Property<Boolean> = objects.property(Boolean::class.java).convention(false)

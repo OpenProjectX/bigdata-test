@@ -10,6 +10,10 @@ description = "Config-driven bigdata-test extensions for Hadoop credential provi
 val shadedRuntime by configurations.creating {
     isCanBeConsumed = false
     isCanBeResolved = true
+    resolutionStrategy.capabilitiesResolution.withCapability("org.lz4:lz4-java") {
+        select("at.yawk.lz4:lz4-java:${libs.versions.lz4.get()}")
+        because("Kafka/Confluent and Spark publish different providers for the same lz4 capability.")
+    }
 }
 
 dependencies {
@@ -45,6 +49,7 @@ dependencies {
     shadedRuntime(libs.hadoopAws)
     shadedRuntime(libs.kafkaAvroSerializer)
     shadedRuntime(libs.kafkaSchemaRegistryClient)
+    shadedRuntime(libs.lz4Java)
     shadedRuntime(libs.avro)
     shadedRuntime(libs.sparkSql)
     shadedRuntime(libs.sparkHive)

@@ -165,6 +165,10 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         if (!extension.extensionRuntime.enabled.get()) return
 
         val runtime = extension.extensionRuntime
+        configuration.resolutionStrategy.capabilitiesResolution.withCapability("org.lz4:lz4-java") { details ->
+            details.select("at.yawk.lz4:lz4-java:${runtime.lz4Version.get()}")
+            details.because("Kafka/Confluent and Spark publish different providers for the same lz4 capability.")
+        }
         val extensionVersion = runtime.extensionsVersion.get()
         if (runtime.useShadedArtifact.get()) {
             dependencies.add(configuration.name, "org.openprojectx.bigdata.test.core:extensions:$extensionVersion:runtime@jar")
@@ -185,6 +189,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         if (includeKafkaAvro) {
             dependencies.add(configuration.name, "io.confluent:kafka-avro-serializer:${runtime.confluentVersion.get()}")
             dependencies.add(configuration.name, "io.confluent:kafka-schema-registry-client:${runtime.confluentVersion.get()}")
+            dependencies.add(configuration.name, "at.yawk.lz4:lz4-java:${runtime.lz4Version.get()}")
             dependencies.add(configuration.name, "org.apache.avro:avro:${runtime.avroVersion.get()}")
         }
         if (includeSpark) {

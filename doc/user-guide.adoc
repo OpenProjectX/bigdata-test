@@ -1489,9 +1489,12 @@ bigDataTest {
         sparkVersion.set("3.5.7")
         confluentVersion.set("8.2.1")
         avroVersion.set("1.12.1")
+        lz4Version.set("1.10.1")
     }
 }
 ----
+
+When Spark and Confluent Kafka dependencies are both present, the plugin selects `at.yawk.lz4:lz4-java` for Gradle's shared `org.lz4:lz4-java` capability. Override `lz4Version` if the selected Confluent line uses a different compatible lz4 artifact.
 
 When auto-detection is not enough, force dependency groups explicitly:
 
