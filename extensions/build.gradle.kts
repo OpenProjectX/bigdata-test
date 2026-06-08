@@ -38,15 +38,12 @@ dependencies {
     compileOnly(libs.sparkHive)
     implementation(libs.kotlinxSerialization)
 
-    shadedRuntime(bootBom)
-    shadedRuntime("org.springframework.boot:spring-boot")
-    shadedRuntime("org.springframework.boot:spring-boot-autoconfigure")
-    shadedRuntime("org.springframework:spring-context")
-    shadedRuntime("org.springframework:spring-beans")
-    shadedRuntime("org.springframework:spring-core")
     shadedRuntime(libs.hadoopClientApi)
     shadedRuntime(libs.hadoopClientRuntime)
-    shadedRuntime(libs.hadoopAws)
+    shadedRuntime(libs.hadoopAws) {
+        exclude(group = "software.amazon.awssdk", module = "bundle")
+    }
+    shadedRuntime(libs.awsSdkS3)
     shadedRuntime(libs.kafkaAvroSerializer)
     shadedRuntime(libs.kafkaSchemaRegistryClient)
     shadedRuntime(libs.lz4Java)

@@ -3,6 +3,7 @@ package org.openprojectx.bigdata.test.gradle
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSetContainer
@@ -184,7 +185,12 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         if (includeHadoop || includeSpark) {
             dependencies.add(configuration.name, "org.apache.hadoop:hadoop-client-api:${runtime.hadoopVersion.get()}")
             dependencies.add(configuration.name, "org.apache.hadoop:hadoop-client-runtime:${runtime.hadoopVersion.get()}")
-            dependencies.add(configuration.name, "org.apache.hadoop:hadoop-aws:${runtime.hadoopVersion.get()}")
+            val hadoopAws = dependencies.create(
+                "org.apache.hadoop:hadoop-aws:${runtime.hadoopVersion.get()}",
+            ) as ExternalModuleDependency
+            hadoopAws.exclude(mapOf("group" to "software.amazon.awssdk", "module" to "bundle"))
+            dependencies.add(configuration.name, hadoopAws)
+            dependencies.add(configuration.name, "software.amazon.awssdk:s3:${runtime.awsSdkVersion.get()}")
         }
         if (includeKafkaAvro) {
             dependencies.add(configuration.name, "io.confluent:kafka-avro-serializer:${runtime.confluentVersion.get()}")
