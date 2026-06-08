@@ -142,8 +142,8 @@ configure<ReleaseExtension> {
     buildTasks.set(
         listOf(
             "publishToSonatype",
-            "publishAllPublicationsToGitHubPackagesRepository",
             "closeAndReleaseSonatypeStagingRepository",
+            "publishAllPublicationsToGitHubPackagesRepository",
         )
     )
     versionPropertyFile.set("gradle.properties")
