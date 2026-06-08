@@ -39,9 +39,13 @@ jobs:
         !contains(github.event.head_commit.message, 'skip-checks:true')
       )
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     env:
-      GRADLE_OPTS: -Dorg.gradle.daemon=false
+      GRADLE_OPTS: >-
+        -Dorg.gradle.daemon=false
+        -Dorg.gradle.internal.http.connectionTimeout=120000
+        -Dorg.gradle.internal.http.socketTimeout=300000
       EXTRA_GRADLE_ARGS: ${{ github.event.inputs.gradle_args || '' }}
       SKIP_TESTS: ${{ github.event.inputs.skip_tests || 'false' }}
 
@@ -174,6 +178,7 @@ jobs:
 
       - name: Run release
         id: run_release
+        timeout-minutes: 90
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
