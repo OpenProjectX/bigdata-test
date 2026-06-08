@@ -7,17 +7,13 @@ description = "Gradle plugin that manages bigdata-test containers outside the ap
 
 dependencies {
     api(project(":core"))
-    implementation(project(":extensions"))
-
-    implementation(libs.hadoopClientApi)
-    implementation(libs.hadoopClientRuntime)
-    implementation(libs.hadoopAws)
-    implementation(libs.kafkaAvroSerializer)
-    implementation(libs.kafkaSchemaRegistryClient)
-    implementation(libs.avro)
-    implementation(libs.sparkSql)
-    implementation(libs.sparkHive)
     runtimeOnly(libs.slf4jSimple)
+}
+
+tasks.jar {
+    manifest {
+        attributes("Implementation-Version" to project.version)
+    }
 }
 
 gradlePlugin {

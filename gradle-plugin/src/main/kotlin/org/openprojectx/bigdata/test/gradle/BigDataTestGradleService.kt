@@ -3,8 +3,10 @@ package org.openprojectx.bigdata.test.gradle
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
+import java.net.URLClassLoader
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.ContainerLogMode
@@ -20,11 +22,6 @@ import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.bigdata.test.core.ObjectStoreOptions
 import org.openprojectx.bigdata.test.core.PortBindingOptions
 import org.openprojectx.bigdata.test.core.TlsOptions
-import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsConfigLoader
-import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionEvent
-import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionResourceLoader
-import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionResult
-import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionRunner
 
 abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.Parameters>, AutoCloseable {
     interface Parameters : BuildServiceParameters {
@@ -33,6 +30,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val injectNamespacedEndpointProperties: Property<Boolean>
         val injectEnvironmentVariables: Property<Boolean>
         val extensionConfig: ListProperty<String>
+        val extensionRuntimeClasspath: ConfigurableFileCollection
         val containerLogLevels: MapProperty<String, String>
 
         val kerberos: Property<Boolean>
@@ -105,8 +103,9 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
     }
 
     private var kit: BigDataTestKit? = null
-    private var runner: BigDataExtensionRunner? = null
-    private var result: BigDataExtensionResult = BigDataExtensionResult(emptyMap())
+    private var extensionRuntime: ExtensionRuntime? = null
+    private var extensionResult: Any? = null
+    private var extensionOutputs: Map<String, String> = emptyMap()
 
     @Synchronized
     fun startIfNeeded(): Map<String, String> {
@@ -115,10 +114,11 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
             val created = buildKit()
             created.start()
             kit = created
-            val resources = BigDataExtensionResourceLoader(Thread.currentThread().contextClassLoader)
-            val extensions = BigDataExtensionsConfigLoader(resources).load(parameters.extensionConfig.get())
-            runner = BigDataExtensionRunner(extensions, resources)
-            result = runner?.fire(BigDataExtensionEvent.AFTER_KIT_START, created) ?: BigDataExtensionResult(emptyMap())
+            extensionRuntime = ExtensionRuntime(parameters.extensionRuntimeClasspath.files)
+            extensionRuntime?.let { runtime ->
+                extensionResult = runtime.fireAfterKitStart(parameters.extensionConfig.get(), created)
+                extensionOutputs = runtime.outputs(extensionResult)
+            }
         }
         return injectedProperties()
     }
@@ -132,12 +132,17 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
     override fun close() {
         val current = kit ?: return
         try {
-            runner?.let { result = it.fire(BigDataExtensionEvent.AFTER_ALL, current, result) }
+            extensionRuntime?.let { runtime ->
+                extensionResult = runtime.fireAfterAll(current, extensionResult)
+                extensionOutputs = runtime.outputs(extensionResult)
+            }
         } finally {
             current.close()
+            extensionRuntime?.close()
             kit = null
-            runner = null
-            result = BigDataExtensionResult(emptyMap())
+            extensionRuntime = null
+            extensionResult = null
+            extensionOutputs = emptyMap()
         }
     }
 
@@ -297,7 +302,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                     properties["bigdata.test.endpoint.$serviceName.properties.$key"] = value
                 }
             }
-            result.outputs.forEach { (key, value) ->
+            extensionOutputs.forEach { (key, value) ->
                 properties["bigdata.test.extensions.$key"] = value
             }
         }
@@ -320,4 +325,97 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
             .joinToString("")
             .replace(Regex("_+"), "_")
             .trim('_')
+
+    private class ExtensionRuntime(files: Set<java.io.File>) : AutoCloseable {
+        private val classLoader = URLClassLoader(
+            files.map { it.toURI().toURL() }.toTypedArray(),
+            BigDataTestGradleService::class.java.classLoader,
+        )
+        private var runner: RunnerHandle? = null
+
+        fun fireAfterKitStart(config: List<String>, kit: BigDataTestKit): Any? =
+            if (config.isEmpty()) null else withRuntimeClassLoader {
+                val resources = newResources()
+                val extensions = newConfigLoader(resources).load(config)
+                runner = newRunner(extensions, resources)
+                runner?.fire(event("AFTER_KIT_START"), kit, null)
+            }
+
+        fun fireAfterAll(kit: BigDataTestKit, previous: Any?): Any? =
+            previous?.let { result ->
+                withRuntimeClassLoader {
+                    runner?.fire(event("AFTER_ALL"), kit, result)
+                }
+            }
+
+        fun outputs(result: Any?): Map<String, String> {
+            if (result == null) return emptyMap()
+            val value = result.javaClass.getMethod("getOutputs").invoke(result)
+            @Suppress("UNCHECKED_CAST")
+            return value as Map<String, String>
+        }
+
+        override fun close() {
+            classLoader.close()
+        }
+
+        private fun newResources(): Any =
+            classLoader
+                .loadClass("org.openprojectx.bigdata.test.extensions.core.BigDataExtensionResourceLoader")
+                .getConstructor(ClassLoader::class.java)
+                .newInstance(classLoader)
+
+        private fun newConfigLoader(resources: Any): ConfigLoaderHandle {
+            val providerClass = classLoader
+                .loadClass("org.openprojectx.bigdata.test.extensions.core.BigDataExtensionProvider")
+            val loader = classLoader
+                .loadClass("org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsConfigLoader")
+                .constructors
+                .first { it.parameterCount == 2 }
+                .newInstance(resources, java.util.ServiceLoader.load(providerClass, classLoader))
+            return ConfigLoaderHandle(loader)
+        }
+
+        private fun newRunner(extensions: List<Any>, resources: Any): RunnerHandle {
+            val runner = classLoader
+                .loadClass("org.openprojectx.bigdata.test.extensions.core.BigDataExtensionRunner")
+                .constructors
+                .first { it.parameterCount == 2 }
+                .newInstance(extensions, resources)
+            return RunnerHandle(runner)
+        }
+
+        private fun event(name: String): Any =
+            classLoader
+                .loadClass("org.openprojectx.bigdata.test.extensions.core.BigDataExtensionEvent")
+                .enumConstants
+                .first { (it as Enum<*>).name == name }
+
+        private fun <T> withRuntimeClassLoader(action: () -> T): T {
+            val thread = Thread.currentThread()
+            val previous = thread.contextClassLoader
+            thread.contextClassLoader = classLoader
+            return try {
+                action()
+            } finally {
+                thread.contextClassLoader = previous
+            }
+        }
+
+        private class ConfigLoaderHandle(private val delegate: Any) {
+            fun load(locations: List<String>): List<Any> {
+                val value = delegate.javaClass.getMethod("load", Iterable::class.java).invoke(delegate, locations)
+                @Suppress("UNCHECKED_CAST")
+                return value as List<Any>
+            }
+        }
+
+        private class RunnerHandle(private val delegate: Any) {
+            fun fire(event: Any, kit: BigDataTestKit, previous: Any?): Any =
+                delegate.javaClass
+                    .methods
+                    .first { it.name == "fire" && it.parameterCount == 3 }
+                    .invoke(delegate, event, kit, previous)
+        }
+    }
 }

@@ -72,3 +72,4 @@ kotlinxEcosystem = ["kotlinxDatetime", "kotlinxSerialization", "kotlinxCoroutine
 [plugins]
 kotlinPluginSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 javaDns = { id = "org.openprojectx.java.dns", version.ref = "javaDns" }
+shadow = { id = "com.gradleup.shadow", version = "9.4.2" }

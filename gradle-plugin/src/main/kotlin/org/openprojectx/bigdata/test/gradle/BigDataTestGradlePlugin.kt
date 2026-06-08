@@ -2,6 +2,7 @@ package org.openprojectx.bigdata.test.gradle
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSetContainer
@@ -16,6 +17,12 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         )
         extension.localStackS3.image.convention("localstack/localstack:4.14.0")
         extension.fakeGcs.image.convention("fsouza/fake-gcs-server:1.54")
+        extension.extensionRuntime.extensionsVersion.convention(pluginImplementationVersion())
+        val extensionRuntimeClasspath = project.configurations.create("bigDataTestExtensionRuntime") { configuration ->
+            configuration.isCanBeConsumed = false
+            configuration.isCanBeResolved = true
+            configuration.description = "Runtime classpath used by the bigdata-test Gradle plugin to execute extensions."
+        }
 
         val service = project.gradle.sharedServices.registerIfAbsent(
             "${project.path}:bigDataTestKit",
@@ -33,6 +40,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
                     }
                 },
             )
+            spec.parameters.extensionRuntimeClasspath.from(extensionRuntimeClasspath)
             spec.parameters.containerLogLevels.set(extension.containerLogLevels)
 
             spec.parameters.kerberos.set(extension.services.kerberos)
@@ -119,6 +127,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
 
         project.afterEvaluate {
             project.applyGradleTomlConfig(extension)
+            project.configureExtensionRuntime(extension, extensionRuntimeClasspath)
 
             if (extension.enabled.get() && extension.autoConfigureJavaExecTasks.get()) {
                 project.tasks.withType(JavaExec::class.java).configureEach { task ->
@@ -147,6 +156,77 @@ class BigDataTestGradlePlugin : Plugin<Project> {
                 }
             }
         }
+    }
+
+    private fun Project.configureExtensionRuntime(
+        extension: BigDataTestGradleExtension,
+        configuration: Configuration,
+    ) {
+        if (!extension.extensionRuntime.enabled.get()) return
+
+        val runtime = extension.extensionRuntime
+        val extensionVersion = runtime.extensionsVersion.get()
+        if (runtime.useShadedArtifact.get()) {
+            dependencies.add(configuration.name, "org.openprojectx.bigdata.test.core:extensions:$extensionVersion:runtime@jar")
+            return
+        }
+
+        dependencies.add(configuration.name, "org.openprojectx.bigdata.test.core:extensions:$extensionVersion")
+        val detected = if (runtime.autoDetect.get()) detectExtensionRuntimeNeeds(extension.extensionConfig.get()) else ExtensionRuntimeNeeds()
+        val includeHadoop = runtime.includeHadoop.get() || detected.hadoop
+        val includeKafkaAvro = runtime.includeKafkaAvro.get() || detected.kafkaAvro
+        val includeSpark = runtime.includeSpark.get() || detected.spark
+
+        if (includeHadoop || includeSpark) {
+            dependencies.add(configuration.name, "org.apache.hadoop:hadoop-client-api:${runtime.hadoopVersion.get()}")
+            dependencies.add(configuration.name, "org.apache.hadoop:hadoop-client-runtime:${runtime.hadoopVersion.get()}")
+            dependencies.add(configuration.name, "org.apache.hadoop:hadoop-aws:${runtime.hadoopVersion.get()}")
+        }
+        if (includeKafkaAvro) {
+            dependencies.add(configuration.name, "io.confluent:kafka-avro-serializer:${runtime.confluentVersion.get()}")
+            dependencies.add(configuration.name, "io.confluent:kafka-schema-registry-client:${runtime.confluentVersion.get()}")
+            dependencies.add(configuration.name, "org.apache.avro:avro:${runtime.avroVersion.get()}")
+        }
+        if (includeSpark) {
+            dependencies.add(configuration.name, "org.apache.spark:spark-sql_2.12:${runtime.sparkVersion.get()}")
+            dependencies.add(configuration.name, "org.apache.spark:spark-hive_2.12:${runtime.sparkVersion.get()}")
+        }
+    }
+
+    private fun pluginImplementationVersion(): String =
+        javaClass.`package`.implementationVersion?.takeIf { it.isNotBlank() } ?: "0.1.12-SNAPSHOT"
+
+    private fun Project.detectExtensionRuntimeNeeds(locations: List<String>): ExtensionRuntimeNeeds {
+        var needs = ExtensionRuntimeNeeds()
+        locations.forEach { location ->
+            val text = runCatching {
+                val resolved = resolveExtensionConfigLocation(location)
+                when {
+                    resolved.startsWith("file:") -> file(resolved.removePrefix("file:")).readText()
+                    resolved.startsWith("classpath:") -> {
+                        val resource = resolved.removePrefix("classpath:").trimStart('/')
+                        val sourceSets = extensions.findByName("sourceSets") as? SourceSetContainer
+                        val resourceFile = sourceSets
+                            ?.findByName("main")
+                            ?.resources
+                            ?.srcDirs
+                            ?.asSequence()
+                            ?.map { it.resolve(resource) }
+                            ?.firstOrNull { it.isFile }
+                        resourceFile?.readText().orEmpty()
+                    }
+                    else -> file(resolved).readText()
+                }
+            }.getOrDefault("")
+            needs = needs.copy(
+                hadoop = needs.hadoop || text.contains("[s3Jceks]"),
+                kafkaAvro = needs.kafkaAvro || text.contains("[kafkaAvro]"),
+                spark = needs.spark || text.contains("sparkSqlPreparation") ||
+                    text.contains("type = \"spark-sql-prep\"") ||
+                    text.contains("type = \"spark-sql-preparation\""),
+            )
+        }
+        return needs
     }
 
     private fun Project.applyGradleTomlConfig(extension: BigDataTestGradleExtension) {
@@ -242,4 +322,10 @@ class BigDataTestGradlePlugin : Plugin<Project> {
     private fun <K : Any, V : Any> MapProperty<K, V>.tomlConvention(value: Map<K, V>?) {
         if (value != null) convention(value)
     }
+
+    private data class ExtensionRuntimeNeeds(
+        val hadoop: Boolean = false,
+        val kafkaAvro: Boolean = false,
+        val spark: Boolean = false,
+    )
 }

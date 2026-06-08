@@ -19,6 +19,8 @@ abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFac
     val extensionConfig: ListProperty<String> = objects.listProperty(String::class.java).convention(emptyList())
     val containerLogLevels: MapProperty<String, String> =
         objects.mapProperty(String::class.java, String::class.java).convention(emptyMap())
+    val extensionRuntime: BigDataTestGradleExtensionRuntime =
+        objects.newInstance(BigDataTestGradleExtensionRuntime::class.java)
 
     val services: BigDataTestGradleServices = objects.newInstance(BigDataTestGradleServices::class.java)
     val ports: BigDataTestGradlePorts = objects.newInstance(BigDataTestGradlePorts::class.java)
@@ -75,6 +77,24 @@ abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFac
     fun containerLogs(action: Action<in BigDataTestGradleContainerLogs>) {
         action.execute(containerLogs)
     }
+
+    fun extensionRuntime(action: Action<in BigDataTestGradleExtensionRuntime>) {
+        action.execute(extensionRuntime)
+    }
+}
+
+abstract class BigDataTestGradleExtensionRuntime @Inject constructor(objects: ObjectFactory) {
+    val enabled: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
+    val autoDetect: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
+    val useShadedArtifact: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+    val extensionsVersion: Property<String> = objects.property(String::class.java)
+    val sparkVersion: Property<String> = objects.property(String::class.java).convention("3.5.7")
+    val hadoopVersion: Property<String> = objects.property(String::class.java).convention("3.4.2")
+    val confluentVersion: Property<String> = objects.property(String::class.java).convention("8.2.1")
+    val avroVersion: Property<String> = objects.property(String::class.java).convention("1.12.1")
+    val includeHadoop: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+    val includeKafkaAvro: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+    val includeSpark: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
 }
 
 abstract class BigDataTestGradleServices @Inject constructor(objects: ObjectFactory) {

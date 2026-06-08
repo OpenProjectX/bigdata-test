@@ -1412,12 +1412,16 @@ Use the Gradle plugin when the test kit should be managed by Gradle instead of t
 [source,kotlin]
 ----
 plugins {
-    id("org.openprojectx.bigdata-test") version "0.1.10-SNAPSHOT"
+    id("org.openprojectx.bigdata-test") version "0.1.12-SNAPSHOT"
 }
 
 bigDataTest {
     config.add("classpath:bigdata-test.toml")
     extensionConfig.add("file:${projectDir}/src/main/resources/bigdata-extensions.toml")
+    extensionRuntime {
+        hadoopVersion.set("3.4.2")
+        sparkVersion.set("3.5.7")
+    }
 }
 ----
 
@@ -1466,6 +1470,56 @@ bigDataTest {
     containerLogLevels.put("hdfs", "DEBUG")
 }
 ----
+
+Extension provisioning dependencies are resolved into the plugin-owned `bigDataTestExtensionRuntime` configuration. They are not added to the application `implementation`, `runtimeClasspath`, `testImplementation`, or `testRuntimeClasspath` configurations.
+
+By default the plugin adds the lightweight `extensions` artifact and then adds runtime libraries based on the configured extension TOML:
+
+* `[s3Jceks]` enables Hadoop client/runtime/AWS dependencies.
+* `[kafkaAvro]` enables Confluent Schema Registry, Kafka Avro, and Avro dependencies.
+* `sparkSqlPreparation` enables Spark SQL, Spark Hive, and Hadoop dependencies.
+
+Override dependency versions with the DSL:
+
+[source,kotlin]
+----
+bigDataTest {
+    extensionRuntime {
+        hadoopVersion.set("3.4.2")
+        sparkVersion.set("3.5.7")
+        confluentVersion.set("8.2.1")
+        avroVersion.set("1.12.1")
+    }
+}
+----
+
+When auto-detection is not enough, force dependency groups explicitly:
+
+[source,kotlin]
+----
+bigDataTest {
+    extensionRuntime {
+        autoDetect.set(false)
+        includeHadoop.set(true)
+        includeKafkaAvro.set(true)
+        includeSpark.set(true)
+    }
+}
+----
+
+The `extensions` module also publishes a shaded runtime artifact with classifier `runtime`. It bundles the extension runtime dependencies for users who prefer one plugin runtime artifact instead of dynamic dependency sets:
+
+[source,kotlin]
+----
+bigDataTest {
+    extensionRuntime {
+        useShadedArtifact.set(true)
+        extensionsVersion.set("0.1.12-SNAPSHOT")
+    }
+}
+----
+
+With `useShadedArtifact = true`, the plugin resolves `org.openprojectx.bigdata.test.core:extensions:<version>:runtime@jar` into `bigDataTestExtensionRuntime` and skips adding separate Hadoop, Spark, Kafka, and Avro extension runtime dependencies.
 
 Gradle configuration is Gradle-native; the plugin does not read a Maven POM. When values should come from `gradle.properties` or `-P`, wire them through Gradle providers:
 
@@ -1548,7 +1602,7 @@ example:
       hadoop.security.credential.provider.path: ${bigdata.test.extensions.s3-jceks.credential-provider.path}
 ----
 
-The plugin classpath is isolated from the application runtime classpath. Hadoop, Kafka, Avro, and Spark dependencies needed by provisioning extensions run in Gradle and are not added to the user application unless the user declares them separately. This is launched-JVM isolation, not per-extension isolation inside the Gradle daemon: the Gradle plugin distribution currently carries the extension runtime libraries needed to execute configured provisioning extensions.
+The plugin classpath is isolated from the application runtime classpath. Hadoop, Kafka, Avro, and Spark dependencies needed by provisioning extensions run in Gradle and are not added to the user application unless the user declares them separately. This is launched-JVM isolation, not per-extension isolation inside the Gradle daemon.
 
 == Spring Boot
 
