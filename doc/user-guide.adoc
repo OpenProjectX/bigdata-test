@@ -1544,10 +1544,18 @@ bigDataTest {
 
 The plugin registers:
 
-* `bigDataTestStart` - starts the configured kit in the Gradle daemon.
-* `bigDataTestStop` - explicitly stops it.
+* `bigDataTestStart` - starts the configured kit for the current Gradle build and then returns. This task is intended as a dependency of app/test tasks.
+* `bigDataTestRun` - starts the configured kit and keeps the Gradle process running until interrupted. Use this for manual troubleshooting.
+* `bigDataTestStop` - explicitly stops the kit in the current Gradle build.
 
 By default, the plugin wires `bigDataTestStart` before `JavaExec` and `Test` tasks and injects endpoint and extension output properties as JVM system properties immediately before the task launches. It also injects environment variables derived from the same property map. The kit is closed automatically when the Gradle build service closes at the end of the build.
+
+`bigDataTestStart` is not an interactive keep-alive command. If you run it directly, it starts the kit, prints the injected property count, and exits when the build finishes. For a long-running local environment, run:
+
+[source,bash]
+----
+GRADLE_USER_HOME=/data/.gradle ./gradlew bigDataTestRun
+----
 
 Disable automatic task wiring when you want explicit task dependencies:
 

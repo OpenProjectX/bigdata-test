@@ -18,6 +18,26 @@ abstract class BigDataTestStartTask : DefaultTask() {
     }
 }
 
+@DisableCachingByDefault(because = "Starts external Docker containers and waits for user interruption.")
+abstract class BigDataTestRunTask : DefaultTask() {
+    @get:Internal
+    abstract val kitService: Property<BigDataTestGradleService>
+
+    @TaskAction
+    fun run() {
+        val properties = kitService.get().startIfNeeded()
+        logger.lifecycle("bigdata-test started; injected ${properties.size} properties")
+        logger.lifecycle("bigdata-test is running. Press Ctrl+C to stop the Gradle process and close containers.")
+        try {
+            while (!Thread.currentThread().isInterrupted) {
+                Thread.sleep(1_000)
+            }
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+    }
+}
+
 @DisableCachingByDefault(because = "Stops external Docker containers and has no cacheable outputs.")
 abstract class BigDataTestStopTask : DefaultTask() {
     @get:Internal

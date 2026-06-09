@@ -3,11 +3,11 @@ plugins {
     kotlin("plugin.spring") version "2.2.21"
     id("org.springframework.boot") version "4.0.5"
     id("io.spring.dependency-management") version "1.1.7"
-    id("org.openprojectx.bigdata-test") version "0.1.12-SNAPSHOT"
+    id("org.openprojectx.bigdata-test") version "0.1.17-SNAPSHOT"
 }
 
 group = "org.openprojectx.bigdata.test.example"
-version = "0.1.12-SNAPSHOT"
+version = "0.1.17-SNAPSHOT"
 
 kotlin {
     jvmToolchain(17)

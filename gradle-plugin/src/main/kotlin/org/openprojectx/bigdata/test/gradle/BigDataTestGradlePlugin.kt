@@ -115,7 +115,13 @@ class BigDataTestGradlePlugin : Plugin<Project> {
 
         val startTask = project.tasks.register("bigDataTestStart", BigDataTestStartTask::class.java) { task ->
             task.group = "bigdata-test"
-            task.description = "Start configured bigdata-test containers in the Gradle daemon."
+            task.description = "Start configured bigdata-test containers for this Gradle build."
+            task.kitService.set(service)
+            task.usesService(service)
+        }
+        project.tasks.register("bigDataTestRun", BigDataTestRunTask::class.java) { task ->
+            task.group = "bigdata-test"
+            task.description = "Start configured bigdata-test containers and keep them running until the Gradle process is interrupted."
             task.kitService.set(service)
             task.usesService(service)
         }
@@ -132,7 +138,9 @@ class BigDataTestGradlePlugin : Plugin<Project> {
 
             if (extension.enabled.get() && extension.autoConfigureJavaExecTasks.get()) {
                 project.tasks.withType(JavaExec::class.java).configureEach { task ->
-                    if (task.name == "bigDataTestStart" || task.name == "bigDataTestStop") return@configureEach
+                    if (task.name == "bigDataTestStart" || task.name == "bigDataTestRun" || task.name == "bigDataTestStop") {
+                        return@configureEach
+                    }
                     task.dependsOn(startTask)
                     task.usesService(service)
                     task.doFirst {

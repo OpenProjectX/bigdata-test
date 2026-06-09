@@ -16,6 +16,12 @@ cd example/spring-gradle-plugin
 GRADLE_USER_HOME=/data/.gradle ../../gradlew bootRunLocal
 ```
 
+For manual troubleshooting without starting the Spring app, keep the containers running with:
+
+```bash
+GRADLE_USER_HOME=/data/.gradle ../../gradlew bigDataTestRun
+```
+
 The Gradle plugin starts Kerberos, HDFS, and LocalStack S3 before `bootRunLocal` launches the
 Spring JVM, runs the TOML extensions, and injects endpoint/extension output as JVM system
 properties and environment variables. The application reads the JVM properties from
