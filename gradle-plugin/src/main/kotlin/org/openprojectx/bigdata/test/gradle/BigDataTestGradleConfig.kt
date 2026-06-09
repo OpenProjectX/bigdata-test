@@ -51,6 +51,9 @@ internal data class BigDataTestGradleConfig(
         val domain: String? = null,
         val clientPrincipal: String? = null,
         val clientPassword: String? = null,
+        val materialDirectory: String? = null,
+        val localKrb5ConfPath: String? = null,
+        val localClientKeytabPath: String? = null,
         val startupTimeoutSeconds: Int? = null,
         val materialTimeoutSeconds: Int? = null,
         val adminAttempts: Int? = null,
@@ -104,6 +107,7 @@ internal data class BigDataTestGradleConfig(
     data class ContainerLogs(
         val mode: ContainerLogMode? = null,
         val directory: String? = null,
+        val append: Boolean? = null,
     )
 
     fun merge(override: BigDataTestGradleConfig): BigDataTestGradleConfig =
@@ -140,6 +144,9 @@ internal data class BigDataTestGradleConfig(
                 domain = override.kerberos.domain ?: kerberos.domain,
                 clientPrincipal = override.kerberos.clientPrincipal ?: kerberos.clientPrincipal,
                 clientPassword = override.kerberos.clientPassword ?: kerberos.clientPassword,
+                materialDirectory = override.kerberos.materialDirectory ?: kerberos.materialDirectory,
+                localKrb5ConfPath = override.kerberos.localKrb5ConfPath ?: kerberos.localKrb5ConfPath,
+                localClientKeytabPath = override.kerberos.localClientKeytabPath ?: kerberos.localClientKeytabPath,
                 startupTimeoutSeconds = override.kerberos.startupTimeoutSeconds ?: kerberos.startupTimeoutSeconds,
                 materialTimeoutSeconds = override.kerberos.materialTimeoutSeconds ?: kerberos.materialTimeoutSeconds,
                 adminAttempts = override.kerberos.adminAttempts ?: kerberos.adminAttempts,
@@ -182,6 +189,7 @@ internal data class BigDataTestGradleConfig(
             containerLogs = ContainerLogs(
                 mode = override.containerLogs.mode ?: containerLogs.mode,
                 directory = override.containerLogs.directory ?: containerLogs.directory,
+                append = override.containerLogs.append ?: containerLogs.append,
             ),
             containerLogLevels = containerLogLevels + override.containerLogLevels,
         )
@@ -241,6 +249,9 @@ internal class BigDataTestGradleConfigLoader(
                 domain = kerberos.string("domain"),
                 clientPrincipal = kerberos.string("clientPrincipal"),
                 clientPassword = kerberos.string("clientPassword"),
+                materialDirectory = kerberos.string("materialDirectory"),
+                localKrb5ConfPath = kerberos.string("localKrb5ConfPath"),
+                localClientKeytabPath = kerberos.string("localClientKeytabPath"),
                 startupTimeoutSeconds = kerberos.int("startupTimeoutSeconds"),
                 materialTimeoutSeconds = kerberos.int("materialTimeoutSeconds"),
                 adminAttempts = kerberos.int("adminAttempts"),
@@ -285,6 +296,7 @@ internal class BigDataTestGradleConfigLoader(
             containerLogs = BigDataTestGradleConfig.ContainerLogs(
                 mode = containerLogs.string("mode")?.let { ContainerLogMode.valueOf(it.uppercase()) },
                 directory = containerLogs.string("directory"),
+                append = containerLogs.boolean("append"),
             ),
             containerLogLevels = containerLogLevels.mapValues { (key, value) ->
                 value.asString("containerLogLevels.$key")

@@ -132,6 +132,9 @@ abstract class BigDataTestGradleKerberos @Inject constructor(objects: ObjectFact
     val domain: Property<String> = objects.property(String::class.java).convention("example.com")
     val clientPrincipal: Property<String> = objects.property(String::class.java).convention("app_user@EXAMPLE.COM")
     val clientPassword: Property<String> = objects.property(String::class.java).convention("app-user-secret")
+    val materialDirectory: Property<String> = objects.property(String::class.java).convention("")
+    val localKrb5ConfPath: Property<String> = objects.property(String::class.java).convention("")
+    val localClientKeytabPath: Property<String> = objects.property(String::class.java).convention("")
     val startupTimeoutSeconds: Property<Int> = objects.property(Int::class.java).convention(120)
     val materialTimeoutSeconds: Property<Int> = objects.property(Int::class.java).convention(30)
     val adminAttempts: Property<Int> = objects.property(Int::class.java).convention(30)
@@ -187,4 +190,5 @@ abstract class BigDataTestGradleObjectStore @Inject constructor(objects: ObjectF
 abstract class BigDataTestGradleContainerLogs @Inject constructor(objects: ObjectFactory) {
     val mode: Property<ContainerLogMode> = objects.property(ContainerLogMode::class.java).convention(ContainerLogMode.NONE)
     val directory: Property<String> = objects.property(String::class.java).convention("build/bigdata-test-container-logs")
+    val append: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
 }

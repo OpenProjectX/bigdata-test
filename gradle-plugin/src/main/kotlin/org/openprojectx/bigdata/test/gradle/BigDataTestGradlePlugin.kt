@@ -71,6 +71,9 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.kerberosDomain.set(extension.kerberos.domain)
             spec.parameters.kerberosClientPrincipal.set(extension.kerberos.clientPrincipal)
             spec.parameters.kerberosClientPassword.set(extension.kerberos.clientPassword)
+            spec.parameters.kerberosMaterialDirectory.set(extension.kerberos.materialDirectory)
+            spec.parameters.kerberosLocalKrb5ConfPath.set(extension.kerberos.localKrb5ConfPath)
+            spec.parameters.kerberosLocalClientKeytabPath.set(extension.kerberos.localClientKeytabPath)
             spec.parameters.kerberosStartupTimeoutSeconds.set(extension.kerberos.startupTimeoutSeconds)
             spec.parameters.kerberosMaterialTimeoutSeconds.set(extension.kerberos.materialTimeoutSeconds)
             spec.parameters.kerberosAdminAttempts.set(extension.kerberos.adminAttempts)
@@ -111,6 +114,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
 
             spec.parameters.containerLogMode.set(extension.containerLogs.mode)
             spec.parameters.containerLogDirectory.set(extension.containerLogs.directory)
+            spec.parameters.containerLogAppend.set(extension.containerLogs.append)
         }
 
         val startTask = project.tasks.register("bigDataTestStart", BigDataTestStartTask::class.java) { task ->
@@ -283,6 +287,9 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.kerberos.domain.tomlConvention(config.kerberos.domain)
         extension.kerberos.clientPrincipal.tomlConvention(config.kerberos.clientPrincipal)
         extension.kerberos.clientPassword.tomlConvention(config.kerberos.clientPassword)
+        extension.kerberos.materialDirectory.tomlConvention(config.kerberos.materialDirectory)
+        extension.kerberos.localKrb5ConfPath.tomlConvention(config.kerberos.localKrb5ConfPath)
+        extension.kerberos.localClientKeytabPath.tomlConvention(config.kerberos.localClientKeytabPath)
         extension.kerberos.startupTimeoutSeconds.tomlConvention(config.kerberos.startupTimeoutSeconds)
         extension.kerberos.materialTimeoutSeconds.tomlConvention(config.kerberos.materialTimeoutSeconds)
         extension.kerberos.adminAttempts.tomlConvention(config.kerberos.adminAttempts)
@@ -317,6 +324,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
 
         extension.containerLogs.mode.tomlConvention(config.containerLogs.mode)
         extension.containerLogs.directory.tomlConvention(config.containerLogs.directory)
+        extension.containerLogs.append.tomlConvention(config.containerLogs.append)
         extension.containerLogLevels.tomlConvention(config.containerLogLevels.takeIf { it.isNotEmpty() })
     }
 

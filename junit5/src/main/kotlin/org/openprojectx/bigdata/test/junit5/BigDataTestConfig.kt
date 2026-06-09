@@ -218,11 +218,13 @@ internal data class BigDataTestPortConfig(
 internal data class BigDataTestContainerLogConfig(
     val mode: ContainerLogMode? = null,
     val directory: String? = null,
+    val append: Boolean? = null,
 ) {
     fun merge(override: BigDataTestContainerLogConfig): BigDataTestContainerLogConfig =
         BigDataTestContainerLogConfig(
             mode = override.mode ?: mode,
             directory = override.directory ?: directory,
+            append = override.append ?: append,
         )
 }
 
@@ -357,6 +359,7 @@ internal class BigDataTestConfigLoader(
             containerLogs = BigDataTestContainerLogConfig(
                 mode = containerLogs.string("mode")?.let { ContainerLogMode.valueOf(it.uppercase()) },
                 directory = containerLogs.string("directory"),
+                append = containerLogs.boolean("append"),
             ),
             containerLogLevels = parseContainerLogLevels(tables),
             containerCustomizations = parseContainerCustomizations(tables),

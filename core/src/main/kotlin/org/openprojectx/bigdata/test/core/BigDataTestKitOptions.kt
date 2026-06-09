@@ -23,6 +23,9 @@ data class KerberosOptions(
     val domain: String = "example.com",
     val clientPrincipal: String = "app_user@EXAMPLE.COM",
     val clientPassword: String = "app-user-secret",
+    val materialDirectory: String? = null,
+    val localKrb5ConfPath: String? = null,
+    val localClientKeytabPath: String? = null,
     val users: List<KerberosUserOptions> = emptyList(),
     val startupTimeoutSeconds: Int = 120,
     val materialTimeoutSeconds: Int = 30,
@@ -163,6 +166,7 @@ enum class ContainerLogMode {
 data class ContainerLogOptions(
     val mode: ContainerLogMode = ContainerLogMode.NONE,
     val directory: String = "build/bigdata-test-container-logs",
+    val append: Boolean = true,
 )
 
 enum class BigDataHealthCheckMode {

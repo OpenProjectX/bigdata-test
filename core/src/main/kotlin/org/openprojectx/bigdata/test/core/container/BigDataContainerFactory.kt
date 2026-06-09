@@ -41,7 +41,14 @@ internal class BigDataContainerFactory(
     private val network = Network.newNetwork()
     private val supportContainers = mutableListOf<Startable>()
     private val logConsumers = mutableListOf<Closeable>()
-    private val kerberosDir: Path? = if (kerberosRequired()) Files.createTempDirectory("bigdata-test-kerberos-") else null
+    private val kerberosDir: Path? =
+        if (kerberosRequired()) {
+            options.kerberos.materialDirectory
+                ?.let { Files.createDirectories(Path.of(it)) }
+                ?: Files.createTempDirectory("bigdata-test-kerberos-")
+        } else {
+            null
+        }
     private val tlsMaterial: TlsMaterial by lazy { TlsMaterial(options.tls.copy(enabled = true)) }
 
     fun healthCheck(service: BigDataService, container: GenericContainer<*>, endpoint: BigDataEndpoint) {
@@ -1045,7 +1052,11 @@ internal class BigDataContainerFactory(
                     Files.newOutputStream(
                         logDir.resolve("${sanitizeLogName(name)}.log"),
                         StandardOpenOption.CREATE,
-                        StandardOpenOption.APPEND,
+                        if (options.containerLogs.append) {
+                            StandardOpenOption.APPEND
+                        } else {
+                            StandardOpenOption.TRUNCATE_EXISTING
+                        },
                     ),
                     StandardCharsets.UTF_8,
                 )
@@ -1356,9 +1367,14 @@ internal class BigDataContainerFactory(
 
     private fun localKerberosPath(containerPath: String): String =
         when {
-            containerPath == "/kerby/client/krb5.conf" -> Path.of(kerberosDirectory())
-                .resolve("krb5-local.conf")
-                .toString()
+            containerPath == "/kerby/client/krb5.conf" ->
+                options.kerberos.localKrb5ConfPath ?: Path.of(kerberosDirectory())
+                    .resolve("krb5-local.conf")
+                    .toString()
+            containerPath == "/kerby/keytabs/client.keytab" ->
+                options.kerberos.localClientKeytabPath ?: Path.of(kerberosDirectory())
+                    .resolve(containerPath.removePrefix("/kerby/"))
+                    .toString()
             containerPath.startsWith("/kerby/") -> Path.of(kerberosDirectory())
                 .resolve(containerPath.removePrefix("/kerby/"))
                 .toString()

@@ -60,6 +60,9 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val kerberosDomain: Property<String>
         val kerberosClientPrincipal: Property<String>
         val kerberosClientPassword: Property<String>
+        val kerberosMaterialDirectory: Property<String>
+        val kerberosLocalKrb5ConfPath: Property<String>
+        val kerberosLocalClientKeytabPath: Property<String>
         val kerberosStartupTimeoutSeconds: Property<Int>
         val kerberosMaterialTimeoutSeconds: Property<Int>
         val kerberosAdminAttempts: Property<Int>
@@ -100,6 +103,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
 
         val containerLogMode: Property<ContainerLogMode>
         val containerLogDirectory: Property<String>
+        val containerLogAppend: Property<Boolean>
     }
 
     private var kit: BigDataTestKit? = null
@@ -170,6 +174,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                 ContainerLogOptions(
                     mode = parameters.containerLogMode.get(),
                     directory = parameters.containerLogDirectory.get(),
+                    append = parameters.containerLogAppend.get(),
                 ),
             )
 
@@ -278,6 +283,9 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
             domain = parameters.kerberosDomain.get(),
             clientPrincipal = parameters.kerberosClientPrincipal.get(),
             clientPassword = parameters.kerberosClientPassword.get(),
+            materialDirectory = parameters.kerberosMaterialDirectory.get().ifBlank { null },
+            localKrb5ConfPath = parameters.kerberosLocalKrb5ConfPath.get().ifBlank { null },
+            localClientKeytabPath = parameters.kerberosLocalClientKeytabPath.get().ifBlank { null },
             startupTimeoutSeconds = parameters.kerberosStartupTimeoutSeconds.get(),
             materialTimeoutSeconds = parameters.kerberosMaterialTimeoutSeconds.get(),
             adminAttempts = parameters.kerberosAdminAttempts.get(),

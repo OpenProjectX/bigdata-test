@@ -6,6 +6,9 @@ localStackS3 = true
 [kerberos]
 realm = "EXAMPLE.COM"
 domain = "example.com"
+materialDirectory = "build/bigdata-test/kerberos"
+localKrb5ConfPath = "build/bigdata-test/kerberos/krb5.conf"
+localClientKeytabPath = "build/bigdata-test/kerberos/app_user.keytab"
 debug = true
 
 [hdfs]

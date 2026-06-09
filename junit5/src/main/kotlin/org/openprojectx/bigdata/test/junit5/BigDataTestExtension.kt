@@ -91,6 +91,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 ContainerLogOptions(
                     mode = containerLogMode,
                     directory = containerLogDirectory,
+                    append = annotation.containerLogAppend && (containerLogs.append ?: true),
                 ),
             )
         }

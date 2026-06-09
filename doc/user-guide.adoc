@@ -887,7 +887,13 @@ Write one file per service:
 ----
 val kit = BigDataTestKit.builder()
     .withHiveMetastore()
-    .withContainerLogsToDirectory("build/container-logs")
+    .withContainerLogs(
+        ContainerLogOptions(
+            mode = ContainerLogMode.FILE,
+            directory = "build/container-logs",
+            append = false,
+        ),
+    )
     .build()
 ----
 
@@ -911,6 +917,7 @@ val kit = BigDataTestKit.builder()
     schemaRegistry = true,
     containerLogMode = ContainerLogMode.FILE,
     containerLogDirectory = "build/container-logs",
+    containerLogAppend = false,
 )
 class MyTroubleshootingTest
 ----
@@ -932,6 +939,18 @@ localStackS3 = "TRACE"
 * `schema-registry.log`
 * `hive-metastore.log`
 * `hive-metastore-postgres.log`
+
+File logs append by default for backward compatibility. Set `append = false` in TOML, `containerLogAppend = false` on `@BigDataTest`, or `ContainerLogOptions(append = false)` programmatically to overwrite the files at the start of each kit run.
+
+TOML example:
+
+[source,toml]
+----
+[containerLogs]
+mode = "FILE"
+directory = "build/container-logs"
+append = false
+----
 
 For HDFS troubleshooting, use `DEBUG` or `TRACE`. The framework maps that to Hadoop's container-side log settings and tails the NameNode/DataNode log files so startup failures show the Hadoop process output, not only the Testcontainers wait-strategy error.
 
@@ -994,6 +1013,9 @@ Kerberos bootstrap timing is configurable from TOML. The defaults are intentiona
 [kerberos]
 clientPrincipal = "app_user@EXAMPLE.COM"
 clientPassword = "app-user-secret"
+materialDirectory = "build/bigdata-test/kerberos"
+localKrb5ConfPath = "build/bigdata-test/kerberos/krb5.conf"
+localClientKeytabPath = "build/bigdata-test/kerberos/app_user.keytab"
 startupTimeoutSeconds = 180
 materialTimeoutSeconds = 120
 adminAttempts = 120
@@ -1001,7 +1023,7 @@ adminRetryDelaySeconds = 1
 debug = true
 ----
 
-`clientPrincipal` and `clientPassword` configure the generated app/client user and keytab. `startupTimeoutSeconds` controls how long Testcontainers waits for the KDC image to print its ready log. `materialTimeoutSeconds` controls the post-start wait for generated keytabs and client config to be readable. `adminAttempts` and `adminRetryDelaySeconds` are passed to the Kerby image as `KERBY_KADMIN_ATTEMPTS` and `KERBY_KADMIN_RETRY_DELAY_SECONDS`.
+`clientPrincipal` and `clientPassword` configure the generated app/client user and keytab. `materialDirectory` makes generated Kerberos material land in a stable local directory instead of a temporary directory. `localKrb5ConfPath` and `localClientKeytabPath` optionally pin the exact local files exposed through `bigdata.test.kerberos.krb5-conf` and `bigdata.test.kerberos.client-keytab`. `startupTimeoutSeconds` controls how long Testcontainers waits for the KDC image to print its ready log. `materialTimeoutSeconds` controls the post-start wait for generated keytabs and client config to be readable. `adminAttempts` and `adminRetryDelaySeconds` are passed to the Kerby image as `KERBY_KADMIN_ATTEMPTS` and `KERBY_KADMIN_RETRY_DELAY_SECONDS`.
 
 Set `debug = true` when troubleshooting Kerberos startup in CI. It passes `KERBY_DEBUG=true` to the Kerby image, which enables JDK Kerberos debug output, Kerby DEBUG logs on container stdout, and dumps the generated `kdc.conf`, server `krb5.conf`, client `krb5.conf`, backend config, and admin server config into the container log.
 
@@ -1013,6 +1035,11 @@ BigDataTestKit.builder()
     .withKerberos(
         KerberosOptions(
             enabled = true,
+            clientPrincipal = "app_user@EXAMPLE.COM",
+            clientPassword = "app-user-secret",
+            materialDirectory = "build/bigdata-test/kerberos",
+            localKrb5ConfPath = "build/bigdata-test/kerberos/krb5.conf",
+            localClientKeytabPath = "build/bigdata-test/kerberos/app_user.keytab",
             startupTimeoutSeconds = 180,
             materialTimeoutSeconds = 120,
             adminAttempts = 120,
@@ -1538,6 +1565,9 @@ bigDataTest {
     kerberos {
         clientPrincipal.set(providers.gradleProperty("bigdata.test.kerberos.clientPrincipal"))
         clientPassword.set(providers.gradleProperty("bigdata.test.kerberos.clientPassword"))
+        materialDirectory.set(layout.buildDirectory.dir("bigdata-test/kerberos").map { it.asFile.absolutePath })
+        localKrb5ConfPath.set(layout.buildDirectory.file("bigdata-test/kerberos/krb5.conf").map { it.asFile.absolutePath })
+        localClientKeytabPath.set(layout.buildDirectory.file("bigdata-test/kerberos/app_user.keytab").map { it.asFile.absolutePath })
     }
 }
 ----

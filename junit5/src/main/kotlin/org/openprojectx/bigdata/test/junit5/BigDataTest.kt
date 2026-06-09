@@ -39,6 +39,7 @@ annotation class BigDataTest(
     val fakeGcsPort: Int = 0,
     val containerLogMode: ContainerLogMode = ContainerLogMode.NONE,
     val containerLogDirectory: String = "build/bigdata-test-container-logs",
+    val containerLogAppend: Boolean = true,
 )
 
 internal object BigDataTestDefaults {
