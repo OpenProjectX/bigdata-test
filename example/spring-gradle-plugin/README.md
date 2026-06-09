@@ -22,6 +22,12 @@ For manual troubleshooting without starting the Spring app, keep the containers 
 GRADLE_USER_HOME=/data/.gradle ../../gradlew bigDataTestRun
 ```
 
+For Testcontainers runtime environment variables, make sure the Gradle JVM sees them. With a reused Gradle daemon, a one-off shell prefix might not be picked up, so use `--no-daemon` or stop existing daemons first:
+
+```bash
+TESTCONTAINERS_RYUK_DISABLED=true GRADLE_USER_HOME=/data/.gradle ../../gradlew --no-daemon bigDataTestRun
+```
+
 The Gradle plugin starts Kerberos, HDFS, and LocalStack S3 before `bootRunLocal` launches the
 Spring JVM, runs the TOML extensions, and injects endpoint/extension output as JVM system
 properties and environment variables. The application reads the JVM properties from

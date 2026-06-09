@@ -1557,6 +1557,13 @@ By default, the plugin wires `bigDataTestStart` before `JavaExec` and `Test` tas
 GRADLE_USER_HOME=/data/.gradle ./gradlew bigDataTestRun
 ----
 
+Testcontainers runtime environment variables, such as `TESTCONTAINERS_RYUK_DISABLED`, must be visible to the Gradle JVM that runs the kit. If a Gradle daemon is already running, a one-off shell prefix might not be visible to that daemon. Use `--no-daemon`, or stop existing daemons before running the task:
+
+[source,bash]
+----
+TESTCONTAINERS_RYUK_DISABLED=true GRADLE_USER_HOME=/data/.gradle ./gradlew --no-daemon bigDataTestRun
+----
+
 Disable automatic task wiring when you want explicit task dependencies:
 
 [source,kotlin]
