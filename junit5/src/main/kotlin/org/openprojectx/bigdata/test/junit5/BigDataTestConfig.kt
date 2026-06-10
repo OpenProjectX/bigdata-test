@@ -63,8 +63,13 @@ internal data class BigDataTestHdfsConfig(
 }
 
 internal data class BigDataTestKerberosConfig(
+    val realm: String? = null,
+    val domain: String? = null,
     val clientPrincipal: String? = null,
     val clientPassword: String? = null,
+    val materialDirectory: String? = null,
+    val localKrb5ConfPath: String? = null,
+    val localClientKeytabPath: String? = null,
     val startupTimeoutSeconds: Int? = null,
     val materialTimeoutSeconds: Int? = null,
     val adminAttempts: Int? = null,
@@ -73,8 +78,13 @@ internal data class BigDataTestKerberosConfig(
 ) {
     fun merge(override: BigDataTestKerberosConfig): BigDataTestKerberosConfig =
         BigDataTestKerberosConfig(
+            realm = override.realm ?: realm,
+            domain = override.domain ?: domain,
             clientPrincipal = override.clientPrincipal ?: clientPrincipal,
             clientPassword = override.clientPassword ?: clientPassword,
+            materialDirectory = override.materialDirectory ?: materialDirectory,
+            localKrb5ConfPath = override.localKrb5ConfPath ?: localKrb5ConfPath,
+            localClientKeytabPath = override.localClientKeytabPath ?: localClientKeytabPath,
             startupTimeoutSeconds = override.startupTimeoutSeconds ?: startupTimeoutSeconds,
             materialTimeoutSeconds = override.materialTimeoutSeconds ?: materialTimeoutSeconds,
             adminAttempts = override.adminAttempts ?: adminAttempts,
@@ -312,8 +322,13 @@ internal class BigDataTestConfigLoader(
                 fakeGcs = services.boolean("fakeGcs"),
             ),
             kerberos = BigDataTestKerberosConfig(
+                realm = kerberos.string("realm"),
+                domain = kerberos.string("domain"),
                 clientPrincipal = kerberos.string("clientPrincipal"),
                 clientPassword = kerberos.string("clientPassword"),
+                materialDirectory = kerberos.string("materialDirectory"),
+                localKrb5ConfPath = kerberos.string("localKrb5ConfPath"),
+                localClientKeytabPath = kerberos.string("localClientKeytabPath"),
                 startupTimeoutSeconds = kerberos.int("startupTimeoutSeconds"),
                 materialTimeoutSeconds = kerberos.int("materialTimeoutSeconds"),
                 adminAttempts = kerberos.int("adminAttempts"),

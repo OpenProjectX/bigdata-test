@@ -19,6 +19,7 @@ fakeGcs = true
 
 [ports]
 hdfsDataNode = 9866
+hdfsNameNode = 8020
 
 [containerLogs]
 mode = "FILE"

@@ -1226,7 +1226,7 @@ internal class BigDataContainerFactory(
         source: String,
         destination: String,
     ) {
-        val path = hostKerberosMaterialPath(destination)
+        val path = Path.of(localKerberosPath(destination))
         Files.createDirectories(path.parent)
         container.copyFileFromContainer(source, path.toString())
     }

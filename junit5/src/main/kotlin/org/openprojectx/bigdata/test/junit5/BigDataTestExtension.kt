@@ -119,6 +119,9 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         val kafkaUiKerberos = annotation.kafkaUiKerberos || services.kafkaUiKerberos == true
         val localStackS3 = annotation.localStackS3 || services.localStackS3 == true
         val fakeGcs = annotation.fakeGcs || services.fakeGcs == true
+        val defaultKerberos = KerberosOptions()
+        val kerberosRealm = kerberosConfig.realm ?: defaultKerberos.realm
+        val kerberosDomain = kerberosConfig.domain ?: defaultKerberos.domain
         val tlsEnabled = tls.enabled == true ||
             config.hdfsWebTls.enabled == true ||
             hiveMetastoreTls ||
@@ -141,11 +144,12 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         }
 
         if (kerberos || hdfsKerberos || hiveMetastoreKerberos || kafkaKerberos || kafkaUiKerberos) {
-            val defaultKerberos = KerberosOptions()
             builder.withKerberos(
                 KerberosOptions(
                     enabled = true,
                     image = images.kerberos ?: "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest",
+                    realm = kerberosRealm,
+                    domain = kerberosDomain,
                     clientPrincipal = annotation.kerberosClientPrincipal
                         .takeIf { it != BigDataTestDefaults.KERBEROS_CLIENT_PRINCIPAL }
                         ?: kerberosConfig.clientPrincipal
@@ -154,6 +158,9 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                         .takeIf { it != BigDataTestDefaults.KERBEROS_CLIENT_PASSWORD }
                         ?: kerberosConfig.clientPassword
                         ?: defaultKerberos.clientPassword,
+                    materialDirectory = kerberosConfig.materialDirectory,
+                    localKrb5ConfPath = kerberosConfig.localKrb5ConfPath,
+                    localClientKeytabPath = kerberosConfig.localClientKeytabPath,
                     startupTimeoutSeconds = kerberosConfig.startupTimeoutSeconds ?: defaultKerberos.startupTimeoutSeconds,
                     materialTimeoutSeconds = kerberosConfig.materialTimeoutSeconds ?: defaultKerberos.materialTimeoutSeconds,
                     adminAttempts = kerberosConfig.adminAttempts ?: defaultKerberos.adminAttempts,
@@ -173,7 +180,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     webTls = config.hdfsWebTls.toHttpTls("localhost"),
                     kerberos = KerberosAuthOptions(
                         enabled = hdfsKerberos,
-                        servicePrincipal = "nn/hdfs.example.com@EXAMPLE.COM",
+                        servicePrincipal = "nn/hdfs.$kerberosDomain@$kerberosRealm",
                         keytabPath = "/kerby/keytabs/hdfs-namenode.keytab",
                     ),
                 ),
@@ -202,7 +209,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     tls = config.hiveMetastoreTls.toHttpTls("localhost").copy(enabled = hiveMetastoreTls),
                     kerberos = KerberosAuthOptions(
                         enabled = hiveMetastoreKerberos,
-                        servicePrincipal = "hive/hive-metastore.example.com@EXAMPLE.COM",
+                        servicePrincipal = "hive/hive-metastore.$kerberosDomain@$kerberosRealm",
                         keytabPath = "/kerby/keytabs/hive-metastore.keytab",
                     ),
                 ),
@@ -222,12 +229,12 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     kafkaUiTls = config.kafkaUiTls.toHttpTls("localhost"),
                     kerberos = KerberosAuthOptions(
                         enabled = kafkaKerberos,
-                        servicePrincipal = "kafka/localhost@EXAMPLE.COM",
+                        servicePrincipal = "kafka/localhost@$kerberosRealm",
                         keytabPath = "/kerby/keytabs/kafka-broker1.keytab",
                     ),
                     kafkaUiKerberos = KerberosAuthOptions(
                         enabled = kafkaUiKerberos,
-                        servicePrincipal = "kafbat-ui/kafbat-ui.example.com@EXAMPLE.COM",
+                        servicePrincipal = "kafbat-ui/kafbat-ui.$kerberosDomain@$kerberosRealm",
                         keytabPath = "/kerby/keytabs/kafbat-ui.keytab",
                     ),
                 ),
