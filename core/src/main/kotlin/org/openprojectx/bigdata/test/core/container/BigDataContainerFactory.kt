@@ -274,6 +274,8 @@ internal class BigDataContainerFactory(
             hiveMetastoreObjectStoreConfiguration().isNotEmpty()
         ) {
             container.withEnv("HIVE_CUSTOM_CONF_DIR", "/bigdata-test/hive-conf")
+            container.withEnv("HIVE_ROOT_LOGGER", "console")
+            container.withEnv("HIVE_LOG4J2_CONFIGURATION_FILE", "/bigdata-test/hive-conf/hive-log4j2.properties")
             openSourceHiveConfigurationFiles().forEach { (fileName, content) ->
                 container.withCopyToContainer(Transferable.of(content), "/bigdata-test/hive-conf/$fileName")
             }
@@ -751,8 +753,42 @@ internal class BigDataContainerFactory(
             "hive-site.xml" to configurationXml(metastoreProperties + hadoopProperties),
             "metastore-site.xml" to configurationXml(metastoreProperties + hadoopProperties),
             "core-site.xml" to configurationXml(hadoopProperties),
+            "hive-log4j2.properties" to hiveMetastoreConsoleLog4j2Properties(),
+            "metastore-log4j2.properties" to hiveMetastoreConsoleLog4j2Properties(),
         )
     }
+
+    private fun hiveMetastoreConsoleLog4j2Properties(): String =
+        """
+        name = BigDataTestHiveMetastoreLog4j2
+
+        property.hive.log.level = INFO
+        property.hive.root.logger = console
+        property.hive.perflogger.log.level = INFO
+
+        appenders = console
+
+        appender.console.name = console
+        appender.console.type = Console
+        appender.console.layout.type = PatternLayout
+        appender.console.layout.pattern = %d{ISO8601} %5p [%t] %c{2}: %m%n
+
+        logger.DataNucleus.name = DataNucleus
+        logger.DataNucleus.level = ERROR
+
+        logger.Datastore.name = Datastore
+        logger.Datastore.level = ERROR
+
+        logger.JPOX.name = JPOX
+        logger.JPOX.level = ERROR
+
+        logger.PerfLogger.name = org.apache.hadoop.hive.ql.log.PerfLogger
+        logger.PerfLogger.level = ${'$'}{sys:hive.perflogger.log.level}
+
+        rootLogger.level = ${'$'}{sys:hive.log.level}
+        rootLogger.appenderRefs = console
+        rootLogger.appenderRef.console.ref = ${'$'}{sys:hive.root.logger}
+        """.trimIndent()
 
     private fun writeConfigurationXml(path: Path, properties: Map<String, String>) {
         path.parent?.let { Files.createDirectories(it) }
