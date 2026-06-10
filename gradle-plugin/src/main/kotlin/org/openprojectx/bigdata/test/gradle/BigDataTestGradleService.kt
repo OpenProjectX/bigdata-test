@@ -25,9 +25,11 @@ import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.bigdata.test.core.ObjectStoreOptions
 import org.openprojectx.bigdata.test.core.PortBindingOptions
 import org.openprojectx.bigdata.test.core.TlsOptions
+import java.nio.file.Path
 
 abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.Parameters>, AutoCloseable {
     interface Parameters : BuildServiceParameters {
+        val projectDirectory: Property<String>
         val enabled: Property<Boolean>
         val injectRawEndpointProperties: Property<Boolean>
         val injectNamespacedEndpointProperties: Property<Boolean>
@@ -290,15 +292,25 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
             domain = parameters.kerberosDomain.get(),
             clientPrincipal = parameters.kerberosClientPrincipal.get(),
             clientPassword = parameters.kerberosClientPassword.get(),
-            materialDirectory = parameters.kerberosMaterialDirectory.get().ifBlank { null },
-            localKrb5ConfPath = parameters.kerberosLocalKrb5ConfPath.get().ifBlank { null },
-            localClientKeytabPath = parameters.kerberosLocalClientKeytabPath.get().ifBlank { null },
+            materialDirectory = projectPath(parameters.kerberosMaterialDirectory.get()),
+            localKrb5ConfPath = projectPath(parameters.kerberosLocalKrb5ConfPath.get()),
+            localClientKeytabPath = projectPath(parameters.kerberosLocalClientKeytabPath.get()),
             startupTimeoutSeconds = parameters.kerberosStartupTimeoutSeconds.get(),
             materialTimeoutSeconds = parameters.kerberosMaterialTimeoutSeconds.get(),
             adminAttempts = parameters.kerberosAdminAttempts.get(),
             adminRetryDelaySeconds = parameters.kerberosAdminRetryDelaySeconds.get(),
             debug = parameters.kerberosDebug.get(),
         )
+
+    private fun projectPath(value: String): String? {
+        if (value.isBlank()) return null
+        val path = Path.of(value)
+        return if (path.isAbsolute) {
+            path.toString()
+        } else {
+            Path.of(parameters.projectDirectory.get()).resolve(path).normalize().toString()
+        }
+    }
 
     private fun injectedProperties(): Map<String, String> {
         val current = kit ?: return emptyMap()

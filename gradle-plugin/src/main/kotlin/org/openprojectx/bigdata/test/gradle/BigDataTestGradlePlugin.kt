@@ -31,6 +31,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             BigDataTestGradleService::class.java,
         ) { spec ->
             spec.maxParallelUsages.set(1)
+            spec.parameters.projectDirectory.set(project.layout.projectDirectory.asFile.absolutePath)
             spec.parameters.enabled.set(extension.enabled)
             spec.parameters.injectRawEndpointProperties.set(extension.injectRawEndpointProperties)
             spec.parameters.injectNamespacedEndpointProperties.set(extension.injectNamespacedEndpointProperties)
