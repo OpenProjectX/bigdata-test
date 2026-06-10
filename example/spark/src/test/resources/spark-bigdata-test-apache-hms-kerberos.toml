@@ -11,9 +11,9 @@ materialTimeoutSeconds = 120
 adminAttempts = 120
 adminRetryDelaySeconds = 1
 debug = true
-materialDirectory = "/data/Git/bigdata-test/example/spark/build/bigdata-test/kerberos"
-localKrb5ConfPath = "/data/Git/bigdata-test/example/spark/build/bigdata-test/kerberos/krb5.conf"
-localClientKeytabPath = "/data/Git/bigdata-test/example/spark/build/bigdata-test/kerberos/app_user.keytab"
+materialDirectory = "build/bigdata-test/kerberos"
+localKrb5ConfPath = "build/bigdata-test/kerberos/krb5.conf"
+localClientKeytabPath = "build/bigdata-test/kerberos/app_user.keytab"
 
 [ports]
 kafka = 19092
