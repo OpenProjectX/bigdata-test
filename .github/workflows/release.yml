@@ -7,10 +7,21 @@ on:
   workflow_dispatch:
     inputs:
       gradle_args:
-        description: "Extra Gradle args for the release run, for example: --stacktrace --debug"
+        description: "Extra Gradle args for the release run, for example: --stacktrace"
         required: false
         default: ""
         type: string
+      gradle_log_level:
+        description: "Gradle log level used by workflow Gradle invocations"
+        required: false
+        default: info
+        type: choice
+        options:
+          - quiet
+          - warn
+          - lifecycle
+          - info
+          - debug
       skip_tests:
         description: "Skip Docker verification and all test tasks, and run the release directly"
         required: false
@@ -52,6 +63,7 @@ jobs:
         -Dorg.gradle.internal.http.connectionTimeout=120000
         -Dorg.gradle.internal.http.socketTimeout=300000
       EXTRA_GRADLE_ARGS: ${{ github.event.inputs.gradle_args || '' }}
+      GRADLE_LOG_LEVEL: ${{ github.event.inputs.gradle_log_level || 'info' }}
       SKIP_TESTS: ${{ github.event.inputs.skip_tests || 'false' }}
       PUBLISH_GITHUB_PACKAGES: ${{ github.event.inputs.publish_github_packages || 'false' }}
       TESTCONTAINERS_RYUK_DISABLED: "true"
@@ -162,12 +174,12 @@ jobs:
       - name: Run Spark big data matrix tests
         if: env.SKIP_TESTS != 'true'
         run: |
-          ./gradlew --no-configuration-cache :example:spark:sparkBigDataMatrixTest --stacktrace --debug
+          ./gradlew --no-configuration-cache :example:spark:sparkBigDataMatrixTest --stacktrace "--$GRADLE_LOG_LEVEL"
 
       - name: Publish local artifacts for standalone examples
         if: env.SKIP_TESTS != 'true'
         run: |
-          ./gradlew --no-configuration-cache publishToMavenLocal -x test -x sparkBigDataMatrixTest --stacktrace --info
+          ./gradlew --no-configuration-cache publishToMavenLocal -x test -x sparkBigDataMatrixTest --stacktrace "--$GRADLE_LOG_LEVEL"
 
       - name: Run Spring Gradle plugin API smoke test
         if: env.SKIP_TESTS != 'true'
@@ -193,7 +205,7 @@ jobs:
 
           (
             cd example/spring-gradle-plugin
-            BIGDATA_TEST_PLUGIN_VERSION="$release_version" ../../gradlew bootRunLocal --stacktrace --info
+            BIGDATA_TEST_PLUGIN_VERSION="$release_version" ../../gradlew bootRunLocal --stacktrace "--$GRADLE_LOG_LEVEL"
           ) > "$log_file" 2>&1 &
           boot_pid=$!
 
@@ -332,7 +344,7 @@ jobs:
           if [ "$SKIP_TESTS" = "true" ]; then
             skip_test_args="-x test -x sparkBigDataMatrixTest -x sparkApacheDepsApacheHmsTest -x sparkApacheDepsApacheHmsKerberosTest -x sparkApacheDepsClouderaHmsTest -x sparkApacheDepsClouderaHmsKerberosTest -x sparkClouderaDepsApacheHmsTest -x sparkClouderaDepsApacheHmsKerberosTest -x sparkClouderaDepsClouderaHmsTest -x sparkClouderaDepsClouderaHmsKerberosTest"
           fi
-          ./gradlew --no-configuration-cache release --stacktrace --info $skip_test_args $EXTRA_GRADLE_ARGS
+          ./gradlew --no-configuration-cache release --stacktrace "--$GRADLE_LOG_LEVEL" $skip_test_args $EXTRA_GRADLE_ARGS
 
       - name: Write release publish summary
         if: always() && env.RELEASE_VERSION != ''
