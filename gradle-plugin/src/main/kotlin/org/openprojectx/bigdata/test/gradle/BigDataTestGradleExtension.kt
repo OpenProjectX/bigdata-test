@@ -19,6 +19,8 @@ abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFac
     val extensionConfig: ListProperty<String> = objects.listProperty(String::class.java).convention(emptyList())
     val containerLogLevels: MapProperty<String, String> =
         objects.mapProperty(String::class.java, String::class.java).convention(emptyMap())
+    internal val containerCustomizations: ListProperty<String> =
+        objects.listProperty(String::class.java).convention(emptyList())
     val extensionRuntime: BigDataTestGradleExtensionRuntime =
         objects.newInstance(BigDataTestGradleExtensionRuntime::class.java)
 

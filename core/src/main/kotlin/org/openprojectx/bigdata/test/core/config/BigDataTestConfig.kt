@@ -1,22 +1,25 @@
-package org.openprojectx.bigdata.test.junit5
+package org.openprojectx.bigdata.test.core.config
 
 import java.nio.file.Files
 import java.nio.file.Path
-import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataHealthCheckMode
 import org.openprojectx.bigdata.test.core.BigDataHealthCheckOptions
+import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.ContainerCustomizationOptions
 import org.openprojectx.bigdata.test.core.ContainerFileTransferOptions
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerMountOptions
 import org.openprojectx.bigdata.test.core.ContainerPortOptions
 
-internal data class BigDataTestConfig(
+data class BigDataTestConfig(
     val images: BigDataTestImageConfig = BigDataTestImageConfig(),
     val services: BigDataTestServiceConfig = BigDataTestServiceConfig(),
     val kerberos: BigDataTestKerberosConfig = BigDataTestKerberosConfig(),
     val tls: BigDataTestTlsConfig = BigDataTestTlsConfig(),
     val hdfs: BigDataTestHdfsConfig = BigDataTestHdfsConfig(),
+    val hiveMetastore: BigDataTestHiveMetastoreConfig = BigDataTestHiveMetastoreConfig(),
+    val clouderaHms: BigDataTestClouderaHmsConfig = BigDataTestClouderaHmsConfig(),
+    val kafka: BigDataTestKafkaConfig = BigDataTestKafkaConfig(),
     val hdfsWebTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val hiveMetastoreTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val kafkaTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
@@ -26,10 +29,9 @@ internal data class BigDataTestConfig(
     val fakeGcsTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val ports: BigDataTestPortConfig = BigDataTestPortConfig(),
     val containerLogs: BigDataTestContainerLogConfig = BigDataTestContainerLogConfig(),
-    val containerLogLevels: BigDataTestContainerLogLevelConfig = BigDataTestContainerLogLevelConfig(),
-    val containerCustomizations: BigDataTestContainerCustomizationConfig =
-        BigDataTestContainerCustomizationConfig(),
-    val healthChecks: BigDataTestHealthCheckConfig = BigDataTestHealthCheckConfig(),
+    val containerLogLevels: Map<BigDataService, String> = emptyMap(),
+    val containerCustomizations: Map<BigDataService, ContainerCustomizationOptions> = emptyMap(),
+    val healthChecks: Map<BigDataService, BigDataHealthCheckOptions> = emptyMap(),
 ) {
     fun merge(override: BigDataTestConfig): BigDataTestConfig =
         BigDataTestConfig(
@@ -38,6 +40,9 @@ internal data class BigDataTestConfig(
             kerberos = kerberos.merge(override.kerberos),
             tls = tls.merge(override.tls),
             hdfs = hdfs.merge(override.hdfs),
+            hiveMetastore = hiveMetastore.merge(override.hiveMetastore),
+            clouderaHms = clouderaHms.merge(override.clouderaHms),
+            kafka = kafka.merge(override.kafka),
             hdfsWebTls = hdfsWebTls.merge(override.hdfsWebTls),
             hiveMetastoreTls = hiveMetastoreTls.merge(override.hiveMetastoreTls),
             kafkaTls = kafkaTls.merge(override.kafkaTls),
@@ -47,22 +52,63 @@ internal data class BigDataTestConfig(
             fakeGcsTls = fakeGcsTls.merge(override.fakeGcsTls),
             ports = ports.merge(override.ports),
             containerLogs = containerLogs.merge(override.containerLogs),
-            containerLogLevels = containerLogLevels.merge(override.containerLogLevels),
+            containerLogLevels = containerLogLevels + override.containerLogLevels,
             containerCustomizations = containerCustomizations.merge(override.containerCustomizations),
-            healthChecks = healthChecks.merge(override.healthChecks),
+            healthChecks = healthChecks + override.healthChecks,
         )
+
+    private fun Map<BigDataService, ContainerCustomizationOptions>.merge(
+        override: Map<BigDataService, ContainerCustomizationOptions>,
+    ): Map<BigDataService, ContainerCustomizationOptions> {
+        val merged = toMutableMap()
+        override.forEach { (service, customization) ->
+            merged[service] = merged[service]?.merge(customization) ?: customization
+        }
+        return merged
+    }
 }
 
-internal data class BigDataTestHdfsConfig(
+data class BigDataTestHdfsConfig(
     val dataNodeHostname: String? = null,
 ) {
     fun merge(override: BigDataTestHdfsConfig): BigDataTestHdfsConfig =
-        BigDataTestHdfsConfig(
-            dataNodeHostname = override.dataNodeHostname ?: dataNodeHostname,
+        BigDataTestHdfsConfig(dataNodeHostname = override.dataNodeHostname ?: dataNodeHostname)
+}
+
+data class BigDataTestHiveMetastoreConfig(
+    val databaseName: String? = null,
+    val databaseUser: String? = null,
+    val databasePassword: String? = null,
+    val warehouseDir: String? = null,
+) {
+    fun merge(override: BigDataTestHiveMetastoreConfig): BigDataTestHiveMetastoreConfig =
+        BigDataTestHiveMetastoreConfig(
+            databaseName = override.databaseName ?: databaseName,
+            databaseUser = override.databaseUser ?: databaseUser,
+            databasePassword = override.databasePassword ?: databasePassword,
+            warehouseDir = override.warehouseDir ?: warehouseDir,
         )
 }
 
-internal data class BigDataTestKerberosConfig(
+data class BigDataTestClouderaHmsConfig(
+    val warehouseDir: String? = null,
+) {
+    fun merge(override: BigDataTestClouderaHmsConfig): BigDataTestClouderaHmsConfig =
+        BigDataTestClouderaHmsConfig(warehouseDir = override.warehouseDir ?: warehouseDir)
+}
+
+data class BigDataTestKafkaConfig(
+    val schemaRegistryImage: String? = null,
+    val kafkaUiImage: String? = null,
+) {
+    fun merge(override: BigDataTestKafkaConfig): BigDataTestKafkaConfig =
+        BigDataTestKafkaConfig(
+            schemaRegistryImage = override.schemaRegistryImage ?: schemaRegistryImage,
+            kafkaUiImage = override.kafkaUiImage ?: kafkaUiImage,
+        )
+}
+
+data class BigDataTestKerberosConfig(
     val realm: String? = null,
     val domain: String? = null,
     val clientPrincipal: String? = null,
@@ -93,7 +139,7 @@ internal data class BigDataTestKerberosConfig(
         )
 }
 
-internal data class BigDataTestTlsConfig(
+data class BigDataTestTlsConfig(
     val enabled: Boolean? = null,
     val caCertPath: String? = null,
     val caKeyPath: String? = null,
@@ -115,7 +161,7 @@ internal data class BigDataTestTlsConfig(
         listOf(enabled, caCertPath, caKeyPath, trustStorePath, trustStorePassword, haproxyImage).any { it != null }
 }
 
-internal data class BigDataTestHttpTlsConfig(
+data class BigDataTestHttpTlsConfig(
     val enabled: Boolean? = null,
     val domain: String? = null,
 ) {
@@ -126,7 +172,7 @@ internal data class BigDataTestHttpTlsConfig(
         )
 }
 
-internal data class BigDataTestImageConfig(
+data class BigDataTestImageConfig(
     val kerberos: String? = null,
     val hdfs: String? = null,
     val hiveMetastore: String? = null,
@@ -153,7 +199,7 @@ internal data class BigDataTestImageConfig(
         )
 }
 
-internal data class BigDataTestServiceConfig(
+data class BigDataTestServiceConfig(
     val kerberos: Boolean? = null,
     val hdfs: Boolean? = null,
     val hdfsKerberos: Boolean? = null,
@@ -186,7 +232,7 @@ internal data class BigDataTestServiceConfig(
         )
 }
 
-internal data class BigDataTestPortConfig(
+data class BigDataTestPortConfig(
     val sameHostPorts: Boolean? = null,
     val kerberosKdc: Int? = null,
     val hdfsNameNode: Int? = null,
@@ -225,7 +271,7 @@ internal data class BigDataTestPortConfig(
         )
 }
 
-internal data class BigDataTestContainerLogConfig(
+data class BigDataTestContainerLogConfig(
     val mode: ContainerLogMode? = null,
     val directory: String? = null,
     val append: Boolean? = null,
@@ -238,52 +284,24 @@ internal data class BigDataTestContainerLogConfig(
         )
 }
 
-internal data class BigDataTestContainerLogLevelConfig(
-    val levels: Map<BigDataService, String> = emptyMap(),
-) {
-    fun merge(override: BigDataTestContainerLogLevelConfig): BigDataTestContainerLogLevelConfig =
-        BigDataTestContainerLogLevelConfig(levels + override.levels)
-}
-
-internal data class BigDataTestContainerCustomizationConfig(
-    val customizations: Map<BigDataService, ContainerCustomizationOptions> = emptyMap(),
-) {
-    fun merge(override: BigDataTestContainerCustomizationConfig): BigDataTestContainerCustomizationConfig {
-        val merged = customizations.toMutableMap()
-        override.customizations.forEach { (service, customization) ->
-            merged[service] = merged[service]?.merge(customization) ?: customization
-        }
-        return BigDataTestContainerCustomizationConfig(merged)
-    }
-}
-
-internal data class BigDataTestHealthCheckConfig(
-    val healthChecks: Map<BigDataService, BigDataHealthCheckOptions> = emptyMap(),
-) {
-    fun merge(override: BigDataTestHealthCheckConfig): BigDataTestHealthCheckConfig {
-        val merged = healthChecks.toMutableMap()
-        override.healthChecks.forEach { (service, options) ->
-            merged[service] = options
-        }
-        return BigDataTestHealthCheckConfig(merged)
-    }
-}
-
-internal class BigDataTestConfigLoader(
-    private val classLoader: ClassLoader,
+class BigDataTestConfigLoader(
+    private val classLoader: ClassLoader = Thread.currentThread().contextClassLoader ?: BigDataTestConfigLoader::class.java.classLoader,
 ) {
     fun load(locations: Iterable<String>): BigDataTestConfig =
         locations.fold(BigDataTestConfig()) { current, location ->
             current.merge(load(location))
         }
 
-    private fun load(location: String): BigDataTestConfig {
+    fun load(location: String): BigDataTestConfig {
         val tables = parseTables(readText(location))
         val images = tables["images"].orEmpty()
         val services = tables["services"].orEmpty()
         val kerberos = tables["kerberos"].orEmpty()
         val tls = tables["tls"].orEmpty()
         val hdfs = tables["hdfs"].orEmpty()
+        val hiveMetastore = tables["hiveMetastore"].orEmpty()
+        val clouderaHms = tables["clouderaHms"].orEmpty()
+        val kafka = tables["kafka"].orEmpty()
         val hdfsWebTls = tables["hdfsWebTls"].orEmpty()
         val hiveMetastoreTls = tables["hiveMetastoreTls"].orEmpty()
         val kafkaTls = tables["kafkaTls"].orEmpty()
@@ -343,8 +361,17 @@ internal class BigDataTestConfigLoader(
                 trustStorePassword = tls.string("trustStorePassword"),
                 haproxyImage = tls.string("haproxyImage"),
             ),
-            hdfs = BigDataTestHdfsConfig(
-                dataNodeHostname = hdfs.string("dataNodeHostname"),
+            hdfs = BigDataTestHdfsConfig(dataNodeHostname = hdfs.string("dataNodeHostname")),
+            hiveMetastore = BigDataTestHiveMetastoreConfig(
+                databaseName = hiveMetastore.string("databaseName"),
+                databaseUser = hiveMetastore.string("databaseUser"),
+                databasePassword = hiveMetastore.string("databasePassword"),
+                warehouseDir = hiveMetastore.string("warehouseDir"),
+            ),
+            clouderaHms = BigDataTestClouderaHmsConfig(warehouseDir = clouderaHms.string("warehouseDir")),
+            kafka = BigDataTestKafkaConfig(
+                schemaRegistryImage = kafka.string("schemaRegistryImage"),
+                kafkaUiImage = kafka.string("kafkaUiImage"),
             ),
             hdfsWebTls = httpTls(hdfsWebTls),
             hiveMetastoreTls = httpTls(hiveMetastoreTls),
@@ -389,68 +416,48 @@ internal class BigDataTestConfigLoader(
                 classLoader.getResource(path)?.readText()
                     ?: error("BigDataTest config resource '$location' was not found")
             }
+            location.startsWith("file:") -> Files.readString(Path.of(location.removePrefix("file:")))
             else -> Files.readString(Path.of(location))
         }
 
     private fun parseTables(text: String): Map<String, Map<String, TomlValue>> {
         val tables = linkedMapOf<String, MutableMap<String, TomlValue>>()
-        var currentTable: String? = null
-        val knownTables = setOf(
-            "images",
-            "services",
-            "kerberos",
-            "tls",
-            "hdfs",
-            "hdfsWebTls",
-            "hiveMetastoreTls",
-            "kafkaTls",
-            "schemaRegistryTls",
-            "kafkaUiTls",
-            "localStackS3Tls",
-            "fakeGcsTls",
-            "ports",
-            "containerLogs",
-            "containerLogLevels",
-            "healthChecks",
-            "healthCheckTimeouts",
-        )
+        var table = ""
+        tables[table] = linkedMapOf()
         text.lineSequence().forEachIndexed { index, raw ->
             val line = stripComment(raw).trim()
-            if (line.isEmpty()) return@forEachIndexed
+            if (line.isBlank()) return@forEachIndexed
             if (line.startsWith("[") && line.endsWith("]")) {
-                currentTable = line.removePrefix("[").removeSuffix("]")
-                if (currentTable in knownTables || currentTable?.startsWith("containers.") == true) {
-                    tables.getOrPut(currentTable!!) { linkedMapOf() }
-                }
+                table = line.removePrefix("[").removeSuffix("]").trim()
+                require(table.isNotBlank()) { "TOML table name is blank at line ${index + 1}" }
+                tables.getOrPut(table) { linkedMapOf() }
                 return@forEachIndexed
             }
-            val table = currentTable ?: return@forEachIndexed
-            if (table !in knownTables && !table.startsWith("containers.")) return@forEachIndexed
             val separator = line.indexOf('=')
             require(separator > 0) { "TOML line ${index + 1}: expected key = value" }
-            val key = parseKey(line.substring(0, separator).trim(), index)
+            val key = parseKey(line.substring(0, separator).trim(), index + 1)
             val value = line.substring(separator + 1).trim()
-            tables.getValue(table)[key] = parseValue(value, index)
+            tables.getValue(table)[key] = parseValue(value, index + 1)
         }
         return tables
     }
 
-    private fun parseKey(key: String, line: Int): String =
-        if (key.startsWith('"')) parseString(key, line) else key
-
-    private fun stripComment(line: String): String {
-        var quoted = false
+    private fun stripComment(raw: String): String {
+        var inString = false
         var escaped = false
-        line.forEachIndexed { index, char ->
+        raw.forEachIndexed { index, char ->
             when {
                 escaped -> escaped = false
-                char == '\\' && quoted -> escaped = true
-                char == '"' -> quoted = !quoted
-                char == '#' && !quoted -> return line.substring(0, index)
+                char == '\\' && inString -> escaped = true
+                char == '"' -> inString = !inString
+                char == '#' && !inString -> return raw.substring(0, index)
             }
         }
-        return line
+        return raw
     }
+
+    private fun parseKey(key: String, line: Int): String =
+        if (key.startsWith('"')) parseString(key, line) else key
 
     private fun parseValue(value: String, line: Int): TomlValue =
         when {
@@ -458,35 +465,35 @@ internal class BigDataTestConfigLoader(
             value == "true" -> TomlValue.BooleanValue(true)
             value == "false" -> TomlValue.BooleanValue(false)
             value.matches(Regex("[0-9]+")) -> TomlValue.IntValue(value.toInt())
-            else -> error("TOML line ${line + 1}: unsupported value '$value'")
+            else -> error("TOML line $line: unsupported value '$value'")
         }
 
     private fun parseString(value: String, line: Int): String {
-        require(value.startsWith('"') && value.endsWith('"')) {
-            "TOML line ${line + 1}: string values must be quoted"
+        require(value.length >= 2 && value.first() == '"' && value.last() == '"') {
+            "TOML line $line: string values must be quoted"
         }
         return buildString {
             var escaped = false
             value.substring(1, value.length - 1).forEach { char ->
-                when {
-                    escaped -> {
-                        append(
-                            when (char) {
-                                '"' -> '"'
-                                '\\' -> '\\'
-                                'n' -> '\n'
-                                'r' -> '\r'
-                                't' -> '\t'
-                                else -> char
-                            },
-                        )
-                        escaped = false
-                    }
-                    char == '\\' -> escaped = true
-                    else -> append(char)
+                if (escaped) {
+                    append(
+                        when (char) {
+                            '"' -> '"'
+                            '\\' -> '\\'
+                            'n' -> '\n'
+                            'r' -> '\r'
+                            't' -> '\t'
+                            else -> char
+                        },
+                    )
+                    escaped = false
+                } else if (char == '\\') {
+                    escaped = true
+                } else {
+                    append(char)
                 }
             }
-            require(!escaped) { "TOML line ${line + 1}: unterminated escape in string" }
+            require(!escaped) { "TOML line $line: unterminated escape in string" }
         }
     }
 
@@ -498,7 +505,7 @@ internal class BigDataTestConfigLoader(
 
     private fun parseContainerCustomizations(
         tables: Map<String, Map<String, TomlValue>>,
-    ): BigDataTestContainerCustomizationConfig {
+    ): Map<BigDataService, ContainerCustomizationOptions> {
         val customizations = linkedMapOf<BigDataService, ContainerCustomizationOptions>()
         tables.forEach { (table, values) ->
             if (!table.startsWith("containers.")) return@forEach
@@ -520,14 +527,13 @@ internal class BigDataTestConfigLoader(
             }
             customizations[service] = customizations[service]?.merge(options) ?: options
         }
-        return BigDataTestContainerCustomizationConfig(customizations)
+        return customizations
     }
 
-    private fun parseContainerLogLevels(tables: Map<String, Map<String, TomlValue>>): BigDataTestContainerLogLevelConfig {
+    private fun parseContainerLogLevels(tables: Map<String, Map<String, TomlValue>>): Map<BigDataService, String> {
         val values = tables["containerLogLevels"].orEmpty()
-        val levels = values.mapKeys { (serviceName, _) -> parseService(serviceName, "containerLogLevels") }
+        return values.mapKeys { (serviceName, _) -> parseService(serviceName, "containerLogLevels") }
             .mapValues { (service, value) -> normalizeContainerLogLevel(value.asString("container log level '$service'")) }
-        return BigDataTestContainerLogLevelConfig(levels)
     }
 
     private fun normalizeContainerLogLevel(level: String): String {
@@ -539,12 +545,7 @@ internal class BigDataTestConfigLoader(
         return normalized
     }
 
-    private fun parseService(name: String, table: String): BigDataService {
-        val normalized = name.replace("-", "").replace("_", "").lowercase()
-        return SERVICE_NAMES[normalized] ?: error("TOML table '$table' uses unknown service '$name'")
-    }
-
-    private fun parseHealthChecks(tables: Map<String, Map<String, TomlValue>>): BigDataTestHealthCheckConfig {
+    private fun parseHealthChecks(tables: Map<String, Map<String, TomlValue>>): Map<BigDataService, BigDataHealthCheckOptions> {
         val modes = tables["healthChecks"].orEmpty()
         val timeouts = tables["healthCheckTimeouts"].orEmpty()
         val healthChecks = linkedMapOf<BigDataService, BigDataHealthCheckOptions>()
@@ -556,7 +557,12 @@ internal class BigDataTestConfigLoader(
                 timeoutSeconds = timeouts.int(serviceName)?.toLong() ?: 60,
             )
         }
-        return BigDataTestHealthCheckConfig(healthChecks)
+        return healthChecks
+    }
+
+    private fun parseService(name: String, table: String): BigDataService {
+        val normalized = name.replace("-", "").replace("_", "").lowercase()
+        return SERVICE_NAMES[normalized] ?: error("TOML table '$table' uses unknown service '$name'")
     }
 
     private fun Map<String, TomlValue>.containerFiles(): List<ContainerFileTransferOptions> =

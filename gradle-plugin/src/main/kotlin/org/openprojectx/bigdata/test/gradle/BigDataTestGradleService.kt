@@ -9,8 +9,11 @@ import org.gradle.api.services.BuildServiceParameters
 import java.net.URLClassLoader
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKit
+import org.openprojectx.bigdata.test.core.ContainerCustomizationOptions
+import org.openprojectx.bigdata.test.core.ContainerFileTransferOptions
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerLogOptions
+import org.openprojectx.bigdata.test.core.ContainerMountOptions
 import org.openprojectx.bigdata.test.core.ContainerPortOptions
 import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
@@ -32,6 +35,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val extensionConfig: ListProperty<String>
         val extensionRuntimeClasspath: ConfigurableFileCollection
         val containerLogLevels: MapProperty<String, String>
+        val containerCustomizations: ListProperty<String>
 
         val kerberos: Property<Boolean>
         val hdfs: Property<Boolean>
@@ -272,6 +276,9 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         parameters.containerLogLevels.get().forEach { (service, level) ->
             builder.withContainerLogLevel(service.toBigDataService(), level)
         }
+        decodeContainerCustomizations(parameters.containerCustomizations.get()).forEach { (service, customization) ->
+            builder.withContainerCustomization(service, customization)
+        }
         return builder.build()
     }
 
@@ -323,6 +330,61 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                 service.name.replace("_", "-").equals(this, ignoreCase = true) ||
                 service.name.replace("_", "").equals(this, ignoreCase = true)
         } ?: error("Unknown bigdata-test service '$this'")
+
+    private fun decodeContainerCustomizations(encoded: List<String>): Map<BigDataService, ContainerCustomizationOptions> {
+        val customizations = linkedMapOf<BigDataService, ContainerCustomizationOptions>()
+        encoded.forEach { item ->
+            val parts = decode(item)
+            require(parts.size >= 3) { "Invalid encoded container customization" }
+            val kind = parts[0]
+            val service = parts[1].toBigDataService()
+            val options = when (kind) {
+                "network" -> {
+                    require(parts.size == 3) { "Invalid encoded network container customization" }
+                    ContainerCustomizationOptions(networkMode = parts[2])
+                }
+                "env" -> {
+                    require(parts.size == 4) { "Invalid encoded env container customization" }
+                    ContainerCustomizationOptions(environment = mapOf(parts[2] to parts[3]))
+                }
+                "file" -> {
+                    require(parts.size == 6) { "Invalid encoded file container customization" }
+                    val fileMode = parts[5].takeIf { it.isNotBlank() }?.toInt()
+                    val file = if (parts[3].isNotBlank()) {
+                        ContainerFileTransferOptions.hostPath(parts[3], parts[2], fileMode)
+                    } else {
+                        ContainerFileTransferOptions.content(
+                            java.util.Base64.getDecoder().decode(parts[4]),
+                            parts[2],
+                            fileMode,
+                        )
+                    }
+                    ContainerCustomizationOptions(files = listOf(file))
+                }
+                "mount" -> {
+                    require(parts.size == 5) { "Invalid encoded mount container customization" }
+                    ContainerCustomizationOptions(
+                        mounts = listOf(
+                            ContainerMountOptions(
+                                hostPath = parts[2],
+                                containerPath = parts[3],
+                                readOnly = parts[4].toBooleanStrict(),
+                            ),
+                        ),
+                    )
+                }
+                "port" -> {
+                    require(parts.size == 4) { "Invalid encoded port container customization" }
+                    ContainerCustomizationOptions(
+                        ports = listOf(ContainerPortOptions(containerPort = parts[2].toInt(), hostPort = parts[3].toInt())),
+                    )
+                }
+                else -> error("Unknown encoded container customization kind '$kind'")
+            }
+            customizations[service] = customizations[service]?.merge(options) ?: options
+        }
+        return customizations
+    }
 
     private fun BigDataService.propertyName(): String =
         name.lowercase().replace('_', '-')

@@ -23,6 +23,8 @@ import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.bigdata.test.core.ObjectStoreOptions
 import org.openprojectx.bigdata.test.core.PortBindingOptions
 import org.openprojectx.bigdata.test.core.TlsOptions
+import org.openprojectx.bigdata.test.core.config.BigDataTestConfigLoader
+import org.openprojectx.bigdata.test.core.config.BigDataTestHttpTlsConfig
 
 class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResolver {
     override fun beforeAll(context: ExtensionContext) {
@@ -95,13 +97,13 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 ),
             )
         }
-        config.containerLogLevels.levels.forEach { (service, level) ->
+        config.containerLogLevels.forEach { (service, level) ->
             builder.withContainerLogLevel(service, level)
         }
-        config.containerCustomizations.customizations.forEach { (service, customization) ->
+        config.containerCustomizations.forEach { (service, customization) ->
             builder.withContainerCustomization(service, customization)
         }
-        config.healthChecks.healthChecks.forEach { (service, healthCheck) ->
+        config.healthChecks.forEach { (service, healthCheck) ->
             builder.withHealthCheck(service, healthCheck)
         }
         val kerberos = annotation.kerberos || services.kerberos == true

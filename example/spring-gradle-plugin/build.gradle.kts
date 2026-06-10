@@ -3,11 +3,23 @@ plugins {
     kotlin("plugin.spring") version "2.2.21"
     id("org.springframework.boot") version "4.0.5"
     id("io.spring.dependency-management") version "1.1.7"
-    id("org.openprojectx.bigdata-test") version "0.1.17-SNAPSHOT"
+    id("org.openprojectx.bigdata-test") version "0.1.20-SNAPSHOT"
 }
 
 group = "org.openprojectx.bigdata.test.example"
-version = "0.1.17-SNAPSHOT"
+version = providers.gradleProperty("bigdataTestPluginVersion")
+    .orElse(providers.environmentVariable("BIGDATA_TEST_PLUGIN_VERSION"))
+    .orElse(
+        providers.provider {
+            file("../../gradle.properties")
+                .readLines()
+                .map(String::trim)
+                .firstOrNull { it.startsWith("version") && it.contains("=") }
+                ?.substringAfter("=")
+                ?.trim()
+        },
+    )
+    .get()
 
 kotlin {
     jvmToolchain(17)

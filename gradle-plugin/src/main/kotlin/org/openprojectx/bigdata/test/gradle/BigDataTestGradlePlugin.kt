@@ -4,6 +4,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSetContainer
@@ -43,6 +44,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             )
             spec.parameters.extensionRuntimeClasspath.from(extensionRuntimeClasspath)
             spec.parameters.containerLogLevels.set(extension.containerLogLevels)
+            spec.parameters.containerCustomizations.set(extension.containerCustomizations)
 
             spec.parameters.kerberos.set(extension.services.kerberos)
             spec.parameters.hdfs.set(extension.services.hdfs)
@@ -325,7 +327,12 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.containerLogs.mode.tomlConvention(config.containerLogs.mode)
         extension.containerLogs.directory.tomlConvention(config.containerLogs.directory)
         extension.containerLogs.append.tomlConvention(config.containerLogs.append)
-        extension.containerLogLevels.tomlConvention(config.containerLogLevels.takeIf { it.isNotEmpty() })
+        extension.containerLogLevels.tomlConvention(
+            config.containerLogLevels.mapKeys { (service, _) -> service.name }.takeIf { it.isNotEmpty() },
+        )
+        extension.containerCustomizations.tomlConvention(
+            config.encodedContainerCustomizations().takeIf { it.isNotEmpty() },
+        )
     }
 
     private fun Project.resolveExtensionConfigLocation(location: String): String {
@@ -347,6 +354,10 @@ class BigDataTestGradlePlugin : Plugin<Project> {
     }
 
     private fun <K : Any, V : Any> MapProperty<K, V>.tomlConvention(value: Map<K, V>?) {
+        if (value != null) convention(value)
+    }
+
+    private fun <T : Any> ListProperty<T>.tomlConvention(value: List<T>?) {
         if (value != null) convention(value)
     }
 

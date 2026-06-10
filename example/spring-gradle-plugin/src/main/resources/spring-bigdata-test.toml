@@ -26,3 +26,6 @@ mode = "STDOUT"
 [containerLogLevels]
 kerberos = "DEBUG"
 hdfs = "DEBUG"
+
+[containers.localstackS3.env]
+DISABLE_CORS_CHECKS = "1"

@@ -5,9 +5,21 @@ pluginManagement {
         mavenCentral()
     }
 
+    fun rootBuildVersion(): String? {
+        val propertiesFile = settingsDir.resolve("../../gradle.properties").normalize()
+        if (!propertiesFile.isFile) return null
+        return propertiesFile.readLines()
+            .map(String::trim)
+            .firstOrNull { it.startsWith("version") && it.contains("=") }
+            ?.substringAfter("=")
+            ?.trim()
+            ?.takeIf(String::isNotBlank)
+    }
+
     val bigDataTestPluginVersion =
         providers.gradleProperty("bigdataTestPluginVersion")
             .orElse(providers.environmentVariable("BIGDATA_TEST_PLUGIN_VERSION"))
+            .orElse(providers.provider { rootBuildVersion() })
 
     resolutionStrategy {
         eachPlugin {
