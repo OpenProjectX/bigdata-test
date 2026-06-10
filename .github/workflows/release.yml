@@ -54,6 +54,9 @@ jobs:
       EXTRA_GRADLE_ARGS: ${{ github.event.inputs.gradle_args || '' }}
       SKIP_TESTS: ${{ github.event.inputs.skip_tests || 'false' }}
       PUBLISH_GITHUB_PACKAGES: ${{ github.event.inputs.publish_github_packages || 'false' }}
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+      DOCKER_IMAGE_CACHE_DIR: /tmp/bigdata-test-docker-image-cache
+      DOCKER_IMAGE_CACHE_FILE: /tmp/bigdata-test-docker-image-cache/spark-matrix-images.tar
 
     steps:
       - name: Checkout
@@ -83,6 +86,78 @@ jobs:
         run: |
           docker version
           docker info
+
+      - name: Cache Spark matrix Docker images
+        if: env.SKIP_TESTS != 'true'
+        id: docker-image-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.DOCKER_IMAGE_CACHE_DIR }}
+          key: ${{ runner.os }}-spark-matrix-docker-images-v1-${{ hashFiles('example/spark/src/test/resources/spark-bigdata-test-common.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-spark-matrix-docker-images-v1-
+
+      - name: Load cached Spark matrix Docker images
+        if: env.SKIP_TESTS != 'true'
+        run: |
+          if [ -s "$DOCKER_IMAGE_CACHE_FILE" ]; then
+            docker load --input "$DOCKER_IMAGE_CACHE_FILE"
+            docker images
+          else
+            echo "No cached Docker image archive found at $DOCKER_IMAGE_CACHE_FILE"
+          fi
+
+      - name: Pull Spark matrix Docker images
+        if: env.SKIP_TESTS != 'true'
+        run: |
+          set -euo pipefail
+
+          pull_with_retry() {
+            local image="$1"
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              if docker pull "$image"; then
+                return 0
+              fi
+              local sleep_seconds=$((attempt * 15))
+              echo "Pull failed for ${image}; retrying in ${sleep_seconds}s (${attempt}/5)"
+              sleep "$sleep_seconds"
+            done
+            docker pull "$image"
+          }
+
+          images=(
+            "apache/hadoop:3.5.0"
+            "apache/kafka:4.1.2"
+            "confluentinc/cp-schema-registry:7.8.0"
+            "fsouza/fake-gcs-server:1.54"
+            "ghcr.io/openprojectx/cloudera-hms:0.1.16"
+            "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest"
+            "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4"
+            "localstack/localstack:4.14.0"
+            "postgres:16-alpine"
+          )
+
+          for image in "${images[@]}"; do
+            pull_with_retry "$image"
+          done
+
+      - name: Save Spark matrix Docker images
+        if: env.SKIP_TESTS != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$DOCKER_IMAGE_CACHE_DIR"
+          docker save --output "$DOCKER_IMAGE_CACHE_FILE" \
+            "apache/hadoop:3.5.0" \
+            "apache/kafka:4.1.2" \
+            "confluentinc/cp-schema-registry:7.8.0" \
+            "fsouza/fake-gcs-server:1.54" \
+            "ghcr.io/openprojectx/cloudera-hms:0.1.16" \
+            "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest" \
+            "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4" \
+            "localstack/localstack:4.14.0" \
+            "postgres:16-alpine"
+          ls -lh "$DOCKER_IMAGE_CACHE_FILE"
 
       - name: Run Spark big data matrix tests
         if: env.SKIP_TESTS != 'true'
