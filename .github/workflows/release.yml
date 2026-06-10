@@ -32,6 +32,11 @@ on:
         required: false
         default: false
         type: boolean
+      enable_docker_image_cache:
+        description: "Cache Testcontainers Docker images as a tar archive. Disabled by default because save/load can be slower than pulling."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -66,6 +71,7 @@ jobs:
       GRADLE_LOG_LEVEL: ${{ github.event.inputs.gradle_log_level || 'info' }}
       SKIP_TESTS: ${{ github.event.inputs.skip_tests || 'false' }}
       PUBLISH_GITHUB_PACKAGES: ${{ github.event.inputs.publish_github_packages || 'false' }}
+      ENABLE_DOCKER_IMAGE_CACHE: ${{ github.event.inputs.enable_docker_image_cache || 'false' }}
       TESTCONTAINERS_RYUK_DISABLED: "true"
       DOCKER_IMAGE_CACHE_DIR: /tmp/bigdata-test-docker-image-cache
       DOCKER_IMAGE_CACHE_FILE: /tmp/bigdata-test-docker-image-cache/spark-matrix-images.tar
@@ -100,7 +106,7 @@ jobs:
           docker info
 
       - name: Cache Spark matrix Docker images
-        if: env.SKIP_TESTS != 'true'
+        if: env.SKIP_TESTS != 'true' && env.ENABLE_DOCKER_IMAGE_CACHE == 'true'
         id: docker-image-cache
         uses: actions/cache@v4
         with:
@@ -110,7 +116,7 @@ jobs:
             ${{ runner.os }}-spark-matrix-docker-images-v1-
 
       - name: Load cached Spark matrix Docker images
-        if: env.SKIP_TESTS != 'true'
+        if: env.SKIP_TESTS != 'true' && env.ENABLE_DOCKER_IMAGE_CACHE == 'true'
         run: |
           if [ -s "$DOCKER_IMAGE_CACHE_FILE" ]; then
             docker load --input "$DOCKER_IMAGE_CACHE_FILE"
@@ -155,7 +161,7 @@ jobs:
           done
 
       - name: Save Spark matrix Docker images
-        if: env.SKIP_TESTS != 'true'
+        if: env.SKIP_TESTS != 'true' && env.ENABLE_DOCKER_IMAGE_CACHE == 'true'
         run: |
           set -euo pipefail
           mkdir -p "$DOCKER_IMAGE_CACHE_DIR"
