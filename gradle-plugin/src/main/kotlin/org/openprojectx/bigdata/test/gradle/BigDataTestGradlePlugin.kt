@@ -93,6 +93,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.hdfsImage.set(extension.hdfs.image)
             spec.parameters.hdfsKerberosEnabled.set(extension.hdfs.kerberosEnabled)
             spec.parameters.hdfsDataNodeHostname.set(extension.hdfs.dataNodeHostname)
+            spec.parameters.hdfsLocalHdfsSitePath.set(extension.hdfs.localHdfsSitePath)
 
             spec.parameters.hiveMetastoreImage.set(extension.hiveMetastore.image)
             spec.parameters.hiveMetastoreDatabaseImage.set(extension.hiveMetastore.databaseImage)
@@ -307,6 +308,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.tls.haproxyImage.tomlConvention(config.tls.haproxyImage)
 
         extension.hdfs.dataNodeHostname.tomlConvention(config.hdfs.dataNodeHostname)
+        extension.hdfs.localHdfsSitePath.tomlConvention(config.hdfs.localHdfsSitePath)
         extension.hiveMetastore.databaseName.tomlConvention(config.hiveMetastore.databaseName)
         extension.hiveMetastore.databaseUser.tomlConvention(config.hiveMetastore.databaseUser)
         extension.hiveMetastore.databasePassword.tomlConvention(config.hiveMetastore.databasePassword)

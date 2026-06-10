@@ -70,9 +70,13 @@ data class BigDataTestConfig(
 
 data class BigDataTestHdfsConfig(
     val dataNodeHostname: String? = null,
+    val localHdfsSitePath: String? = null,
 ) {
     fun merge(override: BigDataTestHdfsConfig): BigDataTestHdfsConfig =
-        BigDataTestHdfsConfig(dataNodeHostname = override.dataNodeHostname ?: dataNodeHostname)
+        BigDataTestHdfsConfig(
+            dataNodeHostname = override.dataNodeHostname ?: dataNodeHostname,
+            localHdfsSitePath = override.localHdfsSitePath ?: localHdfsSitePath,
+        )
 }
 
 data class BigDataTestHiveMetastoreConfig(
@@ -361,7 +365,10 @@ class BigDataTestConfigLoader(
                 trustStorePassword = tls.string("trustStorePassword"),
                 haproxyImage = tls.string("haproxyImage"),
             ),
-            hdfs = BigDataTestHdfsConfig(dataNodeHostname = hdfs.string("dataNodeHostname")),
+            hdfs = BigDataTestHdfsConfig(
+                dataNodeHostname = hdfs.string("dataNodeHostname"),
+                localHdfsSitePath = hdfs.string("localHdfsSitePath"),
+            ),
             hiveMetastore = BigDataTestHiveMetastoreConfig(
                 databaseName = hiveMetastore.string("databaseName"),
                 databaseUser = hiveMetastore.string("databaseUser"),

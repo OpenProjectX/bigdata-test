@@ -85,6 +85,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val hdfsImage: Property<String>
         val hdfsKerberosEnabled: Property<Boolean>
         val hdfsDataNodeHostname: Property<String>
+        val hdfsLocalHdfsSitePath: Property<String>
 
         val hiveMetastoreImage: Property<String>
         val hiveMetastoreDatabaseImage: Property<String>
@@ -205,6 +206,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                     enabled = true,
                     image = parameters.hdfsImage.get(),
                     dataNodeHostname = parameters.hdfsDataNodeHostname.get(),
+                    localHdfsSitePath = projectPath(parameters.hdfsLocalHdfsSitePath.get()),
                     kerberos = KerberosAuthOptions(
                         enabled = parameters.hdfsKerberosEnabled.get(),
                         servicePrincipal = "nn/hdfs.${parameters.kerberosDomain.get()}@${parameters.kerberosRealm.get()}",

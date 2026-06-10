@@ -49,6 +49,13 @@ internal class BigDataContainerFactory(
         } else {
             null
         }
+    private val hdfsClientDir: Path by lazy {
+        options.hdfs.localHdfsSitePath
+            ?.let { Path.of(it).parent }
+            ?.let { Files.createDirectories(it) }
+            ?: kerberosDir
+            ?: Files.createTempDirectory("bigdata-test-hdfs-client-")
+    }
     private val tlsMaterial: TlsMaterial by lazy { TlsMaterial(options.tls.copy(enabled = true)) }
 
     fun healthCheck(service: BigDataService, container: GenericContainer<*>, endpoint: BigDataEndpoint) {
@@ -198,6 +205,13 @@ internal class BigDataContainerFactory(
                 backendPort = hdfs.webPort,
                 hostPort = tlsHostPort(options.portBindings.hdfsWebTls),
             )
+            val clientProperties = mapOf(
+                "fs.defaultFS" to "hdfs://$nameNode",
+                "dfs.client.use.datanode.hostname" to "true",
+                "dfs.datanode.hostname" to hdfs.dataNodeHostname,
+            ) + hdfsKerberosClientProperties(hdfs.kerberos) +
+                webTls.property("dfs.namenode.https-address")
+            val localHdfsSite = writeLocalHdfsSiteXml(hdfs, clientProperties)
             BigDataEndpoint(
                 service = BigDataService.HDFS,
                 host = container.host,
@@ -207,12 +221,10 @@ internal class BigDataContainerFactory(
                     "web" to container.getMappedPort(hdfs.webPort),
                 ) + webTls.port("web-tls"),
                 properties = mapOf(
-                    "fs.defaultFS" to "hdfs://$nameNode",
                     "spring.hadoop.fs-uri" to "hdfs://$nameNode",
-                    "dfs.client.use.datanode.hostname" to "true",
-                    "dfs.datanode.hostname" to hdfs.dataNodeHostname,
-                ) + hdfsKerberosClientProperties(hdfs.kerberos) +
-                    webTls.property("dfs.namenode.https-address") +
+                    "bigdata.test.hdfs.hdfs-site" to localHdfsSite,
+                    "bigdata.test.hdfs.hdfs-site.container" to "/opt/hadoop/etc/hadoop/hdfs-site.xml",
+                ) + clientProperties +
                     webTls.jvmProperties() +
                     kerberosProperties("hadoop", hdfs.kerberos),
             )
@@ -743,6 +755,7 @@ internal class BigDataContainerFactory(
     }
 
     private fun writeConfigurationXml(path: Path, properties: Map<String, String>) {
+        path.parent?.let { Files.createDirectories(it) }
         Files.writeString(path, configurationXml(properties), StandardCharsets.UTF_8)
     }
 
@@ -1164,6 +1177,14 @@ internal class BigDataContainerFactory(
         } else {
             emptyMap()
         }
+
+    private fun writeLocalHdfsSiteXml(hdfs: HdfsOptions, properties: Map<String, String>): String {
+        val path = hdfs.localHdfsSitePath
+            ?.let { Path.of(it) }
+            ?: hdfsClientDir.resolve("hdfs-site.xml")
+        writeConfigurationXml(path, properties)
+        return path.toString()
+    }
 
     private fun hdfsSiteSecurity(kerberos: KerberosAuthOptions): String =
         if (kerberos.enabled) {

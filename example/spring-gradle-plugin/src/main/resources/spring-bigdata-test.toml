@@ -13,6 +13,7 @@ debug = true
 
 [hdfs]
 dataNodeHostname = "localhost"
+localHdfsSitePath = "build/bigdata-test/hadoop/hdfs-site.xml"
 
 [ports]
 hdfsNameNode = 8020

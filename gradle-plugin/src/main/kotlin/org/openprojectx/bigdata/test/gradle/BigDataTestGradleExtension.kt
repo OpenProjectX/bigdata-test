@@ -157,6 +157,7 @@ abstract class BigDataTestGradleHdfs @Inject constructor(objects: ObjectFactory)
     val image: Property<String> = objects.property(String::class.java).convention("apache/hadoop:3.5.0")
     val kerberosEnabled: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val dataNodeHostname: Property<String> = objects.property(String::class.java).convention("hdfs")
+    val localHdfsSitePath: Property<String> = objects.property(String::class.java).convention("")
 }
 
 abstract class BigDataTestGradleHiveMetastore @Inject constructor(objects: ObjectFactory) {

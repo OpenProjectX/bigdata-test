@@ -70,6 +70,7 @@ data class HdfsOptions(
     val nameNodePort: Int = 8020,
     val dataNodePort: Int = 9866,
     val dataNodeHostname: String = "hdfs",
+    val localHdfsSitePath: String? = null,
     val webPort: Int = 9870,
     val webTls: HttpTlsOptions = HttpTlsOptions(),
     val kerberos: KerberosAuthOptions = KerberosAuthOptions(
