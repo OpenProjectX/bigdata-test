@@ -101,6 +101,8 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.hiveMetastoreDatabaseUser.set(extension.hiveMetastore.databaseUser)
             spec.parameters.hiveMetastoreDatabasePassword.set(extension.hiveMetastore.databasePassword)
             spec.parameters.hiveMetastoreWarehouseDir.set(extension.hiveMetastore.warehouseDir)
+            spec.parameters.hiveMetastoreLocalHiveSitePath.set(extension.hiveMetastore.localHiveSitePath)
+            spec.parameters.hiveMetastoreLocalMetastoreSitePath.set(extension.hiveMetastore.localMetastoreSitePath)
             spec.parameters.hiveMetastoreKerberosEnabled.set(extension.hiveMetastore.kerberosEnabled)
 
             spec.parameters.clouderaHmsImage.set(extension.clouderaHms.image)
@@ -313,6 +315,8 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.hiveMetastore.databaseUser.tomlConvention(config.hiveMetastore.databaseUser)
         extension.hiveMetastore.databasePassword.tomlConvention(config.hiveMetastore.databasePassword)
         extension.hiveMetastore.warehouseDir.tomlConvention(config.hiveMetastore.warehouseDir)
+        extension.hiveMetastore.localHiveSitePath.tomlConvention(config.hiveMetastore.localHiveSitePath)
+        extension.hiveMetastore.localMetastoreSitePath.tomlConvention(config.hiveMetastore.localMetastoreSitePath)
         extension.clouderaHms.warehouseDir.tomlConvention(config.clouderaHms.warehouseDir)
 
         extension.ports.sameHostPorts.tomlConvention(config.ports.sameHostPorts)

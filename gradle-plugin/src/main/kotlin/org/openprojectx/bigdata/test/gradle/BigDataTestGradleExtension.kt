@@ -168,6 +168,8 @@ abstract class BigDataTestGradleHiveMetastore @Inject constructor(objects: Objec
     val databaseUser: Property<String> = objects.property(String::class.java).convention("hive")
     val databasePassword: Property<String> = objects.property(String::class.java).convention("hive")
     val warehouseDir: Property<String> = objects.property(String::class.java).convention("/user/hive/warehouse")
+    val localHiveSitePath: Property<String> = objects.property(String::class.java).convention("")
+    val localMetastoreSitePath: Property<String> = objects.property(String::class.java).convention("")
     val kerberosEnabled: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
 }
 

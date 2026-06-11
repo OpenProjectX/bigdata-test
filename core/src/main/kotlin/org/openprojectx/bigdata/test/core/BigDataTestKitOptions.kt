@@ -88,6 +88,8 @@ data class HiveMetastoreOptions(
     val databaseUser: String = "hive",
     val databasePassword: String = "hive",
     val warehouseDir: String = "/user/hive/warehouse",
+    val localHiveSitePath: String? = null,
+    val localMetastoreSitePath: String? = null,
     val extraConfiguration: Map<String, String> = emptyMap(),
     val tls: HttpTlsOptions = HttpTlsOptions(),
     val kerberos: KerberosAuthOptions = KerberosAuthOptions(

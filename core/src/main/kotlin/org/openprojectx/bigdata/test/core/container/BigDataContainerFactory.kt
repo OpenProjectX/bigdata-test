@@ -10,6 +10,7 @@ import org.openprojectx.bigdata.test.core.ContainerPortOptions
 import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HttpTlsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
+import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosOptions
@@ -55,6 +56,13 @@ internal class BigDataContainerFactory(
             ?.let { Files.createDirectories(it) }
             ?: kerberosDir
             ?: Files.createTempDirectory("bigdata-test-hdfs-client-")
+    }
+    private val hiveMetastoreClientDir: Path by lazy {
+        listOf(options.hiveMetastore.localHiveSitePath, options.hiveMetastore.localMetastoreSitePath)
+            .firstNotNullOfOrNull { it?.let { path -> Path.of(path).parent } }
+            ?.let { Files.createDirectories(it) }
+            ?: kerberosDir
+            ?: Files.createTempDirectory("bigdata-test-hms-client-")
     }
     private val tlsMaterial: TlsMaterial by lazy { TlsMaterial(options.tls.copy(enabled = true)) }
 
@@ -286,6 +294,8 @@ internal class BigDataContainerFactory(
             attachLogs("hive-metastore", applyContainerCustomizations(BigDataService.HIVE_METASTORE, container)),
         ) {
             val thriftUri = container.thriftUri
+            val clientProperties = hiveMetastoreClientProperties(thriftUri, tlsProperties)
+            val clientXmlPaths = writeLocalHiveMetastoreClientXml(hive, clientProperties)
             BigDataEndpoint(
                 service = BigDataService.HIVE_METASTORE,
                 host = container.host,
@@ -293,8 +303,10 @@ internal class BigDataContainerFactory(
                 properties = mapOf(
                     "hive.metastore.uris" to thriftUri,
                     "spring.bigdata.test.hive-metastore.thrift-uri" to thriftUri,
+                    "bigdata.test.hive-metastore.hive-site" to clientXmlPaths.hiveSite,
+                    "bigdata.test.hive-metastore.metastore-site" to clientXmlPaths.metastoreSite,
                 ) + tlsProperties +
-                    hiveMetastoreClientKerberosProperties(hive.kerberos) +
+                    clientProperties +
                     kerberosProperties("hive.metastore", hive.kerberos),
             )
         }
@@ -335,6 +347,8 @@ internal class BigDataContainerFactory(
             attachLogs("hive-metastore", applyContainerCustomizations(BigDataService.HIVE_METASTORE, container)),
         ) {
             val thriftUri = "thrift://${container.host}:${container.getMappedPort(9083)}"
+            val clientProperties = hiveMetastoreClientProperties(thriftUri, tlsProperties)
+            val clientXmlPaths = writeLocalHiveMetastoreClientXml(hive, clientProperties)
             BigDataEndpoint(
                 service = BigDataService.HIVE_METASTORE,
                 host = container.host,
@@ -342,8 +356,10 @@ internal class BigDataContainerFactory(
                 properties = mapOf(
                     "hive.metastore.uris" to thriftUri,
                     "spring.bigdata.test.hive-metastore.thrift-uri" to thriftUri,
+                    "bigdata.test.hive-metastore.hive-site" to clientXmlPaths.hiveSite,
+                    "bigdata.test.hive-metastore.metastore-site" to clientXmlPaths.metastoreSite,
                 ) + tlsProperties +
-                    hiveMetastoreClientKerberosProperties(hive.kerberos) +
+                    clientProperties +
                     kerberosProperties("hive.metastore", hive.kerberos),
             )
         }
@@ -1221,6 +1237,39 @@ internal class BigDataContainerFactory(
         writeConfigurationXml(path, properties)
         return path.toString()
     }
+
+    private fun hiveMetastoreClientProperties(
+        thriftUri: String,
+        tlsProperties: Map<String, String>,
+    ): Map<String, String> =
+        mapOf(
+            "hive.metastore.uris" to thriftUri,
+        ) + hiveMetastoreHadoopConfiguration() +
+            hiveMetastoreClientKerberosProperties(options.hiveMetastore.kerberos) +
+            tlsProperties
+
+    private fun writeLocalHiveMetastoreClientXml(
+        hive: HiveMetastoreOptions,
+        properties: Map<String, String>,
+    ): HiveMetastoreClientXmlPaths {
+        val hiveSitePath = hive.localHiveSitePath
+            ?.let { Path.of(it) }
+            ?: hiveMetastoreClientDir.resolve("hive-site.xml")
+        val metastoreSitePath = hive.localMetastoreSitePath
+            ?.let { Path.of(it) }
+            ?: hiveMetastoreClientDir.resolve("metastore-site.xml")
+        writeConfigurationXml(hiveSitePath, properties)
+        writeConfigurationXml(metastoreSitePath, properties)
+        return HiveMetastoreClientXmlPaths(
+            hiveSite = hiveSitePath.toString(),
+            metastoreSite = metastoreSitePath.toString(),
+        )
+    }
+
+    private data class HiveMetastoreClientXmlPaths(
+        val hiveSite: String,
+        val metastoreSite: String,
+    )
 
     private fun hdfsSiteSecurity(kerberos: KerberosAuthOptions): String =
         if (kerberos.enabled) {

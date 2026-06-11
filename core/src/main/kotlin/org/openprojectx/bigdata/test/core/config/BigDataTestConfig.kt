@@ -84,6 +84,8 @@ data class BigDataTestHiveMetastoreConfig(
     val databaseUser: String? = null,
     val databasePassword: String? = null,
     val warehouseDir: String? = null,
+    val localHiveSitePath: String? = null,
+    val localMetastoreSitePath: String? = null,
 ) {
     fun merge(override: BigDataTestHiveMetastoreConfig): BigDataTestHiveMetastoreConfig =
         BigDataTestHiveMetastoreConfig(
@@ -91,6 +93,8 @@ data class BigDataTestHiveMetastoreConfig(
             databaseUser = override.databaseUser ?: databaseUser,
             databasePassword = override.databasePassword ?: databasePassword,
             warehouseDir = override.warehouseDir ?: warehouseDir,
+            localHiveSitePath = override.localHiveSitePath ?: localHiveSitePath,
+            localMetastoreSitePath = override.localMetastoreSitePath ?: localMetastoreSitePath,
         )
 }
 
@@ -374,6 +378,8 @@ class BigDataTestConfigLoader(
                 databaseUser = hiveMetastore.string("databaseUser"),
                 databasePassword = hiveMetastore.string("databasePassword"),
                 warehouseDir = hiveMetastore.string("warehouseDir"),
+                localHiveSitePath = hiveMetastore.string("localHiveSitePath"),
+                localMetastoreSitePath = hiveMetastore.string("localMetastoreSitePath"),
             ),
             clouderaHms = BigDataTestClouderaHmsConfig(warehouseDir = clouderaHms.string("warehouseDir")),
             kafka = BigDataTestKafkaConfig(

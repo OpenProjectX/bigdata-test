@@ -240,18 +240,18 @@ abstract class SparkBigDataScenario {
 
     private fun SparkSession.Builder.configureKerberos(environment: SparkScenarioEnvironment): SparkSession.Builder {
         environment.krb5Conf?.let { config("spark.hadoop.java.security.krb5.conf", it) }
-        environment.kerberosClientPrincipal?.let {
-            config("spark.hadoop.bigdata.test.kerberos.client.principal", it)
-        }
-        environment.kerberosClientKeytab?.let {
-            config("spark.hadoop.bigdata.test.kerberos.client.keytab", it)
-        }
-        environment.kafkaKerberosServiceName?.let {
-            config("spark.hadoop.bigdata.test.kafka.service.name", it)
-        }
-        environment.kafkaJaasConfig?.let {
-            config("spark.hadoop.bigdata.test.kafka.jaas.config", it)
-        }
+//        environment.kerberosClientPrincipal?.let {
+//            config("spark.hadoop.bigdata.test.kerberos.client.principal", it)
+//        }
+//        environment.kerberosClientKeytab?.let {
+//            config("spark.hadoop.bigdata.test.kerberos.client.keytab", it)
+//        }
+//        environment.kafkaKerberosServiceName?.let {
+//            config("spark.hadoop.bigdata.test.kafka.service.name", it)
+//        }
+//        environment.kafkaJaasConfig?.let {
+//            config("spark.hadoop.bigdata.test.kafka.jaas.config", it)
+//        }
         return this
     }
 

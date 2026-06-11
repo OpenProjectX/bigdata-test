@@ -23,3 +23,4 @@ hdfsNameNode = 8020
 
 [containerLogs]
 mode = "FILE"
+append = false

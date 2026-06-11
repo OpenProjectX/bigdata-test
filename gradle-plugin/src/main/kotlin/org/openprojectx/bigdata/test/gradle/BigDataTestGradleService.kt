@@ -93,6 +93,8 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val hiveMetastoreDatabaseUser: Property<String>
         val hiveMetastoreDatabasePassword: Property<String>
         val hiveMetastoreWarehouseDir: Property<String>
+        val hiveMetastoreLocalHiveSitePath: Property<String>
+        val hiveMetastoreLocalMetastoreSitePath: Property<String>
         val hiveMetastoreKerberosEnabled: Property<Boolean>
 
         val clouderaHmsImage: Property<String>
@@ -226,6 +228,8 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                     databaseUser = parameters.hiveMetastoreDatabaseUser.get(),
                     databasePassword = parameters.hiveMetastoreDatabasePassword.get(),
                     warehouseDir = parameters.hiveMetastoreWarehouseDir.get(),
+                    localHiveSitePath = projectPath(parameters.hiveMetastoreLocalHiveSitePath.get()),
+                    localMetastoreSitePath = projectPath(parameters.hiveMetastoreLocalMetastoreSitePath.get()),
                     kerberos = KerberosAuthOptions(
                         enabled = parameters.hiveMetastoreKerberosEnabled.get(),
                         servicePrincipal = "hive/hive-metastore.${parameters.kerberosDomain.get()}@${parameters.kerberosRealm.get()}",
@@ -241,6 +245,8 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                     distribution = HiveMetastoreDistribution.CLOUDERA,
                     image = parameters.clouderaHmsImage.get(),
                     warehouseDir = parameters.clouderaHmsWarehouseDir.get(),
+                    localHiveSitePath = projectPath(parameters.hiveMetastoreLocalHiveSitePath.get()),
+                    localMetastoreSitePath = projectPath(parameters.hiveMetastoreLocalMetastoreSitePath.get()),
                     kerberos = KerberosAuthOptions(
                         enabled = parameters.clouderaHmsKerberosEnabled.get(),
                         servicePrincipal = "hive/hive-metastore.${parameters.kerberosDomain.get()}@${parameters.kerberosRealm.get()}",
