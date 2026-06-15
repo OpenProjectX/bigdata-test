@@ -5,6 +5,7 @@ import org.junit.jupiter.api.extension.BeforeTestExecutionCallback
 import org.junit.jupiter.api.extension.ExtensionContext
 import org.junit.jupiter.api.extension.ParameterContext
 import org.junit.jupiter.api.extension.ParameterResolver
+import org.junit.jupiter.api.Order
 import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsBuilder
 import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsConfigLoader
 import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsConfigurer
@@ -16,6 +17,7 @@ import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionRunner
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionResourceLoader
 import org.openprojectx.bigdata.test.junit5.BigDataTestKitStore
 
+@Order(100)
 class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback, ParameterResolver {
     override fun beforeTestExecution(context: ExtensionContext) {
         ensureApplied(context)
@@ -25,7 +27,7 @@ class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback
         val state = context.store.remove(STATE_KEY, State::class.java) ?: return
         BigDataTestKitStore.getOrNull(context)?.let { kit ->
             val result = state.runner.fire(BigDataExtensionEvent.AFTER_ALL, kit, state.result)
-            context.store.put(RESULT_KEY, result)
+            BigDataExtensionResultStore.put(context, result)
         }
     }
 
@@ -36,7 +38,7 @@ class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback
         ensureApplied(extensionContext)
 
     private fun ensureApplied(context: ExtensionContext): BigDataExtensionResult {
-        context.store.get(RESULT_KEY, BigDataExtensionResult::class.java)?.let { return it }
+        BigDataExtensionResultStore.getOrNull(context)?.let { return it }
         val annotation = context.requiredTestClass.getAnnotation(BigDataExtensions::class.java)
             ?: error("@BigDataExtensions is missing")
         val resources = BigDataExtensionResourceLoader(context.requiredTestClass.classLoader)
@@ -50,7 +52,7 @@ class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback
         val result = runner.fire(BigDataExtensionEvent.AFTER_KIT_START, kit)
         val state = State(runner, result)
         context.store.put(STATE_KEY, state)
-        context.store.put(RESULT_KEY, result)
+        BigDataExtensionResultStore.put(context, result)
         return result
     }
 
@@ -118,7 +120,6 @@ class BigDataExtensionsExtension : BeforeTestExecutionCallback, AfterAllCallback
 
     private companion object {
         const val STATE_KEY = "state"
-        const val RESULT_KEY = "result"
         const val EXTENSIONS_CONFIG_PROPERTY = "bigdata.extensions.config"
         const val EXTENSIONS_CONFIG_REPLACE_PROPERTY = "bigdata.extensions.config.replace"
     }

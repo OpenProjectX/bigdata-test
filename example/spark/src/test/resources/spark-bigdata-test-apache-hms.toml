@@ -4,3 +4,10 @@ hiveMetastore = true
 [hiveMetastoreTls]
 enabled = true
 domain = "localhost"
+
+[hiveMetastore]
+localHiveSitePath = "build/bigdata-test/hive/hive-site.xml"
+localMetastoreSitePath = "build/bigdata-test/hive/metastore-site.xml"
+
+[containerLogLevels]
+hiveMetastore = "DEBUG"

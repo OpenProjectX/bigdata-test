@@ -17,3 +17,7 @@ localClientKeytabPath = "build/bigdata-test/kerberos/app_user.keytab"
 
 [ports]
 kafka = 19092
+
+[containerLogLevels]
+#hiveMetastore = "TRACE"
+#hdfs = "TRACE"
