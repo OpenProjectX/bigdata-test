@@ -982,7 +982,10 @@ internal class BigDataContainerFactory(
         val customization = options.containerCustomizations[service] ?: return container
         customization.networkMode?.let { container.withNetworkMode(it) }
         customization.ports.forEach { container.addPort(it) }
-        customization.environment.forEach { (name, value) -> container.withEnv(name, value) }
+        customization.environment.forEach { (name, value) ->
+            validateContainerEnvironment(service, name)
+            container.withEnv(name, value)
+        }
         customization.files.forEach { container.addFile(it) }
         customization.mounts.forEach { mount ->
             container.withFileSystemBind(
@@ -993,6 +996,27 @@ internal class BigDataContainerFactory(
         }
         customization.customizers.forEach { it.customize(container) }
         return container
+    }
+
+    private fun validateContainerEnvironment(service: BigDataService, name: String) {
+        if (service != BigDataService.HDFS) return
+        val conflict = hadoopImageEnvToConfConflict(name) ?: return
+        error(
+            "HDFS container environment variable '$name' conflicts with the apache/hadoop image env-to-conf " +
+                "parser. '$conflict' is treated as a config file format by the image entrypoint. " +
+                "Use a non-reserved name, for example '${name}_VALUE'. For image-native config generation, " +
+                "use a supported format with a property key suffix, for example 'CORE_XML_fs_defaultFS'. " +
+                "Avoid the image's env/sh/cfg/conf formats; they are broken in apache/hadoop:3.5.0.",
+        )
+    }
+
+    private fun hadoopImageEnvToConfConflict(name: String): String? {
+        val parts = name.split(Regex("[_.]"))
+        if (parts.size < 2) return null
+        val format = parts[1].lowercase(Locale.ROOT)
+        if (format in HADOOP_IMAGE_ENV_TO_CONF_BROKEN_FORMATS) return format
+        if (parts.size == 2 && format in HADOOP_IMAGE_ENV_TO_CONF_SUPPORTED_FORMATS) return format
+        return null
     }
 
     private fun runCliHealthCheck(service: BigDataService, container: GenericContainer<*>, timeoutSeconds: Long) {
@@ -1519,4 +1543,9 @@ internal class BigDataContainerFactory(
           .${options.domain} = ${options.realm}
           ${options.domain} = ${options.realm}
         """.trimIndent()
+
+    private companion object {
+        val HADOOP_IMAGE_ENV_TO_CONF_SUPPORTED_FORMATS = setOf("xml", "properties", "yaml", "yml")
+        val HADOOP_IMAGE_ENV_TO_CONF_BROKEN_FORMATS = setOf("env", "sh", "cfg", "conf")
+    }
 }

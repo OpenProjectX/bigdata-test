@@ -350,6 +350,48 @@ Mounts are useful for local debugging, but copied files are more reliable in CI 
 
 Available service names in container TOML are `kerberos`, `hdfs`, `hiveMetastore`, `hms`, `kafka`, `schemaRegistry`, `kafkaUi`, `localStackS3`, and `fakeGcs`.
 
+==== HDFS Environment Variable Names
+
+The HDFS service currently defaults to the `apache/hadoop:3.5.0` image. Its entrypoint runs the image's own `envtoconf.py` bootstrap before the `bigdata-test` HDFS startup command. This is an Apache Hadoop Docker image convention, not a general Hadoop runtime specification.
+
+That image parser treats environment variable names whose second token is a known config format as instructions to generate files under `HADOOP_CONF_DIR`. Tokens are split on `_` and `.`. For example:
+
+[source,text]
+----
+CORE_XML_fs_defaultFS=hdfs://hdfs:8020
+HDFS_XML_dfs_replication=1
+----
+
+Those variables ask the image to generate `core.xml` and `hdfs.xml` content. This can coexist with `bigdata-test` when you intentionally use the image-native convention.
+
+Do not use arbitrary HDFS custom environment variable names whose second token is one of the image's reserved config format names:
+
+[source,text]
+----
+xml, properties, yaml, yml, env, sh, cfg, conf
+----
+
+For example, this looks harmless but conflicts with the image parser:
+
+[source,toml]
+----
+[containers.hdfs.env]
+TEST_ENV = "TEST"
+----
+
+`TEST_ENV` is interpreted as "create `test.env`" with no config key. In `apache/hadoop:3.5.0`, the `env`, `sh`, `cfg`, and `conf` transforms are also buggy because they iterate parsed keys incorrectly. Names such as `TEST_ENV`, `TEST_ENV_FOO`, `APP_CONF`, and `FOO_SH_BAR` can fail before HDFS starts.
+
+Use a non-reserved name instead:
+
+[source,toml]
+----
+[containers.hdfs.env]
+TEST_VALUE = "TEST"
+MYAPP_ENV_VALUE = "TEST"
+----
+
+For Hadoop XML settings, prefer the typed `bigdata-test` options or copied XML files. If you intentionally use the image convention, use one of the working formats with a property suffix, such as `CORE_XML_fs_defaultFS`. Avoid the image's `env`, `sh`, `cfg`, and `conf` formats with `apache/hadoop:3.5.0`.
+
 Programmatic tests can use the same portable operations:
 
 [source,kotlin]

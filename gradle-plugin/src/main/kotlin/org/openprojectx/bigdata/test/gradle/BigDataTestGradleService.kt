@@ -182,7 +182,8 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
             .withContainerLogs(
                 ContainerLogOptions(
                     mode = parameters.containerLogMode.get(),
-                    directory = parameters.containerLogDirectory.get(),
+                    directory = projectPath(parameters.containerLogDirectory.get())
+                        ?: parameters.containerLogDirectory.get(),
                     append = parameters.containerLogAppend.get(),
                 ),
             )

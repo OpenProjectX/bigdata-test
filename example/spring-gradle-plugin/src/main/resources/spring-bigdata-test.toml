@@ -1,7 +1,11 @@
 [services]
-kerberos = true
-hdfsKerberos = true
+kerberos = false
+hdfsKerberos = false
+hdfs = true
+
 localStackS3 = true
+#schemaRegistry = true
+#kafka = true
 
 [kerberos]
 realm = "EXAMPLE.COM"
@@ -22,7 +26,9 @@ hdfsWeb = 9870
 localStackS3 = 4566
 
 [containerLogs]
-mode = "STDOUT"
+mode = "FILE"
+directory = "build/container-logs"
+append = false
 
 [containerLogLevels]
 kerberos = "DEBUG"
@@ -30,3 +36,6 @@ hdfs = "DEBUG"
 
 [containers.localstackS3.env]
 DISABLE_CORS_CHECKS = "1"
+
+#[containers.hdfs.env]
+#TEST_ENV = "TEST"

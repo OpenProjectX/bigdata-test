@@ -1,5 +1,5 @@
 [kerberosMaterial]
-enabled = true
+enabled = false
 
 [s3Jceks]
 enabled = true
