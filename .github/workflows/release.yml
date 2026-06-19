@@ -27,6 +27,21 @@ on:
         required: false
         default: false
         type: boolean
+      run_spark_matrix_tests:
+        description: "Run Spark big data matrix tests"
+        required: false
+        default: true
+        type: boolean
+      run_spring_gradle_plugin_smoke:
+        description: "Run Spring Gradle plugin bootRunLocal API smoke test"
+        required: false
+        default: true
+        type: boolean
+      run_release_task_tests:
+        description: "Allow tests to run inside the Gradle release task"
+        required: false
+        default: true
+        type: boolean
       publish_github_packages:
         description: "Also publish artifacts to GitHub Packages. Disabled by default because GitHub Packages can return checksum upload conflicts."
         required: false
@@ -70,6 +85,9 @@ jobs:
       EXTRA_GRADLE_ARGS: ${{ github.event.inputs.gradle_args || '' }}
       GRADLE_LOG_LEVEL: ${{ github.event.inputs.gradle_log_level || 'info' }}
       SKIP_TESTS: ${{ github.event.inputs.skip_tests || 'false' }}
+      RUN_SPARK_MATRIX_TESTS: ${{ github.event_name != 'workflow_dispatch' || inputs.run_spark_matrix_tests }}
+      RUN_SPRING_GRADLE_PLUGIN_SMOKE: ${{ github.event_name != 'workflow_dispatch' || inputs.run_spring_gradle_plugin_smoke }}
+      RUN_RELEASE_TASK_TESTS: ${{ github.event_name != 'workflow_dispatch' || inputs.run_release_task_tests }}
       PUBLISH_GITHUB_PACKAGES: ${{ github.event.inputs.publish_github_packages || 'false' }}
       ENABLE_DOCKER_IMAGE_CACHE: ${{ github.event.inputs.enable_docker_image_cache || 'false' }}
       TESTCONTAINERS_RYUK_DISABLED: "true"
@@ -100,13 +118,19 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Verify Docker environment
-        if: env.SKIP_TESTS != 'true'
+        if: >-
+          env.SKIP_TESTS != 'true' &&
+          (
+            env.RUN_SPARK_MATRIX_TESTS == 'true' ||
+            env.RUN_SPRING_GRADLE_PLUGIN_SMOKE == 'true' ||
+            env.RUN_RELEASE_TASK_TESTS == 'true'
+          )
         run: |
           docker version
           docker info
 
       - name: Cache Spark matrix Docker images
-        if: env.SKIP_TESTS != 'true' && env.ENABLE_DOCKER_IMAGE_CACHE == 'true'
+        if: env.SKIP_TESTS != 'true' && env.RUN_SPARK_MATRIX_TESTS == 'true' && env.ENABLE_DOCKER_IMAGE_CACHE == 'true'
         id: docker-image-cache
         uses: actions/cache@v4
         with:
@@ -116,7 +140,7 @@ jobs:
             ${{ runner.os }}-spark-matrix-docker-images-v1-
 
       - name: Load cached Spark matrix Docker images
-        if: env.SKIP_TESTS != 'true' && env.ENABLE_DOCKER_IMAGE_CACHE == 'true'
+        if: env.SKIP_TESTS != 'true' && env.RUN_SPARK_MATRIX_TESTS == 'true' && env.ENABLE_DOCKER_IMAGE_CACHE == 'true'
         run: |
           if [ -s "$DOCKER_IMAGE_CACHE_FILE" ]; then
             docker load --input "$DOCKER_IMAGE_CACHE_FILE"
@@ -126,7 +150,7 @@ jobs:
           fi
 
       - name: Pull Spark matrix Docker images
-        if: env.SKIP_TESTS != 'true'
+        if: env.SKIP_TESTS != 'true' && env.RUN_SPARK_MATRIX_TESTS == 'true'
         run: |
           set -euo pipefail
 
@@ -161,7 +185,7 @@ jobs:
           done
 
       - name: Save Spark matrix Docker images
-        if: env.SKIP_TESTS != 'true' && env.ENABLE_DOCKER_IMAGE_CACHE == 'true'
+        if: env.SKIP_TESTS != 'true' && env.RUN_SPARK_MATRIX_TESTS == 'true' && env.ENABLE_DOCKER_IMAGE_CACHE == 'true'
         run: |
           set -euo pipefail
           mkdir -p "$DOCKER_IMAGE_CACHE_DIR"
@@ -178,17 +202,17 @@ jobs:
           ls -lh "$DOCKER_IMAGE_CACHE_FILE"
 
       - name: Run Spark big data matrix tests
-        if: env.SKIP_TESTS != 'true'
+        if: env.SKIP_TESTS != 'true' && env.RUN_SPARK_MATRIX_TESTS == 'true'
         run: |
           ./gradlew --no-configuration-cache :example:spark:sparkBigDataMatrixTest --stacktrace "--$GRADLE_LOG_LEVEL"
 
       - name: Publish local artifacts for standalone examples
-        if: env.SKIP_TESTS != 'true'
+        if: env.SKIP_TESTS != 'true' && env.RUN_SPRING_GRADLE_PLUGIN_SMOKE == 'true'
         run: |
           ./gradlew --no-configuration-cache publishToMavenLocal -x test -x sparkBigDataMatrixTest --stacktrace "--$GRADLE_LOG_LEVEL"
 
       - name: Run Spring Gradle plugin API smoke test
-        if: env.SKIP_TESTS != 'true'
+        if: env.SKIP_TESTS != 'true' && env.RUN_SPRING_GRADLE_PLUGIN_SMOKE == 'true'
         run: |
           set -euo pipefail
           release_version="$(awk -F= '/^[[:space:]]*version[[:space:]]*=/{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}' gradle.properties)"
@@ -242,7 +266,7 @@ jobs:
           grep -F '"deleted":true' /tmp/spring-gradle-plugin-delete.json
 
       - name: Collect and print Spark diagnostics on failure
-        if: failure() && env.SKIP_TESTS != 'true'
+        if: failure() && env.SKIP_TESTS != 'true' && env.RUN_SPARK_MATRIX_TESTS == 'true'
         run: |
           set +e
           diagnostics_dir="build/github-diagnostics"
@@ -304,7 +328,14 @@ jobs:
           cp -a example/spark/build/reports/tests "${diagnostics_dir}/spark/test-reports" 2>/dev/null || true
 
       - name: Upload test reports and container logs
-        if: failure() && env.SKIP_TESTS != 'true'
+        if: >-
+          failure() &&
+          env.SKIP_TESTS != 'true' &&
+          (
+            env.RUN_SPARK_MATRIX_TESTS == 'true' ||
+            env.RUN_SPRING_GRADLE_PLUGIN_SMOKE == 'true' ||
+            env.RUN_RELEASE_TASK_TESTS == 'true'
+          )
         uses: actions/upload-artifact@v4
         with:
           name: test-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
@@ -346,11 +377,24 @@ jobs:
           SIGNING_KEY_FILE: ${{ runner.temp }}/signing-key.asc
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
-          skip_test_args=""
-          if [ "$SKIP_TESTS" = "true" ]; then
-            skip_test_args="-x test -x sparkBigDataMatrixTest -x sparkApacheDepsApacheHmsTest -x sparkApacheDepsApacheHmsKerberosTest -x sparkApacheDepsClouderaHmsTest -x sparkApacheDepsClouderaHmsKerberosTest -x sparkClouderaDepsApacheHmsTest -x sparkClouderaDepsApacheHmsKerberosTest -x sparkClouderaDepsClouderaHmsTest -x sparkClouderaDepsClouderaHmsKerberosTest"
+          skip_test_args=()
+          spark_test_excludes=(
+            -x sparkBigDataMatrixTest
+            -x sparkApacheDepsApacheHmsTest
+            -x sparkApacheDepsApacheHmsKerberosTest
+            -x sparkApacheDepsClouderaHmsTest
+            -x sparkApacheDepsClouderaHmsKerberosTest
+            -x sparkClouderaDepsApacheHmsTest
+            -x sparkClouderaDepsApacheHmsKerberosTest
+            -x sparkClouderaDepsClouderaHmsTest
+            -x sparkClouderaDepsClouderaHmsKerberosTest
+          )
+          if [ "$SKIP_TESTS" = "true" ] || [ "$RUN_RELEASE_TASK_TESTS" != "true" ]; then
+            skip_test_args=(-x test "${spark_test_excludes[@]}")
+          elif [ "$RUN_SPARK_MATRIX_TESTS" != "true" ]; then
+            skip_test_args=("${spark_test_excludes[@]}")
           fi
-          ./gradlew --no-configuration-cache release --stacktrace "--$GRADLE_LOG_LEVEL" $skip_test_args $EXTRA_GRADLE_ARGS
+          ./gradlew --no-configuration-cache release --stacktrace "--$GRADLE_LOG_LEVEL" "${skip_test_args[@]}" $EXTRA_GRADLE_ARGS
 
       - name: Write release publish summary
         if: always() && env.RELEASE_VERSION != ''
