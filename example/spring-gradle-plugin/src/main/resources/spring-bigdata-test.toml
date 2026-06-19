@@ -2,7 +2,8 @@
 kerberos = false
 hdfsKerberos = false
 hdfs = true
-hiveMetastore = true
+hiveMetastore = false
+clouderaHms = true
 
 localStackS3 = true
 #schemaRegistry = true
@@ -17,6 +18,15 @@ databasePassword = "hive"
 #databaseHostPort = 3306
 databaseHostPort = 0
 
+[clouderaHms]
+databaseType = "mariadb"
+databaseName = "metastore"
+databaseUser = "hive"
+databasePassword = "hive"
+# Optional. 0 means Testcontainers picks a random host port for 3306.
+databaseHostPort = 3306
+
+
 [kerberos]
 realm = "EXAMPLE.COM"
 domain = "example.com"
@@ -30,10 +40,17 @@ dataNodeHostname = "localhost"
 localHdfsSitePath = "build/bigdata-test/hadoop/hdfs-site.xml"
 
 [ports]
-hdfsNameNode = 8020
+# Dynamic ports are the default and avoid conflicts when a previous
+# bigDataTestRun is still alive. Uncomment these when you need stable local
+# ports for manual troubleshooting.
+#hdfsNameNode = 8020
+# The JCEKS extension writes to HDFS from the Gradle JVM. HDFS advertises the
+# DataNode service port to that client, so the host port must match it when
+# dataNodeHostname = "localhost".
 hdfsDataNode = 9866
-hdfsWeb = 9870
-localStackS3 = 4566
+#hdfsWeb = 9870
+#localStackS3 = 4566
+hiveMetastore = 9083
 
 [containerLogs]
 mode = "STDOUT"

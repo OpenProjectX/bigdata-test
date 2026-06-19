@@ -10,6 +10,10 @@ Open-source Hive Metastore uses PostgreSQL by default and can be switched to
 MySQL with TOML `databaseType = "mysql"` under `[hiveMetastore]`. Its support
 database uses a random host port by default; set `databaseHostPort` when you
 need a stable local port.
+Cloudera HMS defaults to `ghcr.io/openprojectx/cloudera-hms:0.1.74`; set
+`[clouderaHms] databaseType = "mariadb"` for the `0.1.74-mariadb` image.
+`[clouderaHms] databaseHostPort` can expose the embedded PostgreSQL/MariaDB
+port on a stable local port for troubleshooting.
 
 ## Modules
 

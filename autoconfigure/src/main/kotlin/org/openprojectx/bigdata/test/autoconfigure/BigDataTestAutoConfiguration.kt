@@ -2,6 +2,7 @@ package org.openprojectx.bigdata.test.autoconfigure
 
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.BigDataService
+import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.ContainerLogOptions
 import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HttpTlsOptions
@@ -123,7 +124,12 @@ class BigDataTestAutoConfiguration {
                 HiveMetastoreOptions(
                     enabled = true,
                     distribution = HiveMetastoreDistribution.CLOUDERA,
-                    image = properties.clouderaHms.image,
+                    image = properties.clouderaHms.imageForType(),
+                    clouderaDatabaseType = properties.clouderaHms.databaseType,
+                    databaseName = properties.clouderaHms.databaseName,
+                    databaseUser = properties.clouderaHms.databaseUser,
+                    databasePassword = properties.clouderaHms.databasePassword,
+                    databaseHostPort = properties.clouderaHms.databaseHostPort,
                     warehouseDir = properties.clouderaHms.warehouseDir,
                     extraConfiguration = properties.clouderaHms.extraConfiguration,
                     kerberos = KerberosAuthOptions(
@@ -211,6 +217,17 @@ class BigDataTestAutoConfiguration {
                     HiveMetastoreOptions.DEFAULT_MYSQL_IMAGE
                 } else {
                     databaseImage
+                }
+        }
+
+    private fun BigDataTestProperties.ClouderaHms.imageForType(): String =
+        when (databaseType) {
+            ClouderaHmsDatabaseType.POSTGRESQL -> image
+            ClouderaHmsDatabaseType.MARIADB ->
+                if (image == HiveMetastoreOptions.DEFAULT_CLOUDERA_IMAGE) {
+                    HiveMetastoreOptions.DEFAULT_CLOUDERA_MARIADB_IMAGE
+                } else {
+                    image
                 }
         }
 }

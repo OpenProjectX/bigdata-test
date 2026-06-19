@@ -9,6 +9,7 @@ import org.gradle.api.services.BuildServiceParameters
 import java.net.URLClassLoader
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKit
+import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.ContainerCustomizationOptions
 import org.openprojectx.bigdata.test.core.ContainerFileTransferOptions
 import org.openprojectx.bigdata.test.core.ContainerLogMode
@@ -101,6 +102,11 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val hiveMetastoreKerberosEnabled: Property<Boolean>
 
         val clouderaHmsImage: Property<String>
+        val clouderaHmsDatabaseType: Property<ClouderaHmsDatabaseType>
+        val clouderaHmsDatabaseName: Property<String>
+        val clouderaHmsDatabaseUser: Property<String>
+        val clouderaHmsDatabasePassword: Property<String>
+        val clouderaHmsDatabaseHostPort: Property<Int>
         val clouderaHmsWarehouseDir: Property<String>
         val clouderaHmsKerberosEnabled: Property<Boolean>
 
@@ -250,6 +256,11 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                     enabled = true,
                     distribution = HiveMetastoreDistribution.CLOUDERA,
                     image = parameters.clouderaHmsImage.get(),
+                    clouderaDatabaseType = parameters.clouderaHmsDatabaseType.get(),
+                    databaseName = parameters.clouderaHmsDatabaseName.get(),
+                    databaseUser = parameters.clouderaHmsDatabaseUser.get(),
+                    databasePassword = parameters.clouderaHmsDatabasePassword.get(),
+                    databaseHostPort = parameters.clouderaHmsDatabaseHostPort.get(),
                     warehouseDir = parameters.clouderaHmsWarehouseDir.get(),
                     localHiveSitePath = projectPath(parameters.hiveMetastoreLocalHiveSitePath.get()),
                     localMetastoreSitePath = projectPath(parameters.hiveMetastoreLocalMetastoreSitePath.get()),

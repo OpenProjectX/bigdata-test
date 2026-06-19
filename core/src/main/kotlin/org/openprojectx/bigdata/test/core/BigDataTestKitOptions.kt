@@ -84,6 +84,7 @@ data class HiveMetastoreOptions(
     val distribution: HiveMetastoreDistribution = HiveMetastoreDistribution.OPEN_SOURCE,
     val image: String = DEFAULT_IMAGE,
     val databaseType: HiveMetastoreDatabaseType = HiveMetastoreDatabaseType.POSTGRESQL,
+    val clouderaDatabaseType: ClouderaHmsDatabaseType = ClouderaHmsDatabaseType.POSTGRESQL,
     val databaseImage: String = DEFAULT_POSTGRES_IMAGE,
     val databaseHostPort: Int = 0,
     val databaseName: String = "metastore",
@@ -101,6 +102,9 @@ data class HiveMetastoreOptions(
 ) {
     companion object {
         const val DEFAULT_IMAGE = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5"
+        const val DEFAULT_CLOUDERA_IMAGE = "ghcr.io/openprojectx/cloudera-hms:0.1.74"
+        const val DEFAULT_CLOUDERA_MARIADB_IMAGE = "ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb"
+        const val DEFAULT_CLOUDERA_WAREHOUSE_DIR = "/tmp/cloudera-hms/warehouse"
         const val DEFAULT_POSTGRES_IMAGE = "postgres:16-alpine"
         const val DEFAULT_MYSQL_IMAGE = "mysql:8.0.44-bookworm"
     }
@@ -114,6 +118,11 @@ enum class HiveMetastoreDistribution {
 enum class HiveMetastoreDatabaseType {
     POSTGRESQL,
     MYSQL,
+}
+
+enum class ClouderaHmsDatabaseType {
+    POSTGRESQL,
+    MARIADB,
 }
 
 data class KafkaOptions(

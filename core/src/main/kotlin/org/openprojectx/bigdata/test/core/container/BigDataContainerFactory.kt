@@ -4,6 +4,7 @@ import org.openprojectx.bigdata.test.core.BigDataEndpoint
 import org.openprojectx.bigdata.test.core.BigDataHealthCheckMode
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKitOptions
+import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.ContainerFileTransferOptions
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerPortOptions
@@ -394,11 +395,14 @@ internal class BigDataContainerFactory(
 
     private fun clouderaHms(): BigDataServiceContainer {
         val hive = options.hiveMetastore
+        val databasePort = hive.clouderaDatabaseType.containerPort()
         val container = GenericBigDataContainer(hive.image)
             .withNetwork(network)
             .withNetworkAliases("hive-metastore", "hive-metastore.example.com")
             .withServicePort(9083, options.portBindings.hostPort(9083, options.portBindings.hiveMetastore))
+            .withServicePort(databasePort, options.portBindings.hostPort(databasePort, hive.databaseHostPort))
             .withEnv("HMS_WAREHOUSE_DIR", hive.warehouseDir)
+            .withClouderaHmsDatabase(hive)
             .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(3)))
         if (hive.kerberos.enabled) {
             mountKerberos(container)
@@ -435,6 +439,10 @@ internal class BigDataContainerFactory(
                     "spring.bigdata.test.hive-metastore.thrift-uri" to thriftUri,
                     "bigdata.test.hive-metastore.hive-site" to clientXmlPaths.hiveSite,
                     "bigdata.test.hive-metastore.metastore-site" to clientXmlPaths.metastoreSite,
+                    "bigdata.test.hive-metastore.database.type" to hive.clouderaDatabaseType.propertyValue(),
+                    "bigdata.test.hive-metastore.database.host" to container.host,
+                    "bigdata.test.hive-metastore.database.port" to container.getMappedPort(databasePort).toString(),
+                    "bigdata.test.hive-metastore.database.jdbc-url" to container.clouderaHmsJdbcUrl(hive, databasePort),
                 ) + tlsProperties +
                     clientProperties +
                     kerberosProperties("hive.metastore", hive.kerberos),
@@ -508,6 +516,37 @@ internal class BigDataContainerFactory(
             )
         }
     }
+
+    private fun ClouderaHmsDatabaseType.propertyValue(): String =
+        name.lowercase(Locale.ROOT)
+
+    private fun ClouderaHmsDatabaseType.containerPort(): Int =
+        when (this) {
+            ClouderaHmsDatabaseType.POSTGRESQL -> 5432
+            ClouderaHmsDatabaseType.MARIADB -> 3306
+        }
+
+    private fun GenericBigDataContainer.withClouderaHmsDatabase(hive: HiveMetastoreOptions): GenericBigDataContainer =
+        apply {
+            withEnv("HMS_DATABASE_TYPE", hive.clouderaDatabaseType.propertyValue())
+            withEnv("POSTGRES_DB", hive.databaseName)
+            withEnv("POSTGRES_USER", hive.databaseUser)
+            withEnv("POSTGRES_PASSWORD", hive.databasePassword)
+            withEnv("MARIADB_DATABASE", hive.databaseName)
+            withEnv("MARIADB_USER", hive.databaseUser)
+            withEnv("MARIADB_PASSWORD", hive.databasePassword)
+            withEnv("MARIADB_RANDOM_ROOT_PASSWORD", "yes")
+            withEnv("HMS_JDBC_USER", hive.databaseUser)
+            withEnv("HMS_JDBC_PASSWORD", hive.databasePassword)
+        }
+
+    private fun GenericBigDataContainer.clouderaHmsJdbcUrl(hive: HiveMetastoreOptions, databasePort: Int): String =
+        when (hive.clouderaDatabaseType) {
+            ClouderaHmsDatabaseType.POSTGRESQL ->
+                "jdbc:postgresql://$host:${getMappedPort(databasePort)}/${hive.databaseName}"
+            ClouderaHmsDatabaseType.MARIADB ->
+                "jdbc:mariadb://$host:${getMappedPort(databasePort)}/${hive.databaseName}?useMysqlMetadata=true"
+        }
 
     private fun tlsKafka(kafka: KafkaOptions): BigDataServiceContainer {
         val kafkaHostPort = options.portBindings.hostPort(9092, options.portBindings.kafka)

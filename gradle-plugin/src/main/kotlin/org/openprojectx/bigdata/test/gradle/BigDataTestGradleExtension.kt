@@ -5,6 +5,7 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
+import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
@@ -186,8 +187,22 @@ abstract class BigDataTestGradleHiveMetastore @Inject constructor(objects: Objec
 }
 
 abstract class BigDataTestGradleClouderaHms @Inject constructor(objects: ObjectFactory) {
-    val image: Property<String> = objects.property(String::class.java).convention("ghcr.io/openprojectx/cloudera-hms:0.1.16")
-    val warehouseDir: Property<String> = objects.property(String::class.java).convention("/user/hive/warehouse")
+    val databaseType: Property<ClouderaHmsDatabaseType> =
+        objects.property(ClouderaHmsDatabaseType::class.java).convention(ClouderaHmsDatabaseType.POSTGRESQL)
+    val image: Property<String> = objects.property(String::class.java).convention(
+        databaseType.map {
+            when (it) {
+                ClouderaHmsDatabaseType.POSTGRESQL -> HiveMetastoreOptions.DEFAULT_CLOUDERA_IMAGE
+                ClouderaHmsDatabaseType.MARIADB -> HiveMetastoreOptions.DEFAULT_CLOUDERA_MARIADB_IMAGE
+            }
+        },
+    )
+    val databaseName: Property<String> = objects.property(String::class.java).convention("metastore")
+    val databaseUser: Property<String> = objects.property(String::class.java).convention("hive")
+    val databasePassword: Property<String> = objects.property(String::class.java).convention("hive")
+    val databaseHostPort: Property<Int> = objects.property(Int::class.java).convention(0)
+    val warehouseDir: Property<String> =
+        objects.property(String::class.java).convention(HiveMetastoreOptions.DEFAULT_CLOUDERA_WAREHOUSE_DIR)
     val kerberosEnabled: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
 }
 

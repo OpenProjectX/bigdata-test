@@ -2,6 +2,7 @@ package org.openprojectx.bigdata.test.autoconfigure
 
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
+import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -74,14 +75,19 @@ data class BigDataTestProperties(
         var databaseUser: String = "hive",
         var databasePassword: String = "hive",
         var databaseHostPort: Int = 0,
-        var warehouseDir: String = "/user/hive/warehouse",
+        var warehouseDir: String = HiveMetastoreOptions.DEFAULT_CLOUDERA_WAREHOUSE_DIR,
         var extraConfiguration: Map<String, String> = emptyMap(),
         var kerberosEnabled: Boolean = false,
     )
 
     data class ClouderaHms(
         var enabled: Boolean = false,
-        var image: String = "ghcr.io/openprojectx/cloudera-hms:0.1.16",
+        var image: String = HiveMetastoreOptions.DEFAULT_CLOUDERA_IMAGE,
+        var databaseType: ClouderaHmsDatabaseType = ClouderaHmsDatabaseType.POSTGRESQL,
+        var databaseName: String = "metastore",
+        var databaseUser: String = "hive",
+        var databasePassword: String = "hive",
+        var databaseHostPort: Int = 0,
         var warehouseDir: String = "/user/hive/warehouse",
         var extraConfiguration: Map<String, String> = emptyMap(),
         var kerberosEnabled: Boolean = false,

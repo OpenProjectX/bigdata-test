@@ -231,7 +231,8 @@ hdfs = "apache/hadoop:3.5.0"
 hiveMetastore = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5"
 hiveMetastorePostgres = "postgres:16-alpine"
 hiveMetastoreMysql = "mysql:8.0.44-bookworm"
-clouderaHms = "ghcr.io/openprojectx/cloudera-hms:0.1.16"
+clouderaHms = "ghcr.io/openprojectx/cloudera-hms:0.1.74"
+clouderaHmsMariadb = "ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb"
 kafka = "apache/kafka:4.1.2"
 schemaRegistry = "confluentinc/cp-schema-registry:7.8.0"
 kafkaUi = "ghcr.io/kafbat/kafka-ui:latest"
@@ -531,7 +532,7 @@ CLI probes validate the container's own environment. For host-side behavior, suc
 
 `hiveMetastore` is the open-source HMS image and defaults to `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5`. Hive 4 images can be tested by overriding this image key, but Spark 3.x brings a Hive 2.3 metastore client and should use the Hive 3 image unless that client stack is changed. The open-source HMS path starts an external database support container. By default it uses PostgreSQL from `hiveMetastorePostgres`. Set `[hiveMetastore] databaseType = "mysql"` to use MySQL from `hiveMetastoreMysql`. The support database uses a random host port by default; set `[hiveMetastore] databaseHostPort` when you need a stable local database port for troubleshooting.
 
-`clouderaHms` is the embedded-Postgres Cloudera HMS image. Use the `clouderaHms = true` annotation flag when you want this implementation. A test class must not enable both `hiveMetastore` and `clouderaHms`.
+`clouderaHms` is the embedded-database Cloudera HMS image. Use the `clouderaHms = true` annotation flag when you want this implementation. It defaults to embedded PostgreSQL with `ghcr.io/openprojectx/cloudera-hms:0.1.74`; set `[clouderaHms] databaseType = "mariadb"` to use `ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb`. Its default warehouse path is `/tmp/cloudera-hms/warehouse`, which is writable for the non-root database user in the Cloudera HMS images. If you override `[clouderaHms] warehouseDir`, use a path that the image user can create and write. A test class must not enable both `hiveMetastore` and `clouderaHms`.
 
 === HTTP TLS Gateway
 
@@ -848,23 +849,109 @@ val kit = BigDataTestKit.builder()
     .build()
 ----
 
-Available port fields:
+Available fixed host-port config:
 
-* `kerberosKdcPort`
-* `hdfsNameNodePort`
-* `hdfsDataNodePort`
-* `hdfsWebPort`
-* `hdfsWebTls`
-* `hiveMetastorePort`
-* `kafkaPort`
-* `schemaRegistryPort`
-* `schemaRegistryTls`
-* `kafkaUiPort`
-* `kafkaUiTls`
-* `localStackS3Port`
-* `localStackS3Tls`
-* `fakeGcsPort`
-* `fakeGcsTls`
+[cols="2,2,2,3", options="header"]
+|===
+|Service endpoint
+|TOML key under `[ports]`
+|Annotation/Gradle property
+|Container port
+
+|Kerberos KDC
+|`kerberosKdc`
+|`kerberosKdcPort`
+|`88`
+
+|HDFS NameNode RPC
+|`hdfsNameNode`
+|`hdfsNameNodePort`
+|`8020`
+
+|HDFS DataNode data transfer
+|`hdfsDataNode`
+|`hdfsDataNodePort`
+|`9866`
+
+|HDFS Web UI
+|`hdfsWeb`
+|`hdfsWebPort`
+|`9870`
+
+|HDFS Web UI TLS gateway
+|`hdfsWebTls`
+|`hdfsWebTls`
+|`443` on the HAProxy gateway
+
+|Hive Metastore Thrift, including Cloudera HMS
+|`hiveMetastore`
+|`hiveMetastorePort`
+|`9083`
+
+|Kafka broker
+|`kafka`
+|`kafkaPort`
+|`9092`
+
+|Schema Registry HTTP
+|`schemaRegistry`
+|`schemaRegistryPort`
+|`8085`
+
+|Schema Registry TLS gateway
+|`schemaRegistryTls`
+|`schemaRegistryTls`
+|`443` on the HAProxy gateway
+
+|Kafka UI HTTP
+|`kafkaUi`
+|`kafkaUiPort`
+|`8080`
+
+|Kafka UI TLS gateway
+|`kafkaUiTls`
+|`kafkaUiTls`
+|`443` on the HAProxy gateway
+
+|LocalStack S3 HTTP
+|`localStackS3`
+|`localStackS3Port`
+|`4566`
+
+|LocalStack S3 TLS gateway
+|`localStackS3Tls`
+|`localStackS3Tls`
+|`443` on the HAProxy gateway
+
+|fake-gcs-server HTTP
+|`fakeGcs`
+|`fakeGcsPort`
+|`4443`
+
+|fake-gcs-server TLS gateway
+|`fakeGcsTls`
+|`fakeGcsTls`
+|`443` on the HAProxy gateway
+|===
+
+There is no `[ports] clouderaHms` key. Cloudera HMS shares the Hive Metastore service endpoint, so its Thrift port is configured with `[ports] hiveMetastore = 9083`.
+
+The embedded Cloudera HMS database port is not a service endpoint port. Configure it under `[clouderaHms]`:
+
+[source,toml]
+----
+[services]
+clouderaHms = true
+
+[ports]
+hiveMetastore = 9083
+
+[clouderaHms]
+databaseType = "mariadb" # or "postgresql"
+databaseHostPort = 3306  # 0 means random
+----
+
+For Cloudera HMS, `databaseType = "postgresql"` exposes embedded database container port `5432`; `databaseType = "mariadb"` exposes embedded database container port `3306`.
 
 Endpoint properties always report the actual mapped host ports.
 
@@ -1387,7 +1474,7 @@ Hive Metastore can be used in two different ways, and the distinction matters fo
 `bigdata-test` also supports two HMS implementations:
 
 * `hiveMetastore = true` starts open-source HMS from `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5` by default and starts a separate PostgreSQL support container. Set `[hiveMetastore] databaseType = "mysql"` to use a MySQL support container instead. Set `[hiveMetastore] databaseHostPort` to bind the support database to a stable local port.
-* `clouderaHms = true` starts `ghcr.io/openprojectx/cloudera-hms:0.1.16`, which already contains PostgreSQL in the same container.
+* `clouderaHms = true` starts `ghcr.io/openprojectx/cloudera-hms:0.1.74`, which already contains PostgreSQL in the same container. Set `[clouderaHms] databaseType = "mariadb"` to use the embedded MariaDB image `ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb`.
 
 The endpoint contract is the same for both implementations: `BigDataService.HIVE_METASTORE` exposes the Thrift URI through `hive.metastore.uris`. Choose one implementation per test class.
 
@@ -1412,6 +1499,28 @@ hiveMetastoreMysql = "mysql:8.0.44-bookworm"
 ----
 
 `databaseType` is explicit: setting `hiveMetastoreMysql` alone only changes the MySQL image that will be used when `databaseType = "mysql"` is selected. `databaseHostPort` controls only the host-side mapped port of the support database; the HMS container still connects to the database through the Docker network alias and the database container port.
+
+To run Cloudera HMS with the embedded MariaDB image:
+
+[source,toml]
+----
+[services]
+clouderaHms = true
+
+[clouderaHms]
+databaseType = "mariadb"
+databaseName = "metastore"
+databaseUser = "hive"
+databasePassword = "hive"
+# Optional. 0 means Testcontainers picks a random host port for 3306.
+databaseHostPort = 0
+
+[images]
+clouderaHms = "ghcr.io/openprojectx/cloudera-hms:0.1.74"
+clouderaHmsMariadb = "ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb"
+----
+
+For `databaseType = "postgresql"`, the Cloudera image exposes embedded PostgreSQL on container port `5432`. For `databaseType = "mariadb"`, it exposes embedded MariaDB on container port `3306`. `databaseHostPort` controls only the host-side mapped port for that embedded database; HMS itself still runs in the same container and listens on Thrift port `9083`.
 
 The open-source image can be replaced with Hive 4 or standalone-metastore images for clients that use a compatible Hive metastore API:
 

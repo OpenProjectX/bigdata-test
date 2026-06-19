@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ParameterContext
 import org.junit.jupiter.api.extension.ParameterResolver
 import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HttpTlsOptions
+import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
@@ -206,15 +207,42 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                         HiveMetastoreDistribution.OPEN_SOURCE ->
                             images.hiveMetastore ?: HiveMetastoreOptions.DEFAULT_IMAGE
                         HiveMetastoreDistribution.CLOUDERA ->
-                            images.clouderaHms ?: "ghcr.io/openprojectx/cloudera-hms:0.1.16"
+                            clouderaHmsImage(
+                                config.clouderaHms.databaseType ?: ClouderaHmsDatabaseType.POSTGRESQL,
+                                images.clouderaHms,
+                                images.clouderaHmsMariadb,
+                            )
                     },
                     databaseType = config.hiveMetastore.databaseType ?: HiveMetastoreDatabaseType.POSTGRESQL,
+                    clouderaDatabaseType =
+                        config.clouderaHms.databaseType ?: ClouderaHmsDatabaseType.POSTGRESQL,
                     databaseImage = hiveMetastoreDatabaseImage(
                         config.hiveMetastore.databaseType ?: HiveMetastoreDatabaseType.POSTGRESQL,
                         images.hiveMetastorePostgres,
                         images.hiveMetastoreMysql,
                     ),
-                    databaseHostPort = config.hiveMetastore.databaseHostPort ?: 0,
+                    databaseHostPort = when (distribution) {
+                        HiveMetastoreDistribution.OPEN_SOURCE -> config.hiveMetastore.databaseHostPort ?: 0
+                        HiveMetastoreDistribution.CLOUDERA -> config.clouderaHms.databaseHostPort ?: 0
+                    },
+                    databaseName = when (distribution) {
+                        HiveMetastoreDistribution.OPEN_SOURCE -> config.hiveMetastore.databaseName
+                        HiveMetastoreDistribution.CLOUDERA -> config.clouderaHms.databaseName
+                    } ?: HiveMetastoreOptions().databaseName,
+                    databaseUser = when (distribution) {
+                        HiveMetastoreDistribution.OPEN_SOURCE -> config.hiveMetastore.databaseUser
+                        HiveMetastoreDistribution.CLOUDERA -> config.clouderaHms.databaseUser
+                    } ?: HiveMetastoreOptions().databaseUser,
+                    databasePassword = when (distribution) {
+                        HiveMetastoreDistribution.OPEN_SOURCE -> config.hiveMetastore.databasePassword
+                        HiveMetastoreDistribution.CLOUDERA -> config.clouderaHms.databasePassword
+                    } ?: HiveMetastoreOptions().databasePassword,
+                    warehouseDir = when (distribution) {
+                        HiveMetastoreDistribution.OPEN_SOURCE ->
+                            config.hiveMetastore.warehouseDir ?: HiveMetastoreOptions().warehouseDir
+                        HiveMetastoreDistribution.CLOUDERA ->
+                            config.clouderaHms.warehouseDir ?: HiveMetastoreOptions.DEFAULT_CLOUDERA_WAREHOUSE_DIR
+                    },
                     tls = config.hiveMetastoreTls.toHttpTls("localhost").copy(enabled = hiveMetastoreTls),
                     kerberos = KerberosAuthOptions(
                         enabled = hiveMetastoreKerberos,
@@ -361,4 +389,14 @@ private fun hiveMetastoreDatabaseImage(
     when (databaseType) {
         HiveMetastoreDatabaseType.POSTGRESQL -> postgresImage ?: HiveMetastoreOptions.DEFAULT_POSTGRES_IMAGE
         HiveMetastoreDatabaseType.MYSQL -> mysqlImage ?: HiveMetastoreOptions.DEFAULT_MYSQL_IMAGE
+    }
+
+private fun clouderaHmsImage(
+    databaseType: ClouderaHmsDatabaseType,
+    postgresImage: String?,
+    mariadbImage: String?,
+): String =
+    when (databaseType) {
+        ClouderaHmsDatabaseType.POSTGRESQL -> postgresImage ?: HiveMetastoreOptions.DEFAULT_CLOUDERA_IMAGE
+        ClouderaHmsDatabaseType.MARIADB -> mariadbImage ?: HiveMetastoreOptions.DEFAULT_CLOUDERA_MARIADB_IMAGE
     }

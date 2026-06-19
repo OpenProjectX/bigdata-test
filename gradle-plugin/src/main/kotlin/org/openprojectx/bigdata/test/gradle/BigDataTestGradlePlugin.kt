@@ -10,6 +10,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
+import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 
 class BigDataTestGradlePlugin : Plugin<Project> {
@@ -109,6 +110,11 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.hiveMetastoreKerberosEnabled.set(extension.hiveMetastore.kerberosEnabled)
 
             spec.parameters.clouderaHmsImage.set(extension.clouderaHms.image)
+            spec.parameters.clouderaHmsDatabaseType.set(extension.clouderaHms.databaseType)
+            spec.parameters.clouderaHmsDatabaseName.set(extension.clouderaHms.databaseName)
+            spec.parameters.clouderaHmsDatabaseUser.set(extension.clouderaHms.databaseUser)
+            spec.parameters.clouderaHmsDatabasePassword.set(extension.clouderaHms.databasePassword)
+            spec.parameters.clouderaHmsDatabaseHostPort.set(extension.clouderaHms.databaseHostPort)
             spec.parameters.clouderaHmsWarehouseDir.set(extension.clouderaHms.warehouseDir)
             spec.parameters.clouderaHmsKerberosEnabled.set(extension.clouderaHms.kerberosEnabled)
 
@@ -269,7 +275,18 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.kerberos.image.tomlConvention(config.images.kerberos)
         extension.hdfs.image.tomlConvention(config.images.hdfs)
         extension.hiveMetastore.image.tomlConvention(config.images.hiveMetastore)
-        extension.clouderaHms.image.tomlConvention(config.images.clouderaHms)
+        extension.clouderaHms.databaseType.tomlConvention(config.clouderaHms.databaseType)
+        extension.clouderaHms.image.tomlConvention(
+            when (config.clouderaHms.databaseType) {
+                ClouderaHmsDatabaseType.POSTGRESQL -> config.images.clouderaHms
+                ClouderaHmsDatabaseType.MARIADB -> config.images.clouderaHmsMariadb
+                null -> config.images.clouderaHms
+            },
+        )
+        extension.clouderaHms.databaseName.tomlConvention(config.clouderaHms.databaseName)
+        extension.clouderaHms.databaseUser.tomlConvention(config.clouderaHms.databaseUser)
+        extension.clouderaHms.databasePassword.tomlConvention(config.clouderaHms.databasePassword)
+        extension.clouderaHms.databaseHostPort.tomlConvention(config.clouderaHms.databaseHostPort)
         extension.hiveMetastore.databaseType.tomlConvention(config.hiveMetastore.databaseType)
         extension.hiveMetastore.databaseImage.tomlConvention(
             when (config.hiveMetastore.databaseType) {

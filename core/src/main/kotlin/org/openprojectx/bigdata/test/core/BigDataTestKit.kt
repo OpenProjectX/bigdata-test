@@ -80,7 +80,8 @@ class BigDataTestKit private constructor(
             options: HiveMetastoreOptions = HiveMetastoreOptions(
                 enabled = true,
                 distribution = HiveMetastoreDistribution.CLOUDERA,
-                image = "ghcr.io/openprojectx/cloudera-hms:0.1.16",
+                image = HiveMetastoreOptions.DEFAULT_CLOUDERA_IMAGE,
+                warehouseDir = HiveMetastoreOptions.DEFAULT_CLOUDERA_WAREHOUSE_DIR,
             ),
         ): Builder =
             apply { hiveMetastore = options.copy(enabled = true, distribution = HiveMetastoreDistribution.CLOUDERA) }
