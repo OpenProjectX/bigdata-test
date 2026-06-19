@@ -1,6 +1,6 @@
 [services]
-kerberos = false
-hdfsKerberos = false
+kerberos = true
+hdfsKerberos = true
 hdfs = true
 hiveMetastore = false
 clouderaHms = true
