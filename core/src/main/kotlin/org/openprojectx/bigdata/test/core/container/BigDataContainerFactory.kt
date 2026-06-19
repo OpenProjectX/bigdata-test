@@ -9,6 +9,7 @@ import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerPortOptions
 import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HttpTlsOptions
+import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
@@ -18,10 +19,11 @@ import org.openprojectx.hive.docker.testcontainers.HiveMetastoreContainer
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.BindMode
 import org.testcontainers.containers.Network
-import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy
 import org.testcontainers.kafka.KafkaContainer
+import org.testcontainers.mysql.MySQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.containers.output.OutputFrame
 import org.testcontainers.images.builder.Transferable
 import org.testcontainers.lifecycle.Startable
@@ -244,22 +246,15 @@ internal class BigDataContainerFactory(
         if (hive.distribution == HiveMetastoreDistribution.CLOUDERA) {
             return clouderaHms()
         }
-        val postgres = PostgreSQLContainer(compatiblePostgresImage(hive.databaseImage))
-            .withNetwork(network)
-            .withNetworkAliases("hive-metastore-postgres")
-            .withDatabaseName(hive.databaseName)
-            .withUsername(hive.databaseUser)
-            .withPassword(hive.databasePassword)
-        supportContainers += attachLogs("hive-metastore-postgres", postgres)
-        postgres.start()
+        val database = startHiveMetastoreDatabase(hive)
 
         val container = FixedPortHiveMetastoreContainer(hive.image)
         container
             .withNetwork(network)
             .withNetworkAliases("hive-metastore", "hive-metastore.example.com")
             .withEnv("SERVICE_NAME", "metastore")
-            .withPostgres("hive-metastore-postgres", 5432, hive.databaseName, hive.databaseUser, hive.databasePassword)
             .withWarehousePath(hive.warehouseDir)
+        database.configure(container)
         container.withServicePort(9083, options.portBindings.hostPort(9083, options.portBindings.hiveMetastore))
         container.waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
         if (hive.kerberos.enabled) {
@@ -305,6 +300,11 @@ internal class BigDataContainerFactory(
                     "spring.bigdata.test.hive-metastore.thrift-uri" to thriftUri,
                     "bigdata.test.hive-metastore.hive-site" to clientXmlPaths.hiveSite,
                     "bigdata.test.hive-metastore.metastore-site" to clientXmlPaths.metastoreSite,
+                    "bigdata.test.hive-metastore.database.type" to hive.databaseType.name.lowercase(Locale.ROOT),
+                    "bigdata.test.hive-metastore.database.host" to database.container.host,
+                    "bigdata.test.hive-metastore.database.port" to
+                        database.container.getMappedPort(database.containerPort).toString(),
+                    "bigdata.test.hive-metastore.database.jdbc-url" to database.hostJdbcUrl(hive),
                 ) + tlsProperties +
                     clientProperties +
                     kerberosProperties("hive.metastore", hive.kerberos),
@@ -314,6 +314,83 @@ internal class BigDataContainerFactory(
 
     private fun compatiblePostgresImage(image: String): DockerImageName =
         DockerImageName.parse(image).asCompatibleSubstituteFor("postgres")
+
+    private fun compatibleMysqlImage(image: String): DockerImageName =
+        DockerImageName.parse(image).asCompatibleSubstituteFor("mysql")
+
+    private fun startHiveMetastoreDatabase(hive: HiveMetastoreOptions): HiveMetastoreDatabase {
+        val image = hive.databaseImageForType()
+        return when (hive.databaseType) {
+            HiveMetastoreDatabaseType.POSTGRESQL -> {
+                val container = PostgreSQLContainer(compatiblePostgresImage(image))
+                    .withNetwork(network)
+                    .withNetworkAliases(HIVE_METASTORE_POSTGRES_ALIAS)
+                    .withDatabaseName(hive.databaseName)
+                    .withUsername(hive.databaseUser)
+                    .withPassword(hive.databasePassword)
+                    .withOptionalHostPort(5432, hive.databaseHostPort)
+                supportContainers += attachLogs(HIVE_METASTORE_POSTGRES_ALIAS, container)
+                container.start()
+                HiveMetastoreDatabase(container, 5432) {
+                    it.withPostgres(
+                        HIVE_METASTORE_POSTGRES_ALIAS,
+                        5432,
+                        hive.databaseName,
+                        hive.databaseUser,
+                        hive.databasePassword,
+                    )
+                }
+            }
+            HiveMetastoreDatabaseType.MYSQL -> {
+                val container = MySQLContainer(compatibleMysqlImage(image))
+                    .withNetwork(network)
+                    .withNetworkAliases(HIVE_METASTORE_MYSQL_ALIAS)
+                    .withDatabaseName(hive.databaseName)
+                    .withUsername(hive.databaseUser)
+                    .withPassword(hive.databasePassword)
+                    .withOptionalHostPort(3306, hive.databaseHostPort)
+                supportContainers += attachLogs(HIVE_METASTORE_MYSQL_ALIAS, container)
+                container.start()
+                HiveMetastoreDatabase(container, 3306) {
+                    it.withMysql(
+                        HIVE_METASTORE_MYSQL_ALIAS,
+                        3306,
+                        hive.databaseName,
+                        hive.databaseUser,
+                        hive.databasePassword,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun <T : GenericContainer<*>> T.withOptionalHostPort(containerPort: Int, configuredHostPort: Int): T {
+        val hostPort = options.portBindings.hostPort(containerPort, configuredHostPort)
+        if (hostPort > 0) {
+            portBindings = portBindings + "$hostPort:$containerPort"
+        }
+        return this
+    }
+
+    private fun HiveMetastoreOptions.databaseImageForType(): String =
+        when (databaseType) {
+            HiveMetastoreDatabaseType.POSTGRESQL -> databaseImage
+            HiveMetastoreDatabaseType.MYSQL ->
+                if (databaseImage == HiveMetastoreOptions.DEFAULT_POSTGRES_IMAGE) {
+                    HiveMetastoreOptions.DEFAULT_MYSQL_IMAGE
+                } else {
+                    databaseImage
+                }
+        }
+
+    private fun HiveMetastoreDatabase.hostJdbcUrl(hive: HiveMetastoreOptions): String =
+        when (hive.databaseType) {
+            HiveMetastoreDatabaseType.POSTGRESQL ->
+                "jdbc:postgresql://${container.host}:${container.getMappedPort(containerPort)}/${hive.databaseName}"
+            HiveMetastoreDatabaseType.MYSQL ->
+                "jdbc:mysql://${container.host}:${container.getMappedPort(containerPort)}/${hive.databaseName}" +
+                    "?useSSL=false&allowPublicKeyRetrieval=true"
+        }
 
     private fun clouderaHms(): BigDataServiceContainer {
         val hive = options.hiveMetastore
@@ -746,11 +823,10 @@ internal class BigDataContainerFactory(
         val hive = options.hiveMetastore
         val metastoreProperties = linkedMapOf(
             "hive.metastore.warehouse.dir" to hive.warehouseDir,
-            "javax.jdo.option.ConnectionURL" to "jdbc:postgresql://hive-metastore-postgres:5432/${hive.databaseName}",
-            "javax.jdo.option.ConnectionDriverName" to "org.postgresql.Driver",
             "javax.jdo.option.ConnectionUserName" to hive.databaseUser,
             "javax.jdo.option.ConnectionPassword" to hive.databasePassword,
         )
+        metastoreProperties += hiveMetastoreDatabaseConnectionProperties(hive)
         if (hive.kerberos.enabled) {
             metastoreProperties += mapOf(
                 "hive.metastore.sasl.enabled" to "true",
@@ -805,6 +881,20 @@ internal class BigDataContainerFactory(
         rootLogger.appenderRefs = console
         rootLogger.appenderRef.console.ref = ${'$'}{sys:hive.root.logger}
         """.trimIndent()
+
+    private fun hiveMetastoreDatabaseConnectionProperties(hive: HiveMetastoreOptions): Map<String, String> =
+        when (hive.databaseType) {
+            HiveMetastoreDatabaseType.POSTGRESQL -> mapOf(
+                "javax.jdo.option.ConnectionURL" to
+                    "jdbc:postgresql://$HIVE_METASTORE_POSTGRES_ALIAS:5432/${hive.databaseName}",
+                "javax.jdo.option.ConnectionDriverName" to "org.postgresql.Driver",
+            )
+            HiveMetastoreDatabaseType.MYSQL -> mapOf(
+                "javax.jdo.option.ConnectionURL" to
+                    "jdbc:mysql://$HIVE_METASTORE_MYSQL_ALIAS:3306/${hive.databaseName}?useSSL=false&allowPublicKeyRetrieval=true",
+                "javax.jdo.option.ConnectionDriverName" to "com.mysql.cj.jdbc.Driver",
+            )
+        }
 
     private fun writeConfigurationXml(path: Path, properties: Map<String, String>) {
         path.parent?.let { Files.createDirectories(it) }
@@ -1544,7 +1634,15 @@ internal class BigDataContainerFactory(
           ${options.domain} = ${options.realm}
         """.trimIndent()
 
+    private data class HiveMetastoreDatabase(
+        val container: GenericContainer<*>,
+        val containerPort: Int,
+        val configure: (FixedPortHiveMetastoreContainer) -> Unit,
+    )
+
     private companion object {
+        const val HIVE_METASTORE_POSTGRES_ALIAS = "hive-metastore-postgres"
+        const val HIVE_METASTORE_MYSQL_ALIAS = "hive-metastore-mysql"
         val HADOOP_IMAGE_ENV_TO_CONF_SUPPORTED_FORMATS = setOf("xml", "properties", "yaml", "yml")
         val HADOOP_IMAGE_ENV_TO_CONF_BROKEN_FORMATS = setOf("env", "sh", "cfg", "conf")
     }

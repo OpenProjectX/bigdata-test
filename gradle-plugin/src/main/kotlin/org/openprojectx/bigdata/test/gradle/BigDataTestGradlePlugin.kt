@@ -10,6 +10,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
+import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 
 class BigDataTestGradlePlugin : Plugin<Project> {
     override fun apply(project: Project) {
@@ -96,10 +97,12 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.hdfsLocalHdfsSitePath.set(extension.hdfs.localHdfsSitePath)
 
             spec.parameters.hiveMetastoreImage.set(extension.hiveMetastore.image)
+            spec.parameters.hiveMetastoreDatabaseType.set(extension.hiveMetastore.databaseType)
             spec.parameters.hiveMetastoreDatabaseImage.set(extension.hiveMetastore.databaseImage)
             spec.parameters.hiveMetastoreDatabaseName.set(extension.hiveMetastore.databaseName)
             spec.parameters.hiveMetastoreDatabaseUser.set(extension.hiveMetastore.databaseUser)
             spec.parameters.hiveMetastoreDatabasePassword.set(extension.hiveMetastore.databasePassword)
+            spec.parameters.hiveMetastoreDatabaseHostPort.set(extension.hiveMetastore.databaseHostPort)
             spec.parameters.hiveMetastoreWarehouseDir.set(extension.hiveMetastore.warehouseDir)
             spec.parameters.hiveMetastoreLocalHiveSitePath.set(extension.hiveMetastore.localHiveSitePath)
             spec.parameters.hiveMetastoreLocalMetastoreSitePath.set(extension.hiveMetastore.localMetastoreSitePath)
@@ -267,7 +270,15 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.hdfs.image.tomlConvention(config.images.hdfs)
         extension.hiveMetastore.image.tomlConvention(config.images.hiveMetastore)
         extension.clouderaHms.image.tomlConvention(config.images.clouderaHms)
-        extension.hiveMetastore.databaseImage.tomlConvention(config.images.hiveMetastorePostgres)
+        extension.hiveMetastore.databaseType.tomlConvention(config.hiveMetastore.databaseType)
+        extension.hiveMetastore.databaseImage.tomlConvention(
+            when (config.hiveMetastore.databaseType) {
+                HiveMetastoreDatabaseType.POSTGRESQL -> config.images.hiveMetastorePostgres
+                HiveMetastoreDatabaseType.MYSQL -> config.images.hiveMetastoreMysql
+                null -> config.images.hiveMetastorePostgres
+            },
+        )
+        extension.hiveMetastore.databaseHostPort.tomlConvention(config.hiveMetastore.databaseHostPort)
         extension.kafka.image.tomlConvention(config.images.kafka)
         extension.kafka.schemaRegistryImage.tomlConvention(config.images.schemaRegistry ?: config.kafka.schemaRegistryImage)
         extension.kafka.kafkaUiImage.tomlConvention(config.images.kafkaUi ?: config.kafka.kafkaUiImage)

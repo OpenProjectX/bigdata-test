@@ -1,8 +1,9 @@
 [images]
 kerberos = "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest"
 hdfs = "apache/hadoop:3.5.0"
-hiveMetastore = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4"
+hiveMetastore = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5"
 hiveMetastorePostgres = "postgres:16-alpine"
+hiveMetastoreMysql = "mysql:8.0.44-bookworm"
 clouderaHms = "ghcr.io/openprojectx/cloudera-hms:0.1.16"
 kafka = "apache/kafka:4.1.2"
 schemaRegistry = "confluentinc/cp-schema-registry:7.8.0"

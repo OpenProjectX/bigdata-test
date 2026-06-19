@@ -16,6 +16,7 @@ import org.openprojectx.bigdata.test.core.ContainerLogOptions
 import org.openprojectx.bigdata.test.core.ContainerMountOptions
 import org.openprojectx.bigdata.test.core.ContainerPortOptions
 import org.openprojectx.bigdata.test.core.HdfsOptions
+import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.HttpTlsOptions
@@ -88,10 +89,12 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val hdfsLocalHdfsSitePath: Property<String>
 
         val hiveMetastoreImage: Property<String>
+        val hiveMetastoreDatabaseType: Property<HiveMetastoreDatabaseType>
         val hiveMetastoreDatabaseImage: Property<String>
         val hiveMetastoreDatabaseName: Property<String>
         val hiveMetastoreDatabaseUser: Property<String>
         val hiveMetastoreDatabasePassword: Property<String>
+        val hiveMetastoreDatabaseHostPort: Property<Int>
         val hiveMetastoreWarehouseDir: Property<String>
         val hiveMetastoreLocalHiveSitePath: Property<String>
         val hiveMetastoreLocalMetastoreSitePath: Property<String>
@@ -224,10 +227,12 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                     enabled = true,
                     distribution = HiveMetastoreDistribution.OPEN_SOURCE,
                     image = parameters.hiveMetastoreImage.get(),
+                    databaseType = parameters.hiveMetastoreDatabaseType.get(),
                     databaseImage = parameters.hiveMetastoreDatabaseImage.get(),
                     databaseName = parameters.hiveMetastoreDatabaseName.get(),
                     databaseUser = parameters.hiveMetastoreDatabaseUser.get(),
                     databasePassword = parameters.hiveMetastoreDatabasePassword.get(),
+                    databaseHostPort = parameters.hiveMetastoreDatabaseHostPort.get(),
                     warehouseDir = parameters.hiveMetastoreWarehouseDir.get(),
                     localHiveSitePath = projectPath(parameters.hiveMetastoreLocalHiveSitePath.get()),
                     localMetastoreSitePath = projectPath(parameters.hiveMetastoreLocalMetastoreSitePath.get()),

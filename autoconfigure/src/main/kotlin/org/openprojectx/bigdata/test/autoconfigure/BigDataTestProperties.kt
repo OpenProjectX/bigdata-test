@@ -1,5 +1,8 @@
 package org.openprojectx.bigdata.test.autoconfigure
 
+import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
+import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
+
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.springframework.boot.context.properties.ConfigurationProperties
 
@@ -64,11 +67,13 @@ data class BigDataTestProperties(
 
     data class HiveMetastore(
         var enabled: Boolean = false,
-        var image: String = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4",
-        var databaseImage: String = "postgres:16-alpine",
+        var image: String = HiveMetastoreOptions.DEFAULT_IMAGE,
+        var databaseType: HiveMetastoreDatabaseType = HiveMetastoreDatabaseType.POSTGRESQL,
+        var databaseImage: String = HiveMetastoreOptions.DEFAULT_POSTGRES_IMAGE,
         var databaseName: String = "metastore",
         var databaseUser: String = "hive",
         var databasePassword: String = "hive",
+        var databaseHostPort: Int = 0,
         var warehouseDir: String = "/user/hive/warehouse",
         var extraConfiguration: Map<String, String> = emptyMap(),
         var kerberosEnabled: Boolean = false,

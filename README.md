@@ -6,6 +6,10 @@ Composable Testcontainers fixtures for local big-data integration tests.
 connection properties through a small Kotlin/JUnit API. Heavier setup such as
 S3 JCEKS generation, bucket creation, and Kafka Avro seeding lives in the
 optional `extensions` module so `core` and `junit5` stay lightweight.
+Open-source Hive Metastore uses PostgreSQL by default and can be switched to
+MySQL with TOML `databaseType = "mysql"` under `[hiveMetastore]`. Its support
+database uses a random host port by default; set `databaseHostPort` when you
+need a stable local port.
 
 ## Modules
 

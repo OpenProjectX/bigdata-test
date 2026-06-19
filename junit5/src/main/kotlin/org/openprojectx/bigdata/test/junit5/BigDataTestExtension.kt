@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ParameterContext
 import org.junit.jupiter.api.extension.ParameterResolver
 import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HttpTlsOptions
+import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.BigDataTestKit
@@ -203,11 +204,17 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     distribution = distribution,
                     image = when (distribution) {
                         HiveMetastoreDistribution.OPEN_SOURCE ->
-                            images.hiveMetastore ?: "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4"
+                            images.hiveMetastore ?: HiveMetastoreOptions.DEFAULT_IMAGE
                         HiveMetastoreDistribution.CLOUDERA ->
                             images.clouderaHms ?: "ghcr.io/openprojectx/cloudera-hms:0.1.16"
                     },
-                    databaseImage = images.hiveMetastorePostgres ?: "postgres:16-alpine",
+                    databaseType = config.hiveMetastore.databaseType ?: HiveMetastoreDatabaseType.POSTGRESQL,
+                    databaseImage = hiveMetastoreDatabaseImage(
+                        config.hiveMetastore.databaseType ?: HiveMetastoreDatabaseType.POSTGRESQL,
+                        images.hiveMetastorePostgres,
+                        images.hiveMetastoreMysql,
+                    ),
+                    databaseHostPort = config.hiveMetastore.databaseHostPort ?: 0,
                     tls = config.hiveMetastoreTls.toHttpTls("localhost").copy(enabled = hiveMetastoreTls),
                     kerberos = KerberosAuthOptions(
                         enabled = hiveMetastoreKerberos,
@@ -345,3 +352,13 @@ private fun BigDataTestHttpTlsConfig.toHttpTls(defaultDomain: String): HttpTlsOp
         enabled = enabled == true,
         domain = domain ?: defaultDomain,
     )
+
+private fun hiveMetastoreDatabaseImage(
+    databaseType: HiveMetastoreDatabaseType,
+    postgresImage: String?,
+    mysqlImage: String?,
+): String =
+    when (databaseType) {
+        HiveMetastoreDatabaseType.POSTGRESQL -> postgresImage ?: HiveMetastoreOptions.DEFAULT_POSTGRES_IMAGE
+        HiveMetastoreDatabaseType.MYSQL -> mysqlImage ?: HiveMetastoreOptions.DEFAULT_MYSQL_IMAGE
+    }

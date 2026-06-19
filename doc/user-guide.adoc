@@ -11,7 +11,7 @@
 The project currently provides containers and test integration for:
 
 * HDFS
-* Open-source Hive Metastore backed by PostgreSQL
+* Open-source Hive Metastore backed by PostgreSQL or MySQL
 * Cloudera HMS with embedded PostgreSQL
 * Kafka
 * Schema Registry
@@ -228,8 +228,9 @@ Service images can be overridden from TOML with an `[images]` table. The JUnit e
 [images]
 kerberos = "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest"
 hdfs = "apache/hadoop:3.5.0"
-hiveMetastore = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4"
+hiveMetastore = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5"
 hiveMetastorePostgres = "postgres:16-alpine"
+hiveMetastoreMysql = "mysql:8.0.44-bookworm"
 clouderaHms = "ghcr.io/openprojectx/cloudera-hms:0.1.16"
 kafka = "apache/kafka:4.1.2"
 schemaRegistry = "confluentinc/cp-schema-registry:7.8.0"
@@ -238,7 +239,7 @@ localStackS3 = "localstack/localstack:4.14.0"
 fakeGcs = "fsouza/fake-gcs-server:1.54"
 ----
 
-Kafka and the open-source HMS PostgreSQL sidecar use typed Testcontainers classes instead of plain generic containers. When you override those images, `bigdata-test` marks the configured Kafka image as a compatible substitute for `apache/kafka` and the configured PostgreSQL image as a compatible substitute for `postgres`, so private mirrors or rebuilt images can still pass Testcontainers image checks.
+Kafka and the open-source HMS database sidecar use typed Testcontainers classes instead of plain generic containers. When you override those images, `bigdata-test` marks the configured Kafka image as a compatible substitute for `apache/kafka`, PostgreSQL as a compatible substitute for `postgres`, and MySQL as a compatible substitute for `mysql`, so private mirrors or rebuilt images can still pass Testcontainers image checks.
 
 You can place `[images]` in the same TOML files used by `@BigDataExtensions`, because `@BigDataTest` reads those locations before startup when the extensions annotation is present:
 
@@ -528,7 +529,7 @@ Current CLI probes:
 
 CLI probes validate the container's own environment. For host-side behavior, such as Windows HDFS clients connecting through mapped ports, use a host/JVM smoke test as well because an in-container `hdfs dfs` command cannot prove host network reachability.
 
-`hiveMetastore` is the open-source HMS image and defaults to `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4`. Hive 4 images can be tested by overriding this image key, but Spark 3.x brings a Hive 2.3 metastore client and should use the Hive 3 image unless that client stack is changed. The open-source HMS path starts an external PostgreSQL support container using `hiveMetastorePostgres`.
+`hiveMetastore` is the open-source HMS image and defaults to `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5`. Hive 4 images can be tested by overriding this image key, but Spark 3.x brings a Hive 2.3 metastore client and should use the Hive 3 image unless that client stack is changed. The open-source HMS path starts an external database support container. By default it uses PostgreSQL from `hiveMetastorePostgres`. Set `[hiveMetastore] databaseType = "mysql"` to use MySQL from `hiveMetastoreMysql`. The support database uses a random host port by default; set `[hiveMetastore] databaseHostPort` when you need a stable local database port for troubleshooting.
 
 `clouderaHms` is the embedded-Postgres Cloudera HMS image. Use the `clouderaHms = true` annotation flag when you want this implementation. A test class must not enable both `hiveMetastore` and `clouderaHms`.
 
@@ -1385,10 +1386,32 @@ Hive Metastore can be used in two different ways, and the distinction matters fo
 
 `bigdata-test` also supports two HMS implementations:
 
-* `hiveMetastore = true` starts open-source HMS from `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4` by default and starts a separate PostgreSQL support container.
+* `hiveMetastore = true` starts open-source HMS from `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5` by default and starts a separate PostgreSQL support container. Set `[hiveMetastore] databaseType = "mysql"` to use a MySQL support container instead. Set `[hiveMetastore] databaseHostPort` to bind the support database to a stable local port.
 * `clouderaHms = true` starts `ghcr.io/openprojectx/cloudera-hms:0.1.16`, which already contains PostgreSQL in the same container.
 
 The endpoint contract is the same for both implementations: `BigDataService.HIVE_METASTORE` exposes the Thrift URI through `hive.metastore.uris`. Choose one implementation per test class.
+
+To run open-source HMS with MySQL instead of PostgreSQL:
+
+[source,toml]
+----
+[services]
+hiveMetastore = true
+
+[hiveMetastore]
+databaseType = "mysql"
+databaseName = "metastore"
+databaseUser = "hive"
+databasePassword = "hive"
+# Optional. 0 means Testcontainers picks a random host port.
+databaseHostPort = 0
+
+[images]
+hiveMetastore = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5"
+hiveMetastoreMysql = "mysql:8.0.44-bookworm"
+----
+
+`databaseType` is explicit: setting `hiveMetastoreMysql` alone only changes the MySQL image that will be used when `databaseType = "mysql"` is selected. `databaseHostPort` controls only the host-side mapped port of the support database; the HMS container still connects to the database through the Docker network alias and the database container port.
 
 The open-source image can be replaced with Hive 4 or standalone-metastore images for clients that use a compatible Hive metastore API:
 
@@ -1731,7 +1754,8 @@ bigdata:
     enabled: true
     hive-metastore:
       enabled: true
-      image: ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4
+      image: ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5
+      database-type: postgresql
       database-image: postgres:16-alpine
     kafka:
       enabled: true

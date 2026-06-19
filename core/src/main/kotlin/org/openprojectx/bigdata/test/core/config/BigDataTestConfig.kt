@@ -10,6 +10,7 @@ import org.openprojectx.bigdata.test.core.ContainerFileTransferOptions
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerMountOptions
 import org.openprojectx.bigdata.test.core.ContainerPortOptions
+import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 
 data class BigDataTestConfig(
     val images: BigDataTestImageConfig = BigDataTestImageConfig(),
@@ -80,6 +81,8 @@ data class BigDataTestHdfsConfig(
 }
 
 data class BigDataTestHiveMetastoreConfig(
+    val databaseType: HiveMetastoreDatabaseType? = null,
+    val databaseHostPort: Int? = null,
     val databaseName: String? = null,
     val databaseUser: String? = null,
     val databasePassword: String? = null,
@@ -89,6 +92,8 @@ data class BigDataTestHiveMetastoreConfig(
 ) {
     fun merge(override: BigDataTestHiveMetastoreConfig): BigDataTestHiveMetastoreConfig =
         BigDataTestHiveMetastoreConfig(
+            databaseType = override.databaseType ?: databaseType,
+            databaseHostPort = override.databaseHostPort ?: databaseHostPort,
             databaseName = override.databaseName ?: databaseName,
             databaseUser = override.databaseUser ?: databaseUser,
             databasePassword = override.databasePassword ?: databasePassword,
@@ -186,6 +191,7 @@ data class BigDataTestImageConfig(
     val hiveMetastore: String? = null,
     val clouderaHms: String? = null,
     val hiveMetastorePostgres: String? = null,
+    val hiveMetastoreMysql: String? = null,
     val kafka: String? = null,
     val schemaRegistry: String? = null,
     val kafkaUi: String? = null,
@@ -199,6 +205,7 @@ data class BigDataTestImageConfig(
             hiveMetastore = override.hiveMetastore ?: hiveMetastore,
             clouderaHms = override.clouderaHms ?: clouderaHms,
             hiveMetastorePostgres = override.hiveMetastorePostgres ?: hiveMetastorePostgres,
+            hiveMetastoreMysql = override.hiveMetastoreMysql ?: hiveMetastoreMysql,
             kafka = override.kafka ?: kafka,
             schemaRegistry = override.schemaRegistry ?: schemaRegistry,
             kafkaUi = override.kafkaUi ?: kafkaUi,
@@ -326,6 +333,7 @@ class BigDataTestConfigLoader(
                 hiveMetastore = images.string("hiveMetastore"),
                 clouderaHms = images.string("clouderaHms"),
                 hiveMetastorePostgres = images.string("hiveMetastorePostgres"),
+                hiveMetastoreMysql = images.string("hiveMetastoreMysql"),
                 kafka = images.string("kafka"),
                 schemaRegistry = images.string("schemaRegistry"),
                 kafkaUi = images.string("kafkaUi"),
@@ -374,6 +382,8 @@ class BigDataTestConfigLoader(
                 localHdfsSitePath = hdfs.string("localHdfsSitePath"),
             ),
             hiveMetastore = BigDataTestHiveMetastoreConfig(
+                databaseType = hiveMetastore.string("databaseType")?.let(::parseHiveMetastoreDatabaseType),
+                databaseHostPort = hiveMetastore.int("databaseHostPort"),
                 databaseName = hiveMetastore.string("databaseName"),
                 databaseUser = hiveMetastore.string("databaseUser"),
                 databasePassword = hiveMetastore.string("databasePassword"),
@@ -515,6 +525,13 @@ class BigDataTestConfigLoader(
             enabled = values.boolean("enabled"),
             domain = values.string("domain"),
         )
+
+    private fun parseHiveMetastoreDatabaseType(value: String): HiveMetastoreDatabaseType =
+        when (value.trim().lowercase().replace("-", "").replace("_", "")) {
+            "postgres", "postgresql" -> HiveMetastoreDatabaseType.POSTGRESQL
+            "mysql" -> HiveMetastoreDatabaseType.MYSQL
+            else -> error("Hive Metastore databaseType must be one of postgresql, postgres, or mysql, got '$value'")
+        }
 
     private fun parseContainerCustomizations(
         tables: Map<String, Map<String, TomlValue>>,

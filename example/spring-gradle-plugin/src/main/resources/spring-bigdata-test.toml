@@ -2,10 +2,20 @@
 kerberos = false
 hdfsKerberos = false
 hdfs = true
+hiveMetastore = true
 
 localStackS3 = true
 #schemaRegistry = true
 #kafka = true
+
+[hiveMetastore]
+databaseType = "mysql"
+databaseName = "metastore"
+databaseUser = "hive"
+databasePassword = "hive"
+# Optional: use a fixed host port for local database troubleshooting.
+#databaseHostPort = 3306
+databaseHostPort = 0
 
 [kerberos]
 realm = "EXAMPLE.COM"
@@ -26,7 +36,7 @@ hdfsWeb = 9870
 localStackS3 = 4566
 
 [containerLogs]
-mode = "FILE"
+mode = "STDOUT"
 directory = "build/container-logs"
 append = false
 

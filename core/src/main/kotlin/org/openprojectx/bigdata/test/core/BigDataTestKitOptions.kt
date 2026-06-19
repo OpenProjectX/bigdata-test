@@ -82,8 +82,10 @@ data class HdfsOptions(
 data class HiveMetastoreOptions(
     val enabled: Boolean = false,
     val distribution: HiveMetastoreDistribution = HiveMetastoreDistribution.OPEN_SOURCE,
-    val image: String = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4",
-    val databaseImage: String = "postgres:16-alpine",
+    val image: String = DEFAULT_IMAGE,
+    val databaseType: HiveMetastoreDatabaseType = HiveMetastoreDatabaseType.POSTGRESQL,
+    val databaseImage: String = DEFAULT_POSTGRES_IMAGE,
+    val databaseHostPort: Int = 0,
     val databaseName: String = "metastore",
     val databaseUser: String = "hive",
     val databasePassword: String = "hive",
@@ -96,11 +98,22 @@ data class HiveMetastoreOptions(
         servicePrincipal = "hive/hive-metastore.example.com@EXAMPLE.COM",
         keytabPath = "/kerby/keytabs/hive-metastore.keytab",
     ),
-)
+) {
+    companion object {
+        const val DEFAULT_IMAGE = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5"
+        const val DEFAULT_POSTGRES_IMAGE = "postgres:16-alpine"
+        const val DEFAULT_MYSQL_IMAGE = "mysql:8.0.44-bookworm"
+    }
+}
 
 enum class HiveMetastoreDistribution {
     OPEN_SOURCE,
     CLOUDERA,
+}
+
+enum class HiveMetastoreDatabaseType {
+    POSTGRESQL,
+    MYSQL,
 }
 
 data class KafkaOptions(

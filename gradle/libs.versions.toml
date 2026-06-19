@@ -9,7 +9,7 @@ kotlinxSerializationJSON = "1.9.0"
 kotlinxCoroutines = "1.10.2"
 springBoot = "4.0.5"
 testcontainers = "2.0.4"
-hiveDockerTestcontainers = "0.1.4"
+hiveDockerTestcontainers = "0.1.5"
 spark = "3.5.7"
 hadoop = "3.4.2"
 kafka = "4.1.2"
@@ -26,6 +26,7 @@ gcsConnector = "4.0.4"
 gcsio = "4.0.4"
 bouncycastle = "1.83"
 awsSdk = "2.41.5"
+mysqlConnector = "8.4.0"
 
 [libraries]
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -37,6 +38,7 @@ kotlinxCoroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", 
 testcontainersBom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers = { module = "org.testcontainers:testcontainers" }
 testcontainersPostgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+testcontainersMysql = { module = "org.testcontainers:testcontainers-mysql" }
 testcontainersKafka = { module = "org.testcontainers:testcontainers-kafka" }
 testcontainersJunitJupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 kafkaClients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
@@ -66,6 +68,7 @@ slf4jSimple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 bouncycastlePkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 bouncycastleProvider = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 awsSdkS3 = { module = "software.amazon.awssdk:s3", version.ref = "awsSdk" }
+mysqlConnector = { module = "com.mysql:mysql-connector-j", version.ref = "mysqlConnector" }
 
 # Libraries can be bundled together for easier import
 [bundles]

@@ -96,7 +96,7 @@ Host-side Kafka Kerberos clients need a stable advertised host port. Existing Ke
 
 The project supports two Hive Metastore implementations:
 
-- `hiveMetastore = true`: open-source Hive HMS image plus external PostgreSQL.
+- `hiveMetastore = true`: open-source Hive HMS image plus external PostgreSQL by default, or MySQL with `databaseType = "mysql"`.
 - `clouderaHms = true`: Cloudera HMS image with embedded PostgreSQL.
 
 Keep their endpoint contract the same through `BigDataService.HIVE_METASTORE`. A test must enable only one HMS implementation.

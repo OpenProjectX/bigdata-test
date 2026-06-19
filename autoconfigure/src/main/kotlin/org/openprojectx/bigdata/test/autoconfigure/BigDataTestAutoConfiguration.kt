@@ -5,6 +5,7 @@ import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.ContainerLogOptions
 import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HttpTlsOptions
+import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
@@ -100,10 +101,12 @@ class BigDataTestAutoConfiguration {
                     enabled = true,
                     distribution = HiveMetastoreDistribution.OPEN_SOURCE,
                     image = properties.hiveMetastore.image,
-                    databaseImage = properties.hiveMetastore.databaseImage,
+                    databaseType = properties.hiveMetastore.databaseType,
+                    databaseImage = properties.hiveMetastore.databaseImageForType(),
                     databaseName = properties.hiveMetastore.databaseName,
                     databaseUser = properties.hiveMetastore.databaseUser,
                     databasePassword = properties.hiveMetastore.databasePassword,
+                    databaseHostPort = properties.hiveMetastore.databaseHostPort,
                     warehouseDir = properties.hiveMetastore.warehouseDir,
                     extraConfiguration = properties.hiveMetastore.extraConfiguration,
                     kerberos = KerberosAuthOptions(
@@ -199,4 +202,15 @@ class BigDataTestAutoConfiguration {
                 service.name.replace("_", "-").equals(this, ignoreCase = true) ||
                 service.name.replace("_", "").equals(this, ignoreCase = true)
         } ?: error("Unknown bigdata.test.container-log-levels service '$this'")
+
+    private fun BigDataTestProperties.HiveMetastore.databaseImageForType(): String =
+        when (databaseType) {
+            HiveMetastoreDatabaseType.POSTGRESQL -> databaseImage
+            HiveMetastoreDatabaseType.MYSQL ->
+                if (databaseImage == HiveMetastoreOptions.DEFAULT_POSTGRES_IMAGE) {
+                    HiveMetastoreOptions.DEFAULT_MYSQL_IMAGE
+                } else {
+                    databaseImage
+                }
+        }
 }

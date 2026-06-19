@@ -6,6 +6,8 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.openprojectx.bigdata.test.core.ContainerLogMode
+import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
+import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import javax.inject.Inject
 
 abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFactory) {
@@ -162,11 +164,21 @@ abstract class BigDataTestGradleHdfs @Inject constructor(objects: ObjectFactory)
 
 abstract class BigDataTestGradleHiveMetastore @Inject constructor(objects: ObjectFactory) {
     val image: Property<String> = objects.property(String::class.java)
-        .convention("ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4")
-    val databaseImage: Property<String> = objects.property(String::class.java).convention("postgres:16-alpine")
+        .convention(HiveMetastoreOptions.DEFAULT_IMAGE)
+    val databaseType: Property<HiveMetastoreDatabaseType> =
+        objects.property(HiveMetastoreDatabaseType::class.java).convention(HiveMetastoreDatabaseType.POSTGRESQL)
+    val databaseImage: Property<String> = objects.property(String::class.java).convention(
+        databaseType.map {
+            when (it) {
+                HiveMetastoreDatabaseType.POSTGRESQL -> HiveMetastoreOptions.DEFAULT_POSTGRES_IMAGE
+                HiveMetastoreDatabaseType.MYSQL -> HiveMetastoreOptions.DEFAULT_MYSQL_IMAGE
+            }
+        },
+    )
     val databaseName: Property<String> = objects.property(String::class.java).convention("metastore")
     val databaseUser: Property<String> = objects.property(String::class.java).convention("hive")
     val databasePassword: Property<String> = objects.property(String::class.java).convention("hive")
+    val databaseHostPort: Property<Int> = objects.property(Int::class.java).convention(0)
     val warehouseDir: Property<String> = objects.property(String::class.java).convention("/user/hive/warehouse")
     val localHiveSitePath: Property<String> = objects.property(String::class.java).convention("")
     val localMetastoreSitePath: Property<String> = objects.property(String::class.java).convention("")
