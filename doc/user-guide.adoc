@@ -1689,7 +1689,7 @@ bigDataTest {
 
 Extension provisioning dependencies are resolved into the plugin-owned `bigDataTestExtensionRuntime` configuration. They are not added to the application `implementation`, `runtimeClasspath`, `testImplementation`, or `testRuntimeClasspath` configurations.
 
-By default the plugin uses the shaded `extensions:<version>:runtime` artifact. This keeps Spark, Hadoop, Kafka, Avro, thin Iceberg Spark modules, and their transitive runtime dependencies managed by bigdata-test instead of letting the application dependency graph choose those versions. The extension runtime classloader prefers its own jars and delegates shared bigdata-test core types to the Gradle plugin parent classloader.
+By default the plugin uses the shaded `extensions:<version>:runtime` artifact. This keeps Spark, Hadoop, Kafka, Avro, thin Iceberg Spark/Hive catalog modules, and their transitive runtime dependencies managed by bigdata-test instead of letting the application dependency graph choose those versions. The extension runtime classloader prefers its own jars and delegates shared bigdata-test core types to the Gradle plugin parent classloader.
 
 Application dependencies such as `implementation`, `runtimeOnly`, `testImplementation`, and `testRuntimeOnly` are not added to the bigdata-test extension runtime. Dependencies explicitly added to `bigDataTestExtensionRuntime` are different: they are intentionally part of the extension runtime and can affect extension execution. Use that configuration only for optional extension-only libraries that bigdata-test does not already provide.
 
@@ -1823,7 +1823,7 @@ scripts = ["classpath:sql/create_tables.sql"]
 
 Place the script at `src/main/resources/sql/create_tables.sql`, or use a `file:` URL when the SQL lives outside the project resources.
 
-The shaded runtime jar intentionally favors isolation over small size. It uses the thin Iceberg Spark modules instead of the fat `iceberg-spark-runtime` jar, but still includes enough Hadoop, Spark, Iceberg, Kafka Avro, and AWS runtime code for config-driven provisioning without borrowing the user application's dependency graph. The largest remaining optional payload is `iceberg-aws-bundle`, which is kept for Iceberg S3 FileIO and AWS catalog support. If size or dependency inspection matters more than isolation, set `useShadedArtifact = false` and let the plugin resolve only the runtime families detected from `extensionConfig`, or add the exact artifacts you want to `bigDataTestExtensionRuntime`.
+The shaded runtime jar intentionally favors isolation over small size. It uses the thin Iceberg Spark modules plus `iceberg-hive-metastore` instead of the fat `iceberg-spark-runtime` jar, but still includes enough Hadoop, Spark, Iceberg, Kafka Avro, and AWS runtime code for config-driven provisioning without borrowing the user application's dependency graph. `iceberg-hive-metastore` is required when Spark SQL preparation uses an Iceberg `HiveCatalog`. The largest remaining optional payload is `iceberg-aws-bundle`, which is kept for Iceberg S3 FileIO and AWS catalog support. If size or dependency inspection matters more than isolation, set `useShadedArtifact = false` and let the plugin resolve only the runtime families detected from `extensionConfig`, or add the exact artifacts you want to `bigDataTestExtensionRuntime`.
 
 Gradle configuration is Gradle-native; the plugin does not read a Maven POM. When values should come from `gradle.properties` or `-P`, wire them through Gradle providers:
 

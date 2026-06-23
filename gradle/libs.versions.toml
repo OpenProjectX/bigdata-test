@@ -55,6 +55,7 @@ hadoopClientRuntime = { module = "org.apache.hadoop:hadoop-client-runtime", vers
 sparkAvro = { module = "org.apache.spark:spark-avro_2.12", version.ref = "spark" }
 icebergSpark = { module = "org.apache.iceberg:iceberg-spark-3.5_2.12", version.ref = "iceberg" }
 icebergSparkExtensions = { module = "org.apache.iceberg:iceberg-spark-extensions-3.5_2.12", version.ref = "iceberg" }
+icebergHiveMetastore = { module = "org.apache.iceberg:iceberg-hive-metastore", version.ref = "iceberg" }
 icebergAwsBundle = { module = "org.apache.iceberg:iceberg-aws-bundle", version.ref = "iceberg" }
 gcsConnector = { module = "com.google.cloud.bigdataoss:gcs-connector", version.ref = "gcsConnector" }
 gcsio = { module = "com.google.cloud.bigdataoss:gcsio", version.ref = "gcsio" }

@@ -64,6 +64,7 @@ dependencies {
     }
     shadedRuntime(libs.icebergSpark)
     shadedRuntime(libs.icebergSparkExtensions)
+    shadedRuntime(libs.icebergHiveMetastore)
     shadedRuntime(libs.icebergAwsBundle)
     shadedRuntime(libs.servletApi)
     shadedRuntime(libs.kotlinxSerialization)
@@ -81,12 +82,16 @@ dependencies {
     testRuntimeOnly(libs.slf4jSimple)
 }
 
-tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+val runtimeShadowJar = tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
     archiveClassifier.set("runtime")
     configurations = listOf(shadedRuntime)
     isZip64 = true
     mergeServiceFiles()
     relocate("com.fasterxml.jackson", "org.openprojectx.bigdata.test.shaded.fasterxml.jackson")
+}
+
+tasks.withType<GenerateModuleMetadata>().configureEach {
+    dependsOn(runtimeShadowJar)
 }
 
 configurations.matching { it.name.startsWith("test") }.configureEach {

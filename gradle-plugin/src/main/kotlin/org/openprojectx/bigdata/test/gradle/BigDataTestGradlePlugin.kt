@@ -240,6 +240,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             dependencies.add(configuration.name, "org.apache.spark:spark-hive_2.12:${runtime.sparkVersion.get()}")
             dependencies.add(configuration.name, "org.apache.iceberg:iceberg-spark-3.5_2.12:${runtime.icebergVersion.get()}")
             dependencies.add(configuration.name, "org.apache.iceberg:iceberg-spark-extensions-3.5_2.12:${runtime.icebergVersion.get()}")
+            dependencies.add(configuration.name, "org.apache.iceberg:iceberg-hive-metastore:${runtime.icebergVersion.get()}")
             dependencies.add(configuration.name, "org.apache.iceberg:iceberg-aws-bundle:${runtime.icebergVersion.get()}")
             dependencies.add(configuration.name, "javax.servlet:javax.servlet-api:4.0.1")
         }
