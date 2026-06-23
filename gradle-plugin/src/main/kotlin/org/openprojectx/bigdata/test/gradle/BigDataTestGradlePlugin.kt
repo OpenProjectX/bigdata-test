@@ -45,6 +45,9 @@ class BigDataTestGradlePlugin : Plugin<Project> {
                     }
                 },
             )
+            spec.parameters.extensionResourceDirectories.set(
+                project.provider { project.extensionResourceDirectories() },
+            )
             spec.parameters.extensionRuntimeClasspath.from(extensionRuntimeClasspath)
             spec.parameters.containerLogLevels.set(extension.containerLogLevels)
             spec.parameters.containerCustomizations.set(extension.containerCustomizations)
@@ -197,6 +200,12 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             details.select("at.yawk.lz4:lz4-java:${runtime.lz4Version.get()}")
             details.because("Kafka/Confluent and Spark publish different providers for the same lz4 capability.")
         }
+        configuration.resolutionStrategy.eachDependency { details ->
+            if (details.requested.group.startsWith("com.fasterxml.jackson")) {
+                details.useVersion("2.15.2")
+                details.because("The bigdata-test extension runtime executes Spark 3.5.x and keeps Jackson aligned independently from application dependency management.")
+            }
+        }
         val extensionVersion = runtime.extensionsVersion.get()
         if (runtime.useShadedArtifact.get()) {
             dependencies.add(configuration.name, "org.openprojectx.bigdata.test.core:extensions:$extensionVersion:runtime@jar")
@@ -218,6 +227,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             hadoopAws.exclude(mapOf("group" to "software.amazon.awssdk", "module" to "bundle"))
             dependencies.add(configuration.name, hadoopAws)
             dependencies.add(configuration.name, "software.amazon.awssdk:s3:${runtime.awsSdkVersion.get()}")
+            dependencies.add(configuration.name, "software.amazon.awssdk:s3-transfer-manager:${runtime.awsSdkVersion.get()}")
         }
         if (includeKafkaAvro) {
             dependencies.add(configuration.name, "io.confluent:kafka-avro-serializer:${runtime.confluentVersion.get()}")
@@ -228,11 +238,31 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         if (includeSpark) {
             dependencies.add(configuration.name, "org.apache.spark:spark-sql_2.12:${runtime.sparkVersion.get()}")
             dependencies.add(configuration.name, "org.apache.spark:spark-hive_2.12:${runtime.sparkVersion.get()}")
+            dependencies.add(configuration.name, "org.apache.iceberg:iceberg-spark-3.5_2.12:${runtime.icebergVersion.get()}")
+            dependencies.add(configuration.name, "org.apache.iceberg:iceberg-spark-extensions-3.5_2.12:${runtime.icebergVersion.get()}")
+            dependencies.add(configuration.name, "org.apache.iceberg:iceberg-aws-bundle:${runtime.icebergVersion.get()}")
+            dependencies.add(configuration.name, "javax.servlet:javax.servlet-api:4.0.1")
         }
     }
 
     private fun pluginImplementationVersion(): String =
         javaClass.`package`.implementationVersion?.takeIf { it.isNotBlank() } ?: "0.1.12-SNAPSHOT"
+
+    private fun Project.extensionResourceDirectories(): List<String> {
+        val sourceSets = extensions.findByName("sourceSets") as? SourceSetContainer
+        val main = sourceSets?.findByName("main")
+        return buildList {
+            main?.resources?.srcDirs
+                ?.filter { it.isDirectory }
+                ?.mapTo(this) { it.absolutePath }
+            main?.output?.resourcesDir
+                ?.takeIf { it.isDirectory }
+                ?.let { add(it.absolutePath) }
+            file("src/main/resources")
+                .takeIf { it.isDirectory }
+                ?.let { add(it.absolutePath) }
+        }.distinct()
+    }
 
     private fun Project.detectExtensionRuntimeNeeds(locations: List<String>): ExtensionRuntimeNeeds {
         var needs = ExtensionRuntimeNeeds()

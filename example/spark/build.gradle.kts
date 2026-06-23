@@ -97,9 +97,11 @@ val apacheSparkRuntimeClasspath = createSparkRuntimeClasspath("apacheSparkRuntim
 val clouderaSparkRuntimeClasspath = createSparkRuntimeClasspath("clouderaSparkRuntimeClasspath", "cloudera")
 
 dependencies {
-    add(apacheSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:$icebergVersion")
+    add(apacheSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-3.5_2.12:$icebergVersion")
+    add(apacheSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-extensions-3.5_2.12:$icebergVersion")
     add(apacheSparkRuntimeClasspath.name, "org.apache.logging.log4j:log4j-slf4j-impl:2.20.0")
-    add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-runtime-3.3_2.12")
+    add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-3.3_2.12")
+    add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-extensions-3.3_2.12")
 }
 
 fun Test.useSparkRuntimeClasspath(runtimeClasspath: Configuration, dependencyLine: String) {

@@ -14,7 +14,7 @@ import javax.inject.Inject
 abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFactory) {
     val enabled: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
     val autoConfigureJavaExecTasks: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
-    val autoConfigureTestTasks: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
+    val autoConfigureTestTasks: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val injectRawEndpointProperties: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
     val injectNamespacedEndpointProperties: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
     val injectEnvironmentVariables: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
@@ -91,9 +91,10 @@ abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFac
 abstract class BigDataTestGradleExtensionRuntime @Inject constructor(objects: ObjectFactory) {
     val enabled: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
     val autoDetect: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
-    val useShadedArtifact: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+    val useShadedArtifact: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
     val extensionsVersion: Property<String> = objects.property(String::class.java)
     val sparkVersion: Property<String> = objects.property(String::class.java).convention("3.5.7")
+    val icebergVersion: Property<String> = objects.property(String::class.java).convention("1.11.0")
     val hadoopVersion: Property<String> = objects.property(String::class.java).convention("3.4.2")
     val confluentVersion: Property<String> = objects.property(String::class.java).convention("8.2.1")
     val avroVersion: Property<String> = objects.property(String::class.java).convention("1.12.1")

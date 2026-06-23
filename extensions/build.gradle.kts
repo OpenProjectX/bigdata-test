@@ -10,6 +10,12 @@ description = "Config-driven bigdata-test extensions for Hadoop credential provi
 val shadedRuntime by configurations.creating {
     isCanBeConsumed = false
     isCanBeResolved = true
+    resolutionStrategy.eachDependency {
+        if (requested.group.startsWith("com.fasterxml.jackson")) {
+            useVersion("2.15.2")
+            because("Spark 3.5.x expects Jackson 2.15.x at runtime.")
+        }
+    }
     resolutionStrategy.capabilitiesResolution.withCapability("org.lz4:lz4-java") {
         select("at.yawk.lz4:lz4-java:${libs.versions.lz4.get()}")
         because("Kafka/Confluent and Spark publish different providers for the same lz4 capability.")
@@ -36,6 +42,7 @@ dependencies {
     compileOnly(libs.avro)
     compileOnly(libs.sparkSql)
     compileOnly(libs.sparkHive)
+    compileOnly(libs.servletApi)
     implementation(libs.kotlinxSerialization)
 
     shadedRuntime(libs.hadoopClientApi)
@@ -44,12 +51,21 @@ dependencies {
         exclude(group = "software.amazon.awssdk", module = "bundle")
     }
     shadedRuntime(libs.awsSdkS3)
+    shadedRuntime(libs.awsSdkS3TransferManager)
     shadedRuntime(libs.kafkaAvroSerializer)
     shadedRuntime(libs.kafkaSchemaRegistryClient)
     shadedRuntime(libs.lz4Java)
     shadedRuntime(libs.avro)
-    shadedRuntime(libs.sparkSql)
-    shadedRuntime(libs.sparkHive)
+    shadedRuntime(libs.sparkSql) {
+        exclude(group = "org.rocksdb", module = "rocksdbjni")
+    }
+    shadedRuntime(libs.sparkHive) {
+        exclude(group = "org.rocksdb", module = "rocksdbjni")
+    }
+    shadedRuntime(libs.icebergSpark)
+    shadedRuntime(libs.icebergSparkExtensions)
+    shadedRuntime(libs.icebergAwsBundle)
+    shadedRuntime(libs.servletApi)
     shadedRuntime(libs.kotlinxSerialization)
 
     testImplementation(libs.junitJupiterApi)
@@ -70,6 +86,7 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
     configurations = listOf(shadedRuntime)
     isZip64 = true
     mergeServiceFiles()
+    relocate("com.fasterxml.jackson", "org.openprojectx.bigdata.test.shaded.fasterxml.jackson")
 }
 
 configurations.matching { it.name.startsWith("test") }.configureEach {

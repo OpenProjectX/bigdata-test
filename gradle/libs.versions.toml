@@ -27,6 +27,7 @@ gcsio = "4.0.4"
 bouncycastle = "1.83"
 awsSdk = "2.41.5"
 mysqlConnector = "8.4.0"
+servletApi = "4.0.1"
 
 [libraries]
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -52,7 +53,8 @@ hadoopClientRuntime = { module = "org.apache.hadoop:hadoop-client-runtime", vers
 
 
 sparkAvro = { module = "org.apache.spark:spark-avro_2.12", version.ref = "spark" }
-icebergSparkRuntime = { module = "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12", version.ref = "iceberg" }
+icebergSpark = { module = "org.apache.iceberg:iceberg-spark-3.5_2.12", version.ref = "iceberg" }
+icebergSparkExtensions = { module = "org.apache.iceberg:iceberg-spark-extensions-3.5_2.12", version.ref = "iceberg" }
 icebergAwsBundle = { module = "org.apache.iceberg:iceberg-aws-bundle", version.ref = "iceberg" }
 gcsConnector = { module = "com.google.cloud.bigdataoss:gcs-connector", version.ref = "gcsConnector" }
 gcsio = { module = "com.google.cloud.bigdataoss:gcsio", version.ref = "gcsio" }
@@ -68,6 +70,8 @@ slf4jSimple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 bouncycastlePkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 bouncycastleProvider = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 awsSdkS3 = { module = "software.amazon.awssdk:s3", version.ref = "awsSdk" }
+awsSdkS3TransferManager = { module = "software.amazon.awssdk:s3-transfer-manager", version.ref = "awsSdk" }
+servletApi = { module = "javax.servlet:javax.servlet-api", version.ref = "servletApi" }
 mysqlConnector = { module = "com.mysql:mysql-connector-j", version.ref = "mysqlConnector" }
 
 # Libraries can be bundled together for easier import

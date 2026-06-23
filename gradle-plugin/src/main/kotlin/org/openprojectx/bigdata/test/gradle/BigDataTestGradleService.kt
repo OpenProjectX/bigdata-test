@@ -37,6 +37,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val injectNamespacedEndpointProperties: Property<Boolean>
         val injectEnvironmentVariables: Property<Boolean>
         val extensionConfig: ListProperty<String>
+        val extensionResourceDirectories: ListProperty<String>
         val extensionRuntimeClasspath: ConfigurableFileCollection
         val containerLogLevels: MapProperty<String, String>
         val containerCustomizations: ListProperty<String>
@@ -136,7 +137,10 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
             val created = buildKit()
             created.start()
             kit = created
-            extensionRuntime = ExtensionRuntime(parameters.extensionRuntimeClasspath.files)
+            extensionRuntime = ExtensionRuntime(
+                parameters.extensionRuntimeClasspath.files,
+                parameters.extensionResourceDirectories.get().map(Path::of),
+            )
             extensionRuntime?.let { runtime ->
                 extensionResult = runtime.fireAfterKitStart(parameters.extensionConfig.get(), created)
                 extensionOutputs = runtime.outputs(extensionResult)
@@ -433,9 +437,14 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
             .replace(Regex("_+"), "_")
             .trim('_')
 
-    private class ExtensionRuntime(files: Set<java.io.File>) : AutoCloseable {
-        private val classLoader = URLClassLoader(
-            files.map { it.toURI().toURL() }.toTypedArray(),
+    private class ExtensionRuntime(
+        files: Set<java.io.File>,
+        private val resourceDirectories: List<Path>,
+    ) : AutoCloseable {
+        private val classLoader = ChildFirstExtensionClassLoader(
+            files.sortedWith(extensionRuntimeFileOrder())
+                .map { it.toURI().toURL() }
+                .toTypedArray(),
             BigDataTestGradleService::class.java.classLoader,
         )
         private var runner: RunnerHandle? = null
@@ -469,8 +478,8 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         private fun newResources(): Any =
             classLoader
                 .loadClass("org.openprojectx.bigdata.test.extensions.core.BigDataExtensionResourceLoader")
-                .getConstructor(ClassLoader::class.java)
-                .newInstance(classLoader)
+                .getConstructor(ClassLoader::class.java, Iterable::class.java)
+                .newInstance(classLoader, resourceDirectories)
 
         private fun newConfigLoader(resources: Any): ConfigLoaderHandle {
             val providerClass = classLoader
@@ -523,6 +532,39 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                     .methods
                     .first { it.name == "fire" && it.parameterCount == 3 }
                     .invoke(delegate, event, kit, previous)
+        }
+
+        private fun extensionRuntimeFileOrder(): Comparator<java.io.File> =
+            compareByDescending<java.io.File> { file ->
+                file.name.startsWith("extensions-") && file.name.endsWith("-runtime.jar")
+            }.thenBy { it.name }
+
+        private class ChildFirstExtensionClassLoader(
+            urls: Array<java.net.URL>,
+            parent: ClassLoader,
+        ) : URLClassLoader(urls, parent) {
+            override fun loadClass(name: String, resolve: Boolean): Class<*> {
+                synchronized(getClassLoadingLock(name)) {
+                    findLoadedClass(name)?.let { return resolveIfNeeded(it, resolve) }
+                    if (parentFirst(name)) {
+                        return super.loadClass(name, resolve)
+                    }
+                    val loaded = runCatching { findClass(name) }.getOrElse { super.loadClass(name, false) }
+                    return resolveIfNeeded(loaded, resolve)
+                }
+            }
+
+            private fun parentFirst(name: String): Boolean =
+                name.startsWith("java.") ||
+                    name.startsWith("javax.inject.") ||
+                    name.startsWith("kotlin.") ||
+                    name.startsWith("org.gradle.") ||
+                    name.startsWith("org.openprojectx.bigdata.test.core.")
+
+            private fun resolveIfNeeded(type: Class<*>, resolve: Boolean): Class<*> {
+                if (resolve) resolveClass(type)
+                return type
+            }
         }
     }
 }

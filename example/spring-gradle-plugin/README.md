@@ -33,3 +33,9 @@ Spring JVM, runs the TOML extensions, and injects endpoint/extension output as J
 properties and environment variables. The application reads the JVM properties from
 `application-local.yaml`; non-Spring code can read equivalent env vars such as
 `BIGDATA_TEST_ENDPOINT_HDFS_HOST`.
+
+Spark SQL preparation runs inside the Gradle JVM. In this in-process mode, Spark logs are routed
+through Gradle's logging bridge, so Log4j2 console pattern and color settings are not honored for
+Spark extension logs. Use Gradle logging flags such as `--info` and the extension/Spark log-level
+settings for verbosity. Full pattern/color control would require running Spark preparation in an
+isolated JVM instead of inside the Gradle daemon.

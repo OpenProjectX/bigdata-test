@@ -8,3 +8,21 @@ fileName = "s3.jceks"
 
 [[s3Buckets]]
 bucket = "spring-example"
+
+[[extensions]]
+type = "spark-sql-prep"
+id = "prepare-iceberg-s3"
+appName = "spring-gradle-plugin-iceberg-prep"
+enableHiveSupport = false
+statements = [
+    "CREATE NAMESPACE IF NOT EXISTS spring_s3.demo",
+    "CREATE TABLE IF NOT EXISTS spring_s3.demo.events (id BIGINT, name STRING) USING iceberg",
+    "INSERT INTO spring_s3.demo.events VALUES (1, 'spring-gradle-plugin')",
+]
+
+[extensions.configs]
+"spark.sql.extensions" = "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions"
+"spark.sql.catalog.spring_s3" = "org.apache.iceberg.spark.SparkCatalog"
+"spark.sql.catalog.spring_s3.type" = "hadoop"
+"spark.sql.catalog.spring_s3.warehouse" = "s3a://spring-example/iceberg"
+"spark.sql.shuffle.partitions" = "1"
