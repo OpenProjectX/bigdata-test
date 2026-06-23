@@ -52,6 +52,7 @@ dependencies {
 val apacheSparkVersion = libs.versions.spark.get()
 val apacheHadoopVersion = libs.versions.hadoop.get()
 val icebergVersion = libs.versions.iceberg.get()
+val clouderaIcebergVersion = "1.8.1"
 val apacheSparkJacksonVersion = "2.15.2"
 val clouderaSparkJacksonScalaModuleVersion = "2.12.7"
 val clouderaSparkJacksonDatabindVersion = "2.12.7.1"
@@ -101,9 +102,9 @@ dependencies {
     add(apacheSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-extensions-3.5_2.12:$icebergVersion")
     add(apacheSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-hive-metastore:$icebergVersion")
     add(apacheSparkRuntimeClasspath.name, "org.apache.logging.log4j:log4j-slf4j-impl:2.20.0")
-    add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-3.3_2.12")
-    add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-extensions-3.3_2.12")
-    add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-hive-metastore")
+    add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-3.3_2.12:$clouderaIcebergVersion")
+    add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-extensions-3.3_2.12:$clouderaIcebergVersion")
+    add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-hive-metastore:$clouderaIcebergVersion")
 }
 
 fun Test.useSparkRuntimeClasspath(runtimeClasspath: Configuration, dependencyLine: String) {
