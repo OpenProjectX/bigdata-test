@@ -9,8 +9,8 @@ clouderaHmsMariadb = "ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb"
 kafka = "apache/kafka:4.1.2"
 schemaRegistry = "confluentinc/cp-schema-registry:7.8.0"
 kafkaUi = "ghcr.io/kafbat/kafka-ui:latest"
-localStackS3 = "localstack/localstack:4.14.0"
-fakeGcs = "fsouza/fake-gcs-server:1.54"
+localStackS3 = "floci/floci:latest"
+fakeGcs = "floci/floci-gcp:latest"
 
 [services]
 hdfs = true

@@ -59,7 +59,7 @@ enum class BigDataService(
         ),
     ),
     FAKE_GCS(
-        defaultPorts = mapOf("http" to 4443, "https" to 443),
+        defaultPorts = mapOf("http" to 4588, "https" to 443),
         endpointProperties = setOf("bigdata.test.gcs.endpoint", "google.cloud.storage.host"),
     ),
 }

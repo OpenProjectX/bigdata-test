@@ -28,7 +28,7 @@ For Testcontainers runtime environment variables, make sure the Gradle JVM sees 
 TESTCONTAINERS_RYUK_DISABLED=true GRADLE_USER_HOME=/data/.gradle ../../gradlew --no-daemon bigDataTestRun
 ```
 
-The Gradle plugin starts Kerberos, HDFS, and LocalStack S3 before `bootRunLocal` launches the
+The Gradle plugin starts Kerberos, HDFS, and the S3 emulator before `bootRunLocal` launches the
 Spring JVM, runs the TOML extensions, and injects endpoint/extension output as JVM system
 properties and environment variables. The application reads the JVM properties from
 `application-local.yaml`; non-Spring code can read equivalent env vars such as

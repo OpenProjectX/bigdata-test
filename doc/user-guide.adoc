@@ -16,8 +16,8 @@ The project currently provides containers and test integration for:
 * Kafka
 * Schema Registry
 * Kafka UI
-* LocalStack S3
-* fake-gcs-server
+* Floci S3-compatible AWS emulator
+* Floci GCP-compatible GCS emulator
 * Kerberos KDC and service principals
 
 The project is split so lightweight users can depend on `core` or `junit5` without pulling Spark, Hadoop client utilities, or storage SDKs. Heavier setup such as JCEKS creation, Kafka Avro seeding, and Spark SQL preparation lives in the `extensions` module.
@@ -213,10 +213,10 @@ The JUnit extension starts the kit before all tests in the class and closes it a
 |Configures Kafka UI for Kerberos/SASL Kafka access.
 
 |`localStackS3`
-|Starts LocalStack with S3 enabled.
+|Starts Floci S3-compatible AWS emulation.
 
 |`fakeGcs`
-|Starts fake-gcs-server.
+|Starts Floci GCP-compatible GCS emulation.
 |===
 
 === Service Image Configuration
@@ -236,8 +236,8 @@ clouderaHmsMariadb = "ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb"
 kafka = "apache/kafka:4.1.2"
 schemaRegistry = "confluentinc/cp-schema-registry:7.8.0"
 kafkaUi = "ghcr.io/kafbat/kafka-ui:latest"
-localStackS3 = "localstack/localstack:4.14.0"
-fakeGcs = "fsouza/fake-gcs-server:1.54"
+localStackS3 = "floci/floci:latest"
+fakeGcs = "floci/floci-gcp:latest"
 ----
 
 Kafka and the open-source HMS database sidecar use typed Testcontainers classes instead of plain generic containers. When you override those images, `bigdata-test` marks the configured Kafka image as a compatible substitute for `apache/kafka`, PostgreSQL as a compatible substitute for `postgres`, and MySQL as a compatible substitute for `mysql`, so private mirrors or rebuilt images can still pass Testcontainers image checks.
@@ -521,11 +521,11 @@ Current CLI probes:
 |Kafka UI
 |Uses `wget` or `curl` against `/`.
 
-|LocalStack S3
+|Floci S3-compatible AWS emulator
 |Uses `awslocal s3 ls` when available, then falls back to `aws --endpoint-url`, then HTTP health.
 
-|fake-gcs-server
-|Uses `wget` or `curl` against `/storage/v1/b`.
+|Floci GCP-compatible GCS emulator
+|Uses `wget` or `curl` against the configured HTTP health endpoint.
 |===
 
 CLI probes validate the container's own environment. For host-side behavior, such as Windows HDFS clients connecting through mapped ports, use a host/JVM smoke test as well because an in-container `hdfs dfs` command cannot prove host network reachability.
@@ -834,7 +834,7 @@ To bind each enabled service to the same localhost port it uses inside the conta
 class MySameHostPortTest
 ----
 
-This maps common service ports directly, for example HDFS `8020`, `9866`, and `9870`, Hive Metastore `9083`, Kafka `9092`, Schema Registry `8085`, LocalStack `4566`, and fake GCS `4443`. Explicit per-service port fields still take priority over `sameHostPorts`.
+This maps common service ports directly, for example HDFS `8020`, `9866`, and `9870`, Hive Metastore `9083`, Kafka `9092`, Schema Registry `8085`, Floci S3 `4566`, and Floci GCS `4588`. Explicit per-service port fields still take priority over `sameHostPorts`.
 
 TLS gateway ports are not affected by `sameHostPorts`, because every gateway listens on container port `443`. Configure the per-service TLS port fields explicitly if a stable HTTPS host port is needed.
 
@@ -913,22 +913,22 @@ Available fixed host-port config:
 |`kafkaUiTls`
 |`443` on the HAProxy gateway
 
-|LocalStack S3 HTTP
+|Floci S3 HTTP
 |`localStackS3`
 |`localStackS3Port`
 |`4566`
 
-|LocalStack S3 TLS gateway
+|Floci S3 TLS gateway
 |`localStackS3Tls`
 |`localStackS3Tls`
 |`443` on the HAProxy gateway
 
-|fake-gcs-server HTTP
+|Floci GCS HTTP
 |`fakeGcs`
 |`fakeGcsPort`
-|`4443`
+|`4588` by default, or `4443` when overriding the image to `fsouza/fake-gcs-server`
 
-|fake-gcs-server TLS gateway
+|Floci GCS TLS gateway
 |`fakeGcsTls`
 |`fakeGcsTls`
 |`443` on the HAProxy gateway
@@ -1003,7 +1003,7 @@ Each started service exposes a `BigDataEndpoint` with named ports and connection
 
 |`BigDataService.FAKE_GCS`
 |`http`, `https`
-|`4443`, `443`
+|`4588`, `443`
 |`bigdata.test.gcs.endpoint`, `google.cloud.storage.host`
 |===
 
@@ -1348,7 +1348,7 @@ Outputs:
 
 === S3 JCEKS Extension
 
-The `s3Jceks` extension creates a Hadoop credential provider file in HDFS and stores LocalStack S3 credentials in it.
+The `s3Jceks` extension creates a Hadoop credential provider file in HDFS and stores the S3 emulator credentials in it.
 It builds its Hadoop client configuration from the active HDFS endpoint properties, including `fs.defaultFS`, `dfs.client.use.datanode.hostname`, `dfs.datanode.hostname`, and any HDFS TLS properties exposed by the test kit.
 
 [source,toml]
@@ -1421,8 +1421,8 @@ When `useKitEndpoints = true`, the default, the extension wires known endpoint p
 
 * Hive Metastore URI and HMS TLS properties
 * HDFS default filesystem and DataNode hostname setting
-* LocalStack S3 endpoint and test credentials
-* fake-gcs-server endpoint using unauthenticated GCS connector settings
+* S3 emulator endpoint and test credentials
+* GCS emulator endpoint using unauthenticated GCS connector settings
 * Kerberos client `krb5.conf`, principal, and keytab properties when Kerberos is enabled
 
 Explicit `configs` are applied after endpoint defaults and therefore override generated Spark config.
@@ -1572,7 +1572,7 @@ This asks HMS to validate table metadata and location using HMS server-side Hado
 
 === HMS Server-Side S3A
 
-When Hive Metastore starts with LocalStack S3 enabled, `bigdata-test` injects HMS-side S3A configuration:
+When Hive Metastore starts with the S3 emulator enabled, `bigdata-test` injects HMS-side S3A configuration:
 
 * `fs.s3a.endpoint=http://localstack:4566`
 * `fs.s3a.endpoint.region=us-east-1`
@@ -1583,7 +1583,7 @@ When Hive Metastore starts with LocalStack S3 enabled, `bigdata-test` injects HM
 * `fs.s3a.connection.ssl.enabled=false`
 * `fs.s3a.change.detection.mode=none`
 
-This allows Hive external table DDL with `s3a://` locations to validate against the internal LocalStack endpoint. The Spark example includes this path and verifies the HMS table location through `HiveMetaStoreClient`.
+This allows Hive external table DDL with `s3a://` locations to validate against the internal S3 emulator endpoint. The Spark example includes this path and verifies the HMS table location through `HiveMetaStoreClient`.
 
 === HMS Server-Side HDFS
 
@@ -1597,12 +1597,12 @@ This lets HMS resolve `hdfs://` warehouse and table locations from inside the Do
 
 === HMS Server-Side GCS
 
-When Hive Metastore starts with fake GCS enabled, `bigdata-test` injects HMS-side GCS configuration based on the Google Cloud Storage connector configuration model:
+When Hive Metastore starts with the GCS emulator enabled, `bigdata-test` injects HMS-side GCS configuration based on the Google Cloud Storage connector configuration model:
 
 * `fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem`
 * `fs.AbstractFileSystem.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS`
 * `fs.gs.project.id=bigdata-test`
-* `fs.gs.storage.root.url=http://fake-gcs:4443/`
+* `fs.gs.storage.root.url=http://fake-gcs:4588/`
 * `fs.gs.storage.service.path=storage/v1/`
 * `fs.gs.client.type=HTTP_API_CLIENT`
 * `fs.gs.auth.type=UNAUTHENTICATED`
@@ -2078,7 +2078,7 @@ The Spring example is a normal Spring Boot web application. Its default configur
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spring:check
 ----
 
-The local developer profile is fully configuration driven. The app source does not call `BigDataTestKit`; `application-local.yaml` starts Kerberos, HDFS, and LocalStack S3 and enables the REST API.
+The local developer profile is fully configuration driven. The app source does not call `BigDataTestKit`; `application-local.yaml` starts Kerberos, HDFS, and the S3 emulator and enables the REST API.
 
 The local profile also enables HDFS and Kerberos container logs on stdout:
 
@@ -2137,7 +2137,7 @@ curl -sS -X DELETE http://localhost:8080/api/s3/objects/demo.txt
 
 === Spark Example
 
-The Spark example lives under `example/spark`. It starts HDFS, Hive Metastore, Kafka, Schema Registry, LocalStack S3, and fake GCS.
+The Spark example lives under `example/spark`. It starts HDFS, Hive Metastore, Kafka, Schema Registry, Floci S3, and Floci GCS.
 
 The example uses `hiveMetastore = true` with the Hive 3 open-source HMS image. This keeps Spark 3.x on a compatible HMS protocol while still exercising server-side S3A and GCS configuration. Use `clouderaHms = true` when the embedded-Postgres Cloudera HMS image is the target under test.
 
@@ -2284,7 +2284,7 @@ This Hadoop message can appear in test output when Hadoop checks for native util
 
 === S3 Hive External Table Fails with Credential Errors
 
-If a Hive external table on `s3a://` fails with an AWS credential error, check whether HMS was started with LocalStack S3 enabled and whether custom `HiveMetastoreOptions.extraConfiguration` overrides the S3A settings.
+If a Hive external table on `s3a://` fails with an AWS credential error, check whether HMS was started with the S3 emulator enabled and whether custom `HiveMetastoreOptions.extraConfiguration` overrides the S3A settings.
 
 The important distinction is where the path is resolved:
 

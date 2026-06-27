@@ -19,6 +19,8 @@ import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerLogOptions
+import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_LOCALSTACK_S3_IMAGE
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KerberosOptions
@@ -281,7 +283,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             builder.withLocalStackS3(
                 ObjectStoreOptions(
                     enabled = true,
-                    image = images.localStackS3 ?: "localstack/localstack:4.14.0",
+                    image = images.localStackS3 ?: DEFAULT_LOCALSTACK_S3_IMAGE,
                     tls = config.localStackS3Tls.toHttpTls("localhost"),
                 ),
             )
@@ -290,7 +292,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             builder.withFakeGcs(
                 ObjectStoreOptions(
                     enabled = true,
-                    image = images.fakeGcs ?: "fsouza/fake-gcs-server:1.54",
+                    image = images.fakeGcs ?: DEFAULT_FAKE_GCS_IMAGE,
                     tls = config.fakeGcsTls.toHttpTls("storage.googleapis.com"),
                 ),
             )

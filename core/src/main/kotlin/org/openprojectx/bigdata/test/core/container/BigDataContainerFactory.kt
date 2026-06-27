@@ -710,12 +710,19 @@ internal class BigDataContainerFactory(
 
     private fun localStackS3(): BigDataServiceContainer {
         val objectStore = options.localStackS3
+        val isFloci = objectStore.image.substringBefore(":") == "floci/floci"
         val container = GenericBigDataContainer(objectStore.image)
             .withNetwork(network)
             .withNetworkAliases("localstack")
             .withServicePort(4566, options.portBindings.hostPort(4566, options.portBindings.localStackS3))
-            .withEnv("SERVICES", "s3")
-            .waitingFor(Wait.forHttp("/_localstack/health").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(3)))
+            .waitingFor(
+                Wait.forHttp(if (isFloci) "/_floci/health" else "/_localstack/health")
+                    .forStatusCode(200)
+                    .withStartupTimeout(Duration.ofMinutes(3)),
+            )
+        if (!isFloci) {
+            container.withEnv("SERVICES", "s3")
+        }
 
         return BigDataServiceContainer(
             BigDataService.LOCALSTACK_S3,
@@ -746,12 +753,20 @@ internal class BigDataContainerFactory(
 
     private fun fakeGcs(): BigDataServiceContainer {
         val objectStore = options.fakeGcs
+        val servicePort = fakeGcsServicePort()
+        val isFlociGcp = isFlociGcp()
         val container = GenericBigDataContainer(objectStore.image)
             .withNetwork(network)
             .withNetworkAliases("fake-gcs")
-            .withServicePort(4443, options.portBindings.hostPort(4443, options.portBindings.fakeGcs))
-            .withCommand("-scheme", "http", "-port", "4443")
-            .waitingFor(Wait.forHttp("/storage/v1/b").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(2)))
+            .withServicePort(servicePort, options.portBindings.hostPort(servicePort, options.portBindings.fakeGcs))
+            .waitingFor(
+                Wait.forHttp(if (isFlociGcp) "/_floci-gcp/health" else "/storage/v1/b")
+                    .forStatusCode(200)
+                    .withStartupTimeout(Duration.ofMinutes(2)),
+            )
+        if (!isFlociGcp) {
+            container.withCommand("-scheme", "http", "-port", servicePort.toString())
+        }
 
         return BigDataServiceContainer(
             BigDataService.FAKE_GCS,
@@ -761,14 +776,14 @@ internal class BigDataContainerFactory(
                 name = "fake-gcs",
                 tls = objectStore.tls,
                 backendHost = "fake-gcs",
-                backendPort = 4443,
+                backendPort = servicePort,
                 hostPort = tlsHostPort(options.portBindings.fakeGcsTls),
             )
-            val endpoint = tlsEndpoint.url ?: "http://${container.host}:${container.getMappedPort(4443)}"
+            val endpoint = tlsEndpoint.url ?: "http://${container.host}:${container.getMappedPort(servicePort)}"
             BigDataEndpoint(
                 service = BigDataService.FAKE_GCS,
                 host = tlsEndpoint.host ?: container.host,
-                ports = mapOf("http" to container.getMappedPort(4443)) + tlsEndpoint.port("https"),
+                ports = mapOf("http" to container.getMappedPort(servicePort)) + tlsEndpoint.port("https"),
                 properties = mapOf(
                     "bigdata.test.gcs.endpoint" to endpoint,
                     "google.cloud.storage.host" to endpoint,
@@ -776,6 +791,12 @@ internal class BigDataContainerFactory(
             )
         }
     }
+
+    private fun isFlociGcp(): Boolean =
+        options.fakeGcs.image.substringBefore(":") == "floci/floci-gcp"
+
+    private fun fakeGcsServicePort(): Int =
+        if (isFlociGcp()) 4588 else 4443
 
 
     private fun hiveMetastoreObjectStoreConfiguration(): Map<String, String> =
@@ -796,10 +817,11 @@ internal class BigDataContainerFactory(
                 put("fs.s3a.change.detection.mode", "none")
             }
             if (options.fakeGcs.enabled) {
+                val fakeGcsEndpoint = "http://fake-gcs:${fakeGcsServicePort()}"
                 put("fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
                 put("fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS")
                 put("fs.gs.project.id", "bigdata-test")
-                put("fs.gs.storage.root.url", "http://fake-gcs:4443/")
+                put("fs.gs.storage.root.url", "$fakeGcsEndpoint/")
                 put("fs.gs.storage.service.path", "storage/v1/")
                 put("fs.gs.client.type", "HTTP_API_CLIENT")
                 put("fs.gs.auth.type", "UNAUTHENTICATED")
@@ -842,12 +864,13 @@ internal class BigDataContainerFactory(
                 .withEnv("S3_SSL_ENABLED", "false")
         }
         if (options.fakeGcs.enabled) {
+            val fakeGcsEndpoint = "http://fake-gcs:${fakeGcsServicePort()}"
             container
                 .withEnv("GCS_FILE_SYSTEM_IMPL", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
                 .withEnv("GCS_ABSTRACT_FILE_SYSTEM_IMPL", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS")
                 .withEnv("GCS_AUTH_TYPE", "UNAUTHENTICATED")
                 .withEnv("GCS_PROJECT_ID", "bigdata-test")
-                .withEnv("GCS_STORAGE_ROOT_URL", "http://fake-gcs:4443")
+                .withEnv("GCS_STORAGE_ROOT_URL", fakeGcsEndpoint)
                 .withEnv("GCS_STORAGE_SERVICE_PATH", "/storage/v1/")
                 .withEnv("GCS_CREATE_ITEMS_CONFLICT_CHECK_ENABLED", "false")
                 .withEnv("GCS_CLIENT_UPLOAD_TYPE", "WRITE_TO_DISK_THEN_UPLOAD")
@@ -1204,11 +1227,11 @@ internal class BigDataContainerFactory(
                 elif command -v aws >/dev/null 2>&1; then
                   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url=http://localhost:4566 s3 ls >/dev/null
                 else
-                  ${httpContainerProbe("http://localhost:4566/_localstack/health")}
+                  ${httpContainerProbe("http://localhost:4566/_floci/health")} || ${httpContainerProbe("http://localhost:4566/_localstack/health")}
                 fi
                 """.trimIndent()
             BigDataService.FAKE_GCS ->
-                httpContainerProbe("http://localhost:4443/storage/v1/b")
+                "${httpContainerProbe("http://localhost:4588/_floci-gcp/health")} || ${httpContainerProbe("http://localhost:4443/storage/v1/b")}"
         }
 
     private fun httpContainerProbe(url: String): String =

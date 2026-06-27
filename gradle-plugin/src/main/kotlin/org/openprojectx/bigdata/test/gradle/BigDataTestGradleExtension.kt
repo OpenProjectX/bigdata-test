@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFactory) {
     val enabled: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
-    val autoConfigureJavaExecTasks: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
+    val autoConfigureJavaExecTasks: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val autoConfigureTestTasks: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val injectRawEndpointProperties: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
     val injectNamespacedEndpointProperties: Property<Boolean> = objects.property(Boolean::class.java).convention(true)

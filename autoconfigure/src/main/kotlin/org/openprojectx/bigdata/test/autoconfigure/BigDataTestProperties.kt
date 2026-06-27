@@ -5,6 +5,8 @@ import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 
 import org.openprojectx.bigdata.test.core.ContainerLogMode
+import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_LOCALSTACK_S3_IMAGE
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties("bigdata.test")
@@ -17,8 +19,8 @@ data class BigDataTestProperties(
     var hiveMetastore: HiveMetastore = HiveMetastore(),
     var clouderaHms: ClouderaHms = ClouderaHms(),
     var kafka: Kafka = Kafka(),
-    var localstackS3: ObjectStore = ObjectStore(image = "localstack/localstack:4.14.0"),
-    var fakeGcs: ObjectStore = ObjectStore(image = "fsouza/fake-gcs-server:1.54"),
+    var localstackS3: ObjectStore = ObjectStore(image = DEFAULT_LOCALSTACK_S3_IMAGE),
+    var fakeGcs: ObjectStore = ObjectStore(image = DEFAULT_FAKE_GCS_IMAGE),
     var containerLogs: ContainerLogs = ContainerLogs(),
     var containerLogLevels: Map<String, String> = emptyMap(),
 ) {

@@ -20,7 +20,7 @@ class LocalStackS3TlsExampleTest {
         val client = HttpClient.newHttpClient()
 
         val response = client.send(
-            HttpRequest.newBuilder(URI.create("$url/_localstack/health")).GET().build(),
+            HttpRequest.newBuilder(URI.create("$url/_floci/health")).GET().build(),
             HttpResponse.BodyHandlers.ofString(),
         )
 

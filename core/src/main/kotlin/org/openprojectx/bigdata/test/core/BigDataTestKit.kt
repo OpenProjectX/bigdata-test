@@ -58,7 +58,7 @@ class BigDataTestKit private constructor(
         private var hiveMetastore = HiveMetastoreOptions()
         private var kafka = KafkaOptions()
         private var localStackS3 = ObjectStoreOptions()
-        private var fakeGcs = ObjectStoreOptions(image = "fsouza/fake-gcs-server:1.54")
+        private var fakeGcs = ObjectStoreOptions(image = DEFAULT_FAKE_GCS_IMAGE)
         private var portBindings = PortBindingOptions()
         private var containerLogs = ContainerLogOptions()
         private var containerCustomizations = emptyMap<BigDataService, ContainerCustomizationOptions>()
@@ -92,7 +92,7 @@ class BigDataTestKit private constructor(
         fun withLocalStackS3(options: ObjectStoreOptions = ObjectStoreOptions(enabled = true)): Builder =
             apply { localStackS3 = options.copy(enabled = true) }
 
-        fun withFakeGcs(options: ObjectStoreOptions = ObjectStoreOptions(enabled = true, image = "fsouza/fake-gcs-server:1.54")): Builder =
+        fun withFakeGcs(options: ObjectStoreOptions = ObjectStoreOptions(enabled = true, image = DEFAULT_FAKE_GCS_IMAGE)): Builder =
             apply { fakeGcs = options.copy(enabled = true) }
 
         fun withPortBindings(options: PortBindingOptions): Builder =

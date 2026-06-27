@@ -2,6 +2,9 @@ package org.openprojectx.bigdata.test.core
 
 import org.testcontainers.containers.GenericContainer
 
+const val DEFAULT_LOCALSTACK_S3_IMAGE = "floci/floci:latest"
+const val DEFAULT_FAKE_GCS_IMAGE = "floci/floci-gcp:latest"
+
 data class BigDataTestKitOptions(
     val kerberos: KerberosOptions = KerberosOptions(),
     val tls: TlsOptions = TlsOptions(),
@@ -9,7 +12,7 @@ data class BigDataTestKitOptions(
     val hiveMetastore: HiveMetastoreOptions = HiveMetastoreOptions(),
     val kafka: KafkaOptions = KafkaOptions(),
     val localStackS3: ObjectStoreOptions = ObjectStoreOptions(),
-    val fakeGcs: ObjectStoreOptions = ObjectStoreOptions(image = "fsouza/fake-gcs-server:1.54"),
+    val fakeGcs: ObjectStoreOptions = ObjectStoreOptions(image = DEFAULT_FAKE_GCS_IMAGE),
     val portBindings: PortBindingOptions = PortBindingOptions(),
     val containerLogs: ContainerLogOptions = ContainerLogOptions(),
     val containerCustomizations: Map<BigDataService, ContainerCustomizationOptions> = emptyMap(),
@@ -148,7 +151,7 @@ data class KafkaOptions(
 
 data class ObjectStoreOptions(
     val enabled: Boolean = false,
-    val image: String = "localstack/localstack:4.14.0",
+    val image: String = DEFAULT_LOCALSTACK_S3_IMAGE,
     val tls: HttpTlsOptions = HttpTlsOptions(),
 )
 

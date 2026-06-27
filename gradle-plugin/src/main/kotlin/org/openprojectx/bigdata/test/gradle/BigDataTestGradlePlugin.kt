@@ -11,6 +11,8 @@ import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
 import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
+import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_LOCALSTACK_S3_IMAGE
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 
 class BigDataTestGradlePlugin : Plugin<Project> {
@@ -19,8 +21,8 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             "bigDataTest",
             BigDataTestGradleExtension::class.java,
         )
-        extension.localStackS3.image.convention("localstack/localstack:4.14.0")
-        extension.fakeGcs.image.convention("fsouza/fake-gcs-server:1.54")
+        extension.localStackS3.image.convention(DEFAULT_LOCALSTACK_S3_IMAGE)
+        extension.fakeGcs.image.convention(DEFAULT_FAKE_GCS_IMAGE)
         extension.extensionRuntime.extensionsVersion.convention(pluginImplementationVersion())
         val extensionRuntimeClasspath = project.configurations.create("bigDataTestExtensionRuntime") { configuration ->
             configuration.isCanBeConsumed = false
