@@ -710,7 +710,7 @@ internal class BigDataContainerFactory(
 
     private fun localStackS3(): BigDataServiceContainer {
         val objectStore = options.localStackS3
-        val isFloci = objectStore.image.substringBefore(":") == "floci/floci"
+        val isFloci = objectStore.image.isImageNamed("floci/floci")
         val container = GenericBigDataContainer(objectStore.image)
             .withNetwork(network)
             .withNetworkAliases("localstack")
@@ -793,11 +793,15 @@ internal class BigDataContainerFactory(
     }
 
     private fun isFlociGcp(): Boolean =
-        options.fakeGcs.image.substringBefore(":") == "floci/floci-gcp"
+        options.fakeGcs.image.isImageNamed("floci/floci-gcp")
 
     private fun fakeGcsServicePort(): Int =
         if (isFlociGcp()) 4588 else 4443
 
+    private fun String.isImageNamed(repository: String): Boolean {
+        val image = substringBefore("@").substringBefore(":")
+        return image == repository || image.endsWith("/$repository")
+    }
 
     private fun hiveMetastoreObjectStoreConfiguration(): Map<String, String> =
         buildMap {
