@@ -42,6 +42,7 @@ dependencies {
 }
 
 bigDataTest {
+    autoConfigureJavaExecTasks.set(true)
     config.add("classpath:spring-bigdata-test.toml")
     extensionConfig.add("classpath:spring-bigdata-extensions.toml")
     extensionRuntime {

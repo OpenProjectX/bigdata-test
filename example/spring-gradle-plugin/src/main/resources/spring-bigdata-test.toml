@@ -24,7 +24,7 @@ databaseName = "metastore"
 databaseUser = "hive"
 databasePassword = "hive"
 # Optional. 0 means Testcontainers picks a random host port for 3306.
-databaseHostPort = 3306
+databaseHostPort = 0
 
 
 [kerberos]
@@ -50,7 +50,7 @@ localHdfsSitePath = "build/bigdata-test/hadoop/hdfs-site.xml"
 hdfsDataNode = 9866
 #hdfsWeb = 9870
 #localStackS3 = 4566
-hiveMetastore = 9083
+#hiveMetastore = 9083
 
 [containerLogs]
 mode = "STDOUT"
