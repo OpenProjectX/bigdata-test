@@ -12,7 +12,10 @@ import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroRecordSeed
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroSeedExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroTopicSeed
 import org.openprojectx.bigdata.test.extensions.objectstore.GcsBucketExtension
+import org.openprojectx.bigdata.test.extensions.objectstore.GcsUploadExtension
+import org.openprojectx.bigdata.test.extensions.objectstore.ObjectStoreUploadSource
 import org.openprojectx.bigdata.test.extensions.objectstore.S3BucketExtension
+import org.openprojectx.bigdata.test.extensions.objectstore.S3UploadExtension
 import org.openprojectx.bigdata.test.extensions.spark.SparkSqlPreparationExtension
 import org.openprojectx.bigdata.test.extensions.spark.SparkSqlPreparationStatement
 import java.util.function.Consumer
@@ -68,6 +71,22 @@ class BigDataExtensionsBuilder {
         gcsBucket(bucket = bucket, id = id, project = "bigdata-test")
     }
 
+    fun s3Upload(bucket: String, configure: ObjectStoreUploadBuilder.() -> Unit) {
+        extensions += ObjectStoreUploadBuilder(bucket = bucket, id = "s3-upload-$bucket").apply(configure).buildS3()
+    }
+
+    fun s3Upload(bucket: String, configure: Consumer<ObjectStoreUploadBuilder>) {
+        extensions += ObjectStoreUploadBuilder(bucket = bucket, id = "s3-upload-$bucket").also { configure.accept(it) }.buildS3()
+    }
+
+    fun gcsUpload(bucket: String, configure: GcsUploadBuilder.() -> Unit) {
+        extensions += GcsUploadBuilder(bucket = bucket, id = "gcs-upload-$bucket").apply(configure).buildGcs()
+    }
+
+    fun gcsUpload(bucket: String, configure: Consumer<GcsUploadBuilder>) {
+        extensions += GcsUploadBuilder(bucket = bucket, id = "gcs-upload-$bucket").also { configure.accept(it) }.buildGcs()
+    }
+
     fun sparkSqlPreparation(configure: SparkSqlPreparationBuilder.() -> Unit) {
         extensions += SparkSqlPreparationBuilder().apply(configure).build()
     }
@@ -77,6 +96,66 @@ class BigDataExtensionsBuilder {
     }
 
     internal fun build(): List<BigDataExtension> = extensions.toList()
+}
+
+open class ObjectStoreUploadBuilder internal constructor(
+    protected val bucket: String,
+    var id: String,
+) {
+    var prefix: String = ""
+    var createBucket: Boolean = true
+    protected val sources = mutableListOf<ObjectStoreUploadSource>()
+
+    fun file(source: String, key: String? = null, contentType: String? = null) {
+        sources += ObjectStoreUploadSource(source = source, key = key, contentType = contentType)
+    }
+
+    fun file(source: String) {
+        file(source = source, key = null, contentType = null)
+    }
+
+    fun file(source: String, key: String) {
+        file(source = source, key = key, contentType = null)
+    }
+
+    fun directory(source: String, prefix: String = "", recursive: Boolean = true, contentType: String? = null) {
+        sources += ObjectStoreUploadSource(
+            source = source,
+            prefix = prefix,
+            recursive = recursive,
+            contentType = contentType,
+        )
+    }
+
+    fun directory(source: String) {
+        directory(source = source, prefix = "", recursive = true, contentType = null)
+    }
+
+    internal fun buildS3(): S3UploadExtension =
+        S3UploadExtension(
+            id = id,
+            bucket = bucket,
+            prefix = prefix,
+            createBucket = createBucket,
+            sources = sources.toList(),
+        )
+}
+
+class GcsUploadBuilder internal constructor(
+    bucket: String,
+    id: String,
+) : ObjectStoreUploadBuilder(bucket = bucket, id = id) {
+    var project: String = "bigdata-test"
+
+    internal fun buildGcs(): GcsUploadExtension =
+        GcsUploadExtension(
+            id = id,
+            bucket = bucket,
+            prefix = prefix,
+            project = project,
+            createBucket = createBucket,
+            sources = sources.toList(),
+        )
 }
 
 class S3JceksBuilder {

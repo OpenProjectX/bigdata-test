@@ -1346,6 +1346,64 @@ Outputs:
 * `spark-gcs-bucket.bucket`
 * `spark-gcs-bucket.gs.uri`
 
+=== Object Store Upload Extensions
+
+The S3 and GCS upload extensions create the target bucket by default and upload local files or folders after the object-store services start.
+They use the AWS S3 SDK and Google Cloud Storage SDK against the endpoints exposed by `BigDataTestKit`.
+
+[source,toml]
+----
+[[s3Uploads]]
+id = "seed-s3"
+bucket = "demo-s3"
+prefix = "input"
+sources = [
+  { source = "file:src/test/resources/data/users.json", key = "input/users.json", contentType = "application/json" },
+  { source = "src/test/resources/data/events", prefix = "events" }
+]
+
+[[gcsUploads]]
+id = "seed-gcs"
+bucket = "demo-gcs"
+project = "bigdata-test"
+prefix = "input"
+createBucket = true
+sources = [
+  { source = "classpath:data/products.json", key = "input/products.json", contentType = "application/json" }
+]
+----
+
+Programmatic config:
+
+[source,kotlin]
+----
+extensions.s3Upload("demo-s3") {
+    id = "seed-s3"
+    prefix = "input"
+    file("src/test/resources/data/users.json", key = "input/users.json", contentType = "application/json")
+    directory("src/test/resources/data/events", prefix = "events")
+}
+
+extensions.gcsUpload("demo-gcs") {
+    id = "seed-gcs"
+    project = "bigdata-test"
+    file("classpath:data/products.json", key = "input/products.json", contentType = "application/json")
+}
+----
+
+`source` accepts `file:<path>` or a plain filesystem path for files and directories.
+Single files can also use `classpath:<resource>`.
+Directory uploads should use filesystem paths because classpath directories are not reliably listable after resources are packaged in a jar.
+When `key` is omitted for a file, the object key is built from the extension `prefix`, source `prefix`, and file name.
+For directories, object keys are built from the extension `prefix`, source `prefix`, and the relative file path under the directory.
+
+Outputs:
+
+* `<id>.bucket`
+* `<id>.s3a.uri` or `<id>.gs.uri`
+* `<id>.uploaded-count`
+* `<id>.uploaded.<index>.key`
+
 === S3 JCEKS Extension
 
 The `s3Jceks` extension creates a Hadoop credential provider file in HDFS and stores the S3 emulator credentials in it.

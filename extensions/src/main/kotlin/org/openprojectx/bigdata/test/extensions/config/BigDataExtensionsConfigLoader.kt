@@ -20,7 +20,10 @@ import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroRecordSeed
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroSeedExtension
 import org.openprojectx.bigdata.test.extensions.kafka.KafkaAvroTopicSeed
 import org.openprojectx.bigdata.test.extensions.objectstore.GcsBucketExtension
+import org.openprojectx.bigdata.test.extensions.objectstore.GcsUploadExtension
+import org.openprojectx.bigdata.test.extensions.objectstore.ObjectStoreUploadSource
 import org.openprojectx.bigdata.test.extensions.objectstore.S3BucketExtension
+import org.openprojectx.bigdata.test.extensions.objectstore.S3UploadExtension
 import org.openprojectx.bigdata.test.extensions.spark.SparkSqlPreparationExtensionProvider
 import java.util.ServiceLoader
 
@@ -84,6 +87,33 @@ class BigDataExtensionsConfigLoader(
                 )
             }
         }
+        root["s3Uploads"]?.jsonArray?.forEach { item ->
+            val config = item.jsonObject
+            if (config.boolean("enabled", default = true)) {
+                val bucket = config.string("bucket")
+                extensions += S3UploadExtension(
+                    id = config.string("id", "s3-upload-$bucket"),
+                    bucket = bucket,
+                    prefix = config.string("prefix", ""),
+                    createBucket = config.boolean("createBucket", default = true),
+                    sources = config.uploadSources(),
+                )
+            }
+        }
+        root["gcsUploads"]?.jsonArray?.forEach { item ->
+            val config = item.jsonObject
+            if (config.boolean("enabled", default = true)) {
+                val bucket = config.string("bucket")
+                extensions += GcsUploadExtension(
+                    id = config.string("id", "gcs-upload-$bucket"),
+                    bucket = bucket,
+                    prefix = config.string("prefix", ""),
+                    project = config.string("project", "bigdata-test"),
+                    createBucket = config.boolean("createBucket", default = true),
+                    sources = config.uploadSources(),
+                )
+            }
+        }
         root["extensions"]?.jsonArray?.forEach { item ->
             val config = item.jsonObject
             val type = config.string("type")
@@ -114,11 +144,26 @@ class BigDataExtensionsConfigLoader(
         )
     }
 
+    private fun JsonObject.uploadSources(): List<ObjectStoreUploadSource> =
+        this["sources"]?.jsonArray?.map { item ->
+            val source = item.jsonObject
+            ObjectStoreUploadSource(
+                source = source.string("source"),
+                key = source.optionalString("key"),
+                prefix = source.string("prefix", ""),
+                recursive = source.boolean("recursive", default = true),
+                contentType = source.optionalString("contentType"),
+            )
+        }.orEmpty()
+
     private fun JsonObject.string(name: String): String =
         this[name]?.jsonPrimitive?.contentOrNull ?: error("Missing required extension config field '$name'")
 
     private fun JsonObject.string(name: String, default: String): String =
         this[name]?.jsonPrimitive?.contentOrNull ?: default
+
+    private fun JsonObject.optionalString(name: String): String? =
+        this[name]?.jsonPrimitive?.contentOrNull
 
     private fun JsonObject.int(name: String, default: Int): Int =
         this[name]?.jsonPrimitive?.intOrNull ?: default
