@@ -17,12 +17,16 @@ class SparkBigDataTestExample : SparkBigDataScenario() {
     override val s3BucketExtensionId: String get() = S3_BUCKET_ID
     override val gcsBucketExtensionId: String get() = GCS_BUCKET_ID
     override val sparkSqlPrepExtensionId: String get() = SPARK_SQL_PREP_ID
+    override val s3UploadExtensionId: String get() = S3_UPLOAD_ID
+    override val gcsUploadExtensionId: String get() = GCS_UPLOAD_ID
 
     companion object : BigDataExtensionsConfigurer {
         private val scenarioRunId = System.nanoTime().toString()
         private const val S3_BUCKET_ID = "spark-s3-bucket"
         private const val GCS_BUCKET_ID = "spark-gcs-bucket"
         private const val SPARK_SQL_PREP_ID = "spark-sql-prep"
+        private const val S3_UPLOAD_ID = "spark-s3-upload"
+        private const val GCS_UPLOAD_ID = "spark-gcs-upload"
 
         override fun configure(extensions: BigDataExtensionsBuilder) {
             val s3Bucket = "spark-iceberg-s3-$scenarioRunId"
@@ -32,6 +36,24 @@ class SparkBigDataTestExample : SparkBigDataScenario() {
 
             extensions.s3Bucket(bucket = s3Bucket, id = S3_BUCKET_ID)
             extensions.gcsBucket(bucket = gcsBucket, id = GCS_BUCKET_ID)
+            extensions.s3Upload(s3Bucket) {
+                id = S3_UPLOAD_ID
+                prefix = "uploaded"
+                file(
+                    source = "classpath:data/upload-seed.json",
+                    key = "uploaded/s3-seed.json",
+                    contentType = "application/json",
+                )
+            }
+            extensions.gcsUpload(gcsBucket) {
+                id = GCS_UPLOAD_ID
+                prefix = "uploaded"
+                file(
+                    source = "classpath:data/upload-seed.json",
+                    key = "uploaded/gcs-seed.json",
+                    contentType = "application/json",
+                )
+            }
             extensions.sparkSqlPreparation {
                 id = SPARK_SQL_PREP_ID
                 config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")

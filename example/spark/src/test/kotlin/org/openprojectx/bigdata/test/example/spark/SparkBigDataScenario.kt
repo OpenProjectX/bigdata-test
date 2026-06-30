@@ -16,6 +16,10 @@ abstract class SparkBigDataScenario {
     protected abstract val s3BucketExtensionId: String
     protected abstract val gcsBucketExtensionId: String
     protected open val sparkSqlPrepExtensionId: String = "spark-sql-prep"
+    protected open val s3UploadExtensionId: String = "spark-s3-upload"
+    protected open val gcsUploadExtensionId: String = "spark-gcs-upload"
+    protected open val s3TomlUploadExtensionId: String = "spark-s3-upload-toml"
+    protected open val gcsTomlUploadExtensionId: String = "spark-gcs-upload-toml"
 
     @Test
     fun runsSparkScenario(kit: BigDataTestKit, extensions: BigDataExtensionResult) {
@@ -50,6 +54,34 @@ abstract class SparkBigDataScenario {
                     kerberosServiceName = context.environment.kafkaKerberosServiceName,
                     jaasConfig = context.environment.kafkaJaasConfig,
                     sslProperties = context.environment.kafkaSslProperties,
+                )
+            },
+            SparkScenarioCheck { context ->
+                assertUploadedJsonInput(
+                    spark = context.spark,
+                    path = "s3a://${context.environment.s3Bucket}/${context.environment.s3UploadedObjectKey}",
+                    storageName = "s3-upload",
+                )
+            },
+            SparkScenarioCheck { context ->
+                assertUploadedJsonInput(
+                    spark = context.spark,
+                    path = "gs://${context.environment.gcsBucket}/${context.environment.gcsUploadedObjectKey}",
+                    storageName = "gcs-upload",
+                )
+            },
+            SparkScenarioCheck { context ->
+                assertUploadedJsonInput(
+                    spark = context.spark,
+                    path = "s3a://${context.environment.s3TomlUploadBucket}/${context.environment.s3TomlUploadedObjectKey}",
+                    storageName = "s3-upload-toml",
+                )
+            },
+            SparkScenarioCheck { context ->
+                assertUploadedJsonInput(
+                    spark = context.spark,
+                    path = "gs://${context.environment.gcsTomlUploadBucket}/${context.environment.gcsTomlUploadedObjectKey}",
+                    storageName = "gcs-upload-toml",
                 )
             },
         )
@@ -146,6 +178,12 @@ abstract class SparkBigDataScenario {
             gcsEndpoint = gcs.property("google.cloud.storage.host"),
             gcsBucket = gcsBucket,
             gcsIcebergDataPath = "${extensions.required("$gcsBucketExtensionId.gs.uri")}/data/demo_$runId/events_gcs",
+            s3UploadedObjectKey = extensions.required("$s3UploadExtensionId.uploaded.0.key"),
+            gcsUploadedObjectKey = extensions.required("$gcsUploadExtensionId.uploaded.0.key"),
+            s3TomlUploadBucket = extensions.required("$s3TomlUploadExtensionId.bucket"),
+            s3TomlUploadedObjectKey = extensions.required("$s3TomlUploadExtensionId.uploaded.0.key"),
+            gcsTomlUploadBucket = extensions.required("$gcsTomlUploadExtensionId.bucket"),
+            gcsTomlUploadedObjectKey = extensions.required("$gcsTomlUploadExtensionId.uploaded.0.key"),
             sparkSqlPrepExecutedStatements = extensions.optional("$sparkSqlPrepExtensionId.executed-statements"),
             s3CredentialProviderPath = extensions.required("s3-jceks.credential-provider.path"),
             s3CredentialProviderHdfsPath = extensions.required("s3-jceks.hdfs.path"),
@@ -312,6 +350,15 @@ abstract class SparkBigDataScenario {
 
         val rows = reader.load()
         check(rows.count() == 2L) { "Expected two Avro Kafka records in $topic" }
+    }
+
+    protected fun assertUploadedJsonInput(
+        spark: SparkSession,
+        path: String,
+        storageName: String,
+    ) {
+        val count = spark.read().json(path).where("storage = 'upload-seed'").count()
+        check(count == 2L) { "Expected two $storageName uploaded JSON rows in $path" }
     }
 
     protected fun assertSparkSqlPreparation(
@@ -543,6 +590,12 @@ data class SparkScenarioEnvironment(
     val gcsEndpoint: String,
     val gcsBucket: String,
     val gcsIcebergDataPath: String,
+    val s3UploadedObjectKey: String,
+    val gcsUploadedObjectKey: String,
+    val s3TomlUploadBucket: String,
+    val s3TomlUploadedObjectKey: String,
+    val gcsTomlUploadBucket: String,
+    val gcsTomlUploadedObjectKey: String,
     val sparkSqlPrepExecutedStatements: String?,
     val s3CredentialProviderPath: String,
     val s3CredentialProviderHdfsPath: String,
