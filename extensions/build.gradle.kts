@@ -46,6 +46,7 @@ dependencies {
     compileOnly(libs.sparkHive)
     compileOnly(libs.servletApi)
     implementation(libs.kotlinxSerialization)
+    implementation(libs.tomlj)
 
     shadedRuntime(libs.hadoopClientApi)
     shadedRuntime(libs.hadoopClientRuntime)
@@ -71,6 +72,7 @@ dependencies {
     shadedRuntime(libs.icebergAwsBundle)
     shadedRuntime(libs.servletApi)
     shadedRuntime(libs.kotlinxSerialization)
+    shadedRuntime(libs.tomlj)
 
     testImplementation(libs.junitJupiterApi)
     testImplementation(libs.hadoopClientApi)

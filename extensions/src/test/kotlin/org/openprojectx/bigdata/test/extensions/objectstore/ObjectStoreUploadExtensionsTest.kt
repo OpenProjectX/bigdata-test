@@ -28,7 +28,7 @@ class ObjectStoreUploadExtensionsTest {
     }
 
     @Test
-    fun `loads upload extensions from toml`() {
+    fun `loads upload extensions with inline sources from toml`() {
         val extensions = BigDataExtensionsConfigLoader().load(
             """
             [[s3Uploads]]
@@ -56,6 +56,31 @@ class ObjectStoreUploadExtensionsTest {
         assertTrue(extensions[1] is GcsUploadExtension)
         assertEquals("seed-s3", extensions[0].id)
         assertEquals("seed-gcs", extensions[1].id)
+    }
+
+    @Test
+    fun `loads upload extensions with source table arrays from toml`() {
+        val extensions = BigDataExtensionsConfigLoader().load(
+            """
+            [[s3Uploads]]
+            id = "seed-s3"
+            bucket = "demo"
+            prefix = "input"
+
+            [[s3Uploads.sources]]
+            source = "classpath:data/a.txt"
+            key = "input/a.txt"
+            contentType = "text/plain"
+
+            [[s3Uploads.sources]]
+            source = "file:build/seed"
+            prefix = "nested"
+            """.trimIndent(),
+        )
+
+        assertEquals(1, extensions.size)
+        assertTrue(extensions.single() is S3UploadExtension)
+        assertEquals("seed-s3", extensions.single().id)
     }
 
     @Test

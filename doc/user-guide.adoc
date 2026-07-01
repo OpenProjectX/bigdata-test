@@ -1357,6 +1357,30 @@ They use the AWS S3 SDK and Google Cloud Storage SDK against the endpoints expos
 id = "seed-s3"
 bucket = "demo-s3"
 prefix = "input"
+sources = [
+  { source = "file:src/test/resources/data/users.json", key = "input/users.json", contentType = "application/json" },
+  { source = "src/test/resources/data/events", prefix = "events" },
+]
+
+[[gcsUploads]]
+id = "seed-gcs"
+bucket = "demo-gcs"
+project = "bigdata-test"
+prefix = "input"
+createBucket = true
+sources = [
+  { source = "classpath:data/products.json", key = "input/products.json", contentType = "application/json" },
+]
+----
+
+The equivalent table-array form is also supported and is easier to edit when each source has several fields:
+
+[source,toml]
+----
+[[s3Uploads]]
+id = "seed-s3"
+bucket = "demo-s3"
+prefix = "input"
 
 [[s3Uploads.sources]]
 source = "file:src/test/resources/data/users.json"
@@ -1380,8 +1404,8 @@ key = "input/products.json"
 contentType = "application/json"
 ----
 
-Use `[[s3Uploads.sources]]` and `[[gcsUploads.sources]]` for upload sources.
-Do not use an inline `sources = [ ... ]` array in project examples; the documented and tested TOML form is a table array, which is easier to extend and avoids parser differences around inline tables.
+Both `sources = [ { ... } ]` and `[[s3Uploads.sources]]` / `[[gcsUploads.sources]]` are valid TOML and supported by the extension config loader.
+Use inline arrays for short declarations, and table arrays when the source list gets longer.
 
 Programmatic config:
 
