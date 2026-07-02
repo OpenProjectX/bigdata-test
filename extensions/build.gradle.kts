@@ -46,7 +46,7 @@ dependencies {
     compileOnly(libs.sparkHive)
     compileOnly(libs.servletApi)
     implementation(libs.kotlinxSerialization)
-    implementation(libs.tomlj)
+    implementation(libs.jtoml)
 
     shadedRuntime(libs.hadoopClientApi)
     shadedRuntime(libs.hadoopClientRuntime)
@@ -72,7 +72,7 @@ dependencies {
     shadedRuntime(libs.icebergAwsBundle)
     shadedRuntime(libs.servletApi)
     shadedRuntime(libs.kotlinxSerialization)
-    shadedRuntime(libs.tomlj)
+    shadedRuntime(libs.jtoml)
 
     testImplementation(libs.junitJupiterApi)
     testImplementation(libs.hadoopClientApi)
@@ -87,6 +87,7 @@ dependencies {
     testRuntimeOnly(libs.junitJupiterEngine)
     testRuntimeOnly(libs.junitPlatformLauncher)
     testRuntimeOnly(libs.slf4jSimple)
+    testRuntimeOnly(libs.servletApi)
 }
 
 val runtimeShadowJar = tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {

@@ -25,14 +25,13 @@ import org.openprojectx.bigdata.test.extensions.objectstore.ObjectStoreUploadSou
 import org.openprojectx.bigdata.test.extensions.objectstore.S3BucketExtension
 import org.openprojectx.bigdata.test.extensions.objectstore.S3UploadExtension
 import org.openprojectx.bigdata.test.extensions.spark.SparkSqlPreparationExtensionProvider
-import org.tomlj.Toml
-import org.tomlj.TomlArray
-import org.tomlj.TomlTable
+import io.ous.jtoml.JToml
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.OffsetDateTime
+import java.util.Date
 import java.util.ServiceLoader
 
 class BigDataExtensionsConfigLoader(
@@ -187,34 +186,39 @@ class BigDataExtensionsConfigLoader(
 }
 
 private object TomlConfigParser {
+    private val trailingArrayComma = Regex(",\\s*]")
+
     fun parse(text: String): JsonObject {
-        val result = Toml.parse(text)
-        require(!result.hasErrors()) {
-            result.errors().joinToString(separator = System.lineSeparator()) { it.toString() }
-        }
+        val result = JToml.parseString(text.replace(trailingArrayComma, "\n]"))
         return result.toJsonObject()
     }
 
-    private fun TomlTable.toJsonObject(): JsonObject =
-        JsonObject(keySet().associateWith { key -> get(key).toJsonElement() })
+    private fun Map<*, *>.toJsonObject(): JsonObject =
+        JsonObject(entries.associate { (key, value) ->
+            require(key is String) { "Unsupported TOML key type: ${key?.javaClass}" }
+            key to value.toJsonElement()
+        })
 
-    private fun TomlArray.toJsonArray(): JsonArray =
-        JsonArray((0 until size()).map { index -> get(index).toJsonElement() })
+    private fun Iterable<*>.toJsonArray(): JsonArray =
+        JsonArray(map { value -> value.toJsonElement() })
 
     private fun Any?.toJsonElement(): JsonElement =
         when (this) {
             null -> JsonPrimitive("null")
             is String -> JsonPrimitive(this)
             is Boolean -> JsonPrimitive(this)
+            is Int -> JsonPrimitive(this)
             is Long -> JsonPrimitive(this)
+            is Float -> JsonPrimitive(this)
             is Double -> JsonPrimitive(this)
             is BigDecimal -> JsonPrimitive(this)
-            is TomlTable -> toJsonObject()
-            is TomlArray -> toJsonArray()
+            is Map<*, *> -> toJsonObject()
+            is Iterable<*> -> toJsonArray()
             is OffsetDateTime,
             is LocalDateTime,
             is LocalDate,
             is LocalTime,
+            is Date,
             -> JsonPrimitive(toString())
             else -> error("Unsupported TOML value type: ${this::class}")
         }

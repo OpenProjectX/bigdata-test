@@ -29,7 +29,7 @@ bouncycastle = "1.83"
 awsSdk = "2.41.5"
 mysqlConnector = "8.4.0"
 servletApi = "4.0.1"
-tomlj = "1.1.1"
+jtoml = "2.0.0"
 
 [libraries]
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -77,7 +77,7 @@ awsSdkS3 = { module = "software.amazon.awssdk:s3", version.ref = "awsSdk" }
 awsSdkS3TransferManager = { module = "software.amazon.awssdk:s3-transfer-manager", version.ref = "awsSdk" }
 servletApi = { module = "javax.servlet:javax.servlet-api", version.ref = "servletApi" }
 mysqlConnector = { module = "com.mysql:mysql-connector-j", version.ref = "mysqlConnector" }
-tomlj = { module = "org.tomlj:tomlj", version.ref = "tomlj" }
+jtoml = { module = "io.ous:jtoml", version.ref = "jtoml" }
 
 # Libraries can be bundled together for easier import
 [bundles]
