@@ -164,6 +164,15 @@ class S3JceksBuilder {
     var fileName: String = "s3.jceks"
     var accessKeyAlias: String = "fs.s3a.access.key"
     var secretKeyAlias: String = "fs.s3a.secret.key"
+    private val aliases = linkedMapOf<String, String>()
+
+    fun alias(name: String, value: String) {
+        aliases[name] = value
+    }
+
+    fun aliases(values: Map<String, String>) {
+        aliases += values
+    }
 
     internal fun build(): S3JceksExtension =
         S3JceksExtension(
@@ -172,6 +181,7 @@ class S3JceksBuilder {
             fileName = fileName,
             accessKeyAlias = accessKeyAlias,
             secretKeyAlias = secretKeyAlias,
+            aliases = S3JceksExtension.defaultAliases + aliases,
         )
 }
 

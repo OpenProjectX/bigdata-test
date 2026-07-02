@@ -44,7 +44,7 @@ object HadoopCredentialProviders {
             if (provider.getCredentialEntry(alias) != null) {
                 provider.deleteCredentialEntry(alias)
             }
-            provider.createCredentialEntry(alias, value.toCharArray())
+            provider.createCredentialEntry(alias, value.ifEmpty { " " }.toCharArray())
         }
         provider.flush()
     }

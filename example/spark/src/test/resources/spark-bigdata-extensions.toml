@@ -3,6 +3,10 @@ enabled = true
 hdfsDir = "/bigdata-test/spark"
 fileName = "s3.jceks"
 
+[s3Jceks.aliases]
+"fs.s3a.encryption.algorithm" = ""
+"fs.s3a.server-side-encryption-algorithm" = ""
+
 [kafkaAvro]
 enabled = true
 

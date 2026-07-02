@@ -1481,7 +1481,15 @@ hdfsDir = "/bigdata-test/spark"
 fileName = "s3.jceks"
 accessKeyAlias = "fs.s3a.access.key"
 secretKeyAlias = "fs.s3a.secret.key"
+
+[s3Jceks.aliases]
+"fs.s3a.encryption.algorithm" = ""
+"fs.s3a.server-side-encryption-algorithm" = ""
+"fs.s3a.encryption.key" = ""
+"fs.s3a.server-side-encryption.key" = ""
 ----
+
+`aliases` writes additional entries into the same JCEKS file. The extension writes empty defaults for Hadoop 3.4 S3A encryption aliases because `S3AUtils.lookupPassword()` reads those options through the credential provider even when encryption is disabled. The JCEKS provider cannot store a zero-length secret, so empty alias values are stored as a single space; S3A trims the value back to blank while reading. Override them only when your test needs S3A encryption options.
 
 Outputs:
 

@@ -55,6 +55,7 @@ class BigDataExtensionsConfigLoader(
                     fileName = config.string("fileName", "s3.jceks"),
                     accessKeyAlias = config.string("accessKeyAlias", "fs.s3a.access.key"),
                     secretKeyAlias = config.string("secretKeyAlias", "fs.s3a.secret.key"),
+                    aliases = S3JceksExtension.defaultAliases + config.stringMap("aliases"),
                 )
             }
         }
@@ -162,6 +163,24 @@ class BigDataExtensionsConfigLoader(
                 contentType = source.optionalString("contentType"),
             )
         }.orEmpty()
+
+    private fun JsonObject.stringMap(name: String): Map<String, String> =
+        this[name]?.jsonObject?.flattenStringMap(errorPath = name).orEmpty()
+
+    private fun JsonObject.flattenStringMap(prefix: String = "", errorPath: String): Map<String, String> =
+        flatMap { (key, value) ->
+            val outputKey = if (prefix.isBlank()) key else "$prefix.$key"
+            val fullErrorPath = "$errorPath.$key"
+            when (value) {
+                is JsonObject -> value.flattenStringMap(prefix = outputKey, errorPath = fullErrorPath).toList()
+                else -> listOf(
+                    outputKey to (
+                        value.jsonPrimitive.contentOrNull
+                            ?: error("Extension config field '$fullErrorPath' must be a string")
+                    ),
+                )
+            }
+        }.toMap()
 
     private fun JsonObject.string(name: String): String =
         this[name]?.jsonPrimitive?.contentOrNull ?: error("Missing required extension config field '$name'")
