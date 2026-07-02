@@ -18,18 +18,14 @@ records = [
 id = "spark-s3-upload-toml"
 bucket = "spark-upload-toml-s3"
 prefix = "uploaded-toml"
-
-[[s3Uploads.sources]]
-source = "classpath:data/upload-seed.json"
-key = "uploaded-toml/s3-seed.json"
-contentType = "application/json"
+sources = [
+  { source = "classpath:data/upload-seed.json", key = "uploaded-toml/s3-seed.json", contentType = "application/json" },
+]
 
 [[gcsUploads]]
 id = "spark-gcs-upload-toml"
 bucket = "spark-upload-toml-gcs"
 prefix = "uploaded-toml"
-
-[[gcsUploads.sources]]
-source = "classpath:data/upload-seed.json"
-key = "uploaded-toml/gcs-seed.json"
-contentType = "application/json"
+sources = [
+  { source = "classpath:data/upload-seed.json", key = "uploaded-toml/gcs-seed.json", contentType = "application/json" },
+]

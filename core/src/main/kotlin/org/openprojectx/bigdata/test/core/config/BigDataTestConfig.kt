@@ -1,7 +1,10 @@
 package org.openprojectx.bigdata.test.core.config
 
+import io.ous.jtoml.JToml
+import java.math.BigDecimal
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Date
 import org.openprojectx.bigdata.test.core.BigDataHealthCheckMode
 import org.openprojectx.bigdata.test.core.BigDataHealthCheckOptions
 import org.openprojectx.bigdata.test.core.BigDataService
@@ -323,7 +326,7 @@ class BigDataTestConfigLoader(
         }
 
     fun load(location: String): BigDataTestConfig {
-        val tables = parseTables(readText(location))
+        val tables = TomlConfigParser.parseTables(readText(location))
         val images = tables["images"].orEmpty()
         val services = tables["services"].orEmpty()
         val kerberos = tables["kerberos"].orEmpty()
@@ -466,84 +469,7 @@ class BigDataTestConfigLoader(
             else -> Files.readString(Path.of(location))
         }
 
-    private fun parseTables(text: String): Map<String, Map<String, TomlValue>> {
-        val tables = linkedMapOf<String, MutableMap<String, TomlValue>>()
-        var table = ""
-        tables[table] = linkedMapOf()
-        text.lineSequence().forEachIndexed { index, raw ->
-            val line = stripComment(raw).trim()
-            if (line.isBlank()) return@forEachIndexed
-            if (line.startsWith("[") && line.endsWith("]")) {
-                table = line.removePrefix("[").removeSuffix("]").trim()
-                require(table.isNotBlank()) { "TOML table name is blank at line ${index + 1}" }
-                tables.getOrPut(table) { linkedMapOf() }
-                return@forEachIndexed
-            }
-            val separator = line.indexOf('=')
-            require(separator > 0) { "TOML line ${index + 1}: expected key = value" }
-            val key = parseKey(line.substring(0, separator).trim(), index + 1)
-            val value = line.substring(separator + 1).trim()
-            tables.getValue(table)[key] = parseValue(value, index + 1)
-        }
-        return tables
-    }
-
-    private fun stripComment(raw: String): String {
-        var inString = false
-        var escaped = false
-        raw.forEachIndexed { index, char ->
-            when {
-                escaped -> escaped = false
-                char == '\\' && inString -> escaped = true
-                char == '"' -> inString = !inString
-                char == '#' && !inString -> return raw.substring(0, index)
-            }
-        }
-        return raw
-    }
-
-    private fun parseKey(key: String, line: Int): String =
-        if (key.startsWith('"')) parseString(key, line) else key
-
-    private fun parseValue(value: String, line: Int): TomlValue =
-        when {
-            value.startsWith('"') -> TomlValue.StringValue(parseString(value, line))
-            value == "true" -> TomlValue.BooleanValue(true)
-            value == "false" -> TomlValue.BooleanValue(false)
-            value.matches(Regex("[0-9]+")) -> TomlValue.IntValue(value.toInt())
-            else -> error("TOML line $line: unsupported value '$value'")
-        }
-
-    private fun parseString(value: String, line: Int): String {
-        require(value.length >= 2 && value.first() == '"' && value.last() == '"') {
-            "TOML line $line: string values must be quoted"
-        }
-        return buildString {
-            var escaped = false
-            value.substring(1, value.length - 1).forEach { char ->
-                if (escaped) {
-                    append(
-                        when (char) {
-                            '"' -> '"'
-                            '\\' -> '\\'
-                            'n' -> '\n'
-                            'r' -> '\r'
-                            't' -> '\t'
-                            else -> char
-                        },
-                    )
-                    escaped = false
-                } else if (char == '\\') {
-                    escaped = true
-                } else {
-                    append(char)
-                }
-            }
-            require(!escaped) { "TOML line $line: unterminated escape in string" }
-        }
-    }
-
-    private fun httpTls(values: Map<String, TomlValue>): BigDataTestHttpTlsConfig =
+    private fun httpTls(values: Map<String, Any?>): BigDataTestHttpTlsConfig =
         BigDataTestHttpTlsConfig(
             enabled = values.boolean("enabled"),
             domain = values.string("domain"),
@@ -564,7 +490,7 @@ class BigDataTestConfigLoader(
         }
 
     private fun parseContainerCustomizations(
-        tables: Map<String, Map<String, TomlValue>>,
+        tables: Map<String, Map<String, Any?>>,
     ): Map<BigDataService, ContainerCustomizationOptions> {
         val customizations = linkedMapOf<BigDataService, ContainerCustomizationOptions>()
         tables.forEach { (table, values) ->
@@ -590,7 +516,7 @@ class BigDataTestConfigLoader(
         return customizations
     }
 
-    private fun parseContainerLogLevels(tables: Map<String, Map<String, TomlValue>>): Map<BigDataService, String> {
+    private fun parseContainerLogLevels(tables: Map<String, Map<String, Any?>>): Map<BigDataService, String> {
         val values = tables["containerLogLevels"].orEmpty()
         return values.mapKeys { (serviceName, _) -> parseService(serviceName, "containerLogLevels") }
             .mapValues { (service, value) -> normalizeContainerLogLevel(value.asString("container log level '$service'")) }
@@ -605,7 +531,7 @@ class BigDataTestConfigLoader(
         return normalized
     }
 
-    private fun parseHealthChecks(tables: Map<String, Map<String, TomlValue>>): Map<BigDataService, BigDataHealthCheckOptions> {
+    private fun parseHealthChecks(tables: Map<String, Map<String, Any?>>): Map<BigDataService, BigDataHealthCheckOptions> {
         val modes = tables["healthChecks"].orEmpty()
         val timeouts = tables["healthCheckTimeouts"].orEmpty()
         val healthChecks = linkedMapOf<BigDataService, BigDataHealthCheckOptions>()
@@ -625,7 +551,7 @@ class BigDataTestConfigLoader(
         return SERVICE_NAMES[normalized] ?: error("TOML table '$table' uses unknown service '$name'")
     }
 
-    private fun Map<String, TomlValue>.containerFiles(): List<ContainerFileTransferOptions> =
+    private fun Map<String, Any?>.containerFiles(): List<ContainerFileTransferOptions> =
         map { (containerPath, value) ->
             val source = value.asString("container file '$containerPath'")
             when {
@@ -645,7 +571,7 @@ class BigDataTestConfigLoader(
             }
         }
 
-    private fun Map<String, TomlValue>.containerMounts(): List<ContainerMountOptions> =
+    private fun Map<String, Any?>.containerMounts(): List<ContainerMountOptions> =
         map { (hostPath, value) ->
             val target = value.asString("container mount '$hostPath'")
             val readOnly = !target.endsWith(":rw")
@@ -653,7 +579,7 @@ class BigDataTestConfigLoader(
             ContainerMountOptions(hostPath = hostPath, containerPath = containerPath, readOnly = readOnly)
         }
 
-    private fun Map<String, TomlValue>.containerPorts(table: String): List<ContainerPortOptions> =
+    private fun Map<String, Any?>.containerPorts(table: String): List<ContainerPortOptions> =
         map { (containerPort, value) ->
             ContainerPortOptions(
                 containerPort = containerPort.toIntOrNull()
@@ -662,41 +588,35 @@ class BigDataTestConfigLoader(
             )
         }
 
-    private fun Map<String, TomlValue>.stringMap(table: String): Map<String, String> =
+    private fun Map<String, Any?>.stringMap(table: String): Map<String, String> =
         mapValues { (key, value) -> value.asString("TOML key '$table.$key'") }
 
-    private fun Map<String, TomlValue>.string(key: String): String? =
+    private fun Map<String, Any?>.string(key: String): String? =
         this[key]?.let {
-            require(it is TomlValue.StringValue) { "TOML key '$key' must be a quoted string" }
-            it.value
+            require(it is String) { "TOML key '$key' must be a quoted string" }
+            it
         }
 
-    private fun Map<String, TomlValue>.boolean(key: String): Boolean? =
+    private fun Map<String, Any?>.boolean(key: String): Boolean? =
         this[key]?.let {
-            require(it is TomlValue.BooleanValue) { "TOML key '$key' must be true or false" }
-            it.value
+            require(it is Boolean) { "TOML key '$key' must be true or false" }
+            it
         }
 
-    private fun Map<String, TomlValue>.int(key: String): Int? =
+    private fun Map<String, Any?>.int(key: String): Int? =
         this[key]?.let {
-            require(it is TomlValue.IntValue) { "TOML key '$key' must be an integer" }
-            it.value
+            require(it is Number) { "TOML key '$key' must be an integer" }
+            it.toInt()
         }
 
-    private fun TomlValue.asString(name: String): String {
-        require(this is TomlValue.StringValue) { "$name must be a quoted string" }
-        return value
+    private fun Any?.asString(name: String): String {
+        require(this is String) { "$name must be a quoted string" }
+        return this
     }
 
-    private fun TomlValue.asInt(name: String): Int {
-        require(this is TomlValue.IntValue) { "$name must be an integer" }
-        return value
-    }
-
-    private sealed interface TomlValue {
-        data class StringValue(val value: String) : TomlValue
-        data class BooleanValue(val value: Boolean) : TomlValue
-        data class IntValue(val value: Int) : TomlValue
+    private fun Any?.asInt(name: String): Int {
+        require(this is Number) { "$name must be an integer" }
+        return toInt()
     }
 
     private companion object {
@@ -712,4 +632,54 @@ class BigDataTestConfigLoader(
             "fakegcs" to BigDataService.FAKE_GCS,
         )
     }
+}
+
+private object TomlConfigParser {
+    private val trailingArrayComma = Regex(",\\s*]")
+
+    fun parseTables(text: String): Map<String, Map<String, Any?>> {
+        val root = JToml.parseString(text.replace(trailingArrayComma, "\n]"))
+        val tables = linkedMapOf<String, Map<String, Any?>>()
+        flattenTable("", root, tables)
+        return tables
+    }
+
+    private fun flattenTable(
+        path: String,
+        values: Map<*, *>,
+        tables: MutableMap<String, Map<String, Any?>>,
+    ) {
+        val scalars = linkedMapOf<String, Any?>()
+        values.forEach { (rawKey, rawValue) ->
+            require(rawKey is String) { "Unsupported TOML key type: ${rawKey?.javaClass}" }
+            when (rawValue) {
+                is Map<*, *> -> flattenTable(path.child(rawKey), rawValue, tables)
+                else -> scalars[rawKey] = rawValue.normalizedTomlValue()
+            }
+        }
+        tables[path] = scalars
+    }
+
+    private fun String.child(name: String): String =
+        if (isBlank()) name else "$this.$name"
+
+    private fun Any?.normalizedTomlValue(): Any? =
+        when (this) {
+            null -> null
+            is String,
+            is Boolean,
+            is Int,
+            is Long,
+            is Float,
+            is Double,
+            is BigDecimal,
+            is Date,
+            -> this
+            is Iterable<*> -> map { it.normalizedTomlValue() }
+            is Map<*, *> -> entries.associate { (key, value) ->
+                require(key is String) { "Unsupported TOML key type: ${key?.javaClass}" }
+                key to value.normalizedTomlValue()
+            }
+            else -> this.toString()
+        }
 }
