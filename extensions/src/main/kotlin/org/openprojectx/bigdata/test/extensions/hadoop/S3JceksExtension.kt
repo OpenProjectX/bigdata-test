@@ -12,6 +12,7 @@ data class S3JceksExtension(
     val accessKeyAlias: String = "fs.s3a.access.key",
     val secretKeyAlias: String = "fs.s3a.secret.key",
     val aliases: Map<String, String> = defaultAliases,
+    val additionalHdfsPaths: List<String> = emptyList(),
 ) : BigDataExtension {
     override val requiredServices: Set<BigDataService> = setOf(BigDataService.HDFS, BigDataService.LOCALSTACK_S3)
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)
@@ -20,21 +21,36 @@ data class S3JceksExtension(
         val hdfs = context.endpoint(BigDataService.HDFS)
         val s3 = context.endpoint(BigDataService.LOCALSTACK_S3)
         val kerberosProperties = context.kit.endpoints()[BigDataService.KERBEROS]?.properties.orEmpty()
-        val providerPath = HadoopCredentialProviders.hdfsJceksPath(hdfsDir, fileName)
-        HadoopCredentialProviders.createHdfsJceks(
-            hdfsProperties = hdfs.properties + kerberosProperties,
-            configDir = hdfsDir,
-            providerPath = providerPath,
-            credentials = mapOf(
-                accessKeyAlias to s3.property("aws.accessKeyId"),
-                secretKeyAlias to s3.property("aws.secretAccessKey"),
-            ) + aliases,
-        )
-        context.putOutput("$id.credential-provider.path", providerPath)
-        context.putOutput("$id.hdfs.path", "${hdfsDir.trimEnd('/')}/$fileName")
+        val credentials = mapOf(
+            accessKeyAlias to s3.property("aws.accessKeyId"),
+            secretKeyAlias to s3.property("aws.secretAccessKey"),
+        ) + aliases
+        val hdfsPaths = (listOf("${hdfsDir.trimEnd('/')}/$fileName") + additionalHdfsPaths).distinct()
+        val providerPaths = hdfsPaths.map { hdfsJceksProviderPath(it) }
+        hdfsPaths.zip(providerPaths).forEach { (hdfsPath, providerPath) ->
+            HadoopCredentialProviders.createHdfsJceks(
+                hdfsProperties = hdfs.properties + kerberosProperties,
+                configDir = hdfsPath.substringBeforeLast('/', missingDelimiterValue = "/").ifBlank { "/" },
+                providerPath = providerPath,
+                credentials = credentials,
+            )
+        }
+        context.putOutput("$id.credential-provider.path", providerPaths.first())
+        context.putOutput("$id.credential-provider.paths", providerPaths.joinToString(","))
+        context.putOutput("$id.hdfs.path", hdfsPaths.first())
+        context.putOutput("$id.hdfs.paths", hdfsPaths.joinToString(","))
+        providerPaths.forEachIndexed { index, providerPath ->
+            context.putOutput("$id.credential-provider.path.$index", providerPath)
+        }
+        hdfsPaths.forEachIndexed { index, hdfsPath ->
+            context.putOutput("$id.hdfs.path.$index", hdfsPath)
+        }
     }
 
     companion object {
+        fun hdfsJceksProviderPath(hdfsPath: String): String =
+            "jceks://hdfs/${hdfsPath.trimStart('/')}"
+
         val defaultAliases: Map<String, String> = mapOf(
             // Hadoop 3.4 S3A loads these through S3AUtils.lookupPassword().
             // Empty aliases keep credential-provider-only configurations from

@@ -13,6 +13,10 @@ class S3JceksExtensionTest {
             [s3Jceks]
             hdfsDir = "/config"
             fileName = "s3.jceks"
+            additionalHdfsPaths = [
+              "/config/app/s3.jceks",
+              "/config/worker/s3.jceks"
+            ]
 
             [s3Jceks.aliases]
             "fs.s3a.encryption.algorithm" = "SSE-S3"
@@ -23,6 +27,7 @@ class S3JceksExtensionTest {
 
         assertEquals("/config", extension.hdfsDir)
         assertEquals("s3.jceks", extension.fileName)
+        assertEquals(listOf("/config/app/s3.jceks", "/config/worker/s3.jceks"), extension.additionalHdfsPaths)
         assertEquals("SSE-S3", extension.aliases["fs.s3a.encryption.algorithm"])
         assertEquals("", extension.aliases["fs.s3a.server-side-encryption-algorithm"])
         assertEquals("", extension.aliases["fs.s3a.server-side-encryption.key"])
@@ -49,5 +54,13 @@ class S3JceksExtensionTest {
         assertTrue(defaults.containsKey("fs.s3a.server-side-encryption-algorithm"))
         assertTrue(defaults.containsKey("fs.s3a.encryption.key"))
         assertTrue(defaults.containsKey("fs.s3a.server-side-encryption.key"))
+    }
+
+    @Test
+    fun `builds hdfs jceks provider path from hdfs path`() {
+        assertEquals(
+            "jceks://hdfs/bigdata-test/config/s3.jceks",
+            S3JceksExtension.hdfsJceksProviderPath("/bigdata-test/config/s3.jceks"),
+        )
     }
 }

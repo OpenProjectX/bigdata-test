@@ -1508,6 +1508,10 @@ hdfsDir = "/bigdata-test/spark"
 fileName = "s3.jceks"
 accessKeyAlias = "fs.s3a.access.key"
 secretKeyAlias = "fs.s3a.secret.key"
+additionalHdfsPaths = [
+  "/bigdata-test/app/s3.jceks",
+  "/bigdata-test/worker/s3.jceks"
+]
 
 [s3Jceks.aliases]
 "fs.s3a.encryption.algorithm" = ""
@@ -1518,12 +1522,18 @@ secretKeyAlias = "fs.s3a.secret.key"
 
 `aliases` writes additional entries into the same JCEKS file. The extension writes empty defaults for Hadoop 3.4 S3A encryption aliases because `S3AUtils.lookupPassword()` reads those options through the credential provider even when encryption is disabled. The JCEKS provider cannot store a zero-length secret, so empty alias values are stored as a single space; S3A trims the value back to blank while reading. Override them only when your test needs S3A encryption options.
 
+`additionalHdfsPaths` writes the same generated credentials to more HDFS JCEKS files. The primary file remains `hdfsDir + fileName` for backward compatibility. Use the plural output when the client should search all generated providers.
+
 Outputs:
 
 * `s3-jceks.hdfs.path`
+* `s3-jceks.hdfs.paths`
 * `s3-jceks.credential-provider.path`
+* `s3-jceks.credential-provider.paths`
+* `s3-jceks.credential-provider.path.0`
+* `s3-jceks.credential-provider.path.1`
 
-Use `s3-jceks.credential-provider.path` as `hadoop.security.credential.provider.path` or `spark.hadoop.hadoop.security.credential.provider.path`.
+Use `s3-jceks.credential-provider.path` as `hadoop.security.credential.provider.path` or `spark.hadoop.hadoop.security.credential.provider.path` for the primary generated JCEKS. Use `s3-jceks.credential-provider.paths` when `additionalHdfsPaths` is configured; it is a comma-separated Hadoop credential provider path.
 
 === Kafka Avro Seed Extension
 

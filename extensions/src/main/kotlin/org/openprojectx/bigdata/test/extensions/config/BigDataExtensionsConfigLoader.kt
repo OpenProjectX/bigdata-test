@@ -56,6 +56,7 @@ class BigDataExtensionsConfigLoader(
                     accessKeyAlias = config.string("accessKeyAlias", "fs.s3a.access.key"),
                     secretKeyAlias = config.string("secretKeyAlias", "fs.s3a.secret.key"),
                     aliases = S3JceksExtension.defaultAliases + config.stringMap("aliases"),
+                    additionalHdfsPaths = config.stringList("additionalHdfsPaths"),
                 )
             }
         }

@@ -173,6 +173,7 @@ class S3JceksBuilder {
     var accessKeyAlias: String = "fs.s3a.access.key"
     var secretKeyAlias: String = "fs.s3a.secret.key"
     private val aliases = linkedMapOf<String, String>()
+    private val additionalHdfsPaths = mutableListOf<String>()
 
     fun alias(name: String, value: String) {
         aliases[name] = value
@@ -180,6 +181,14 @@ class S3JceksBuilder {
 
     fun aliases(values: Map<String, String>) {
         aliases += values
+    }
+
+    fun additionalHdfsPath(path: String) {
+        additionalHdfsPaths += path
+    }
+
+    fun additionalHdfsPaths(paths: Iterable<String>) {
+        additionalHdfsPaths += paths
     }
 
     internal fun build(): S3JceksExtension =
@@ -190,6 +199,7 @@ class S3JceksBuilder {
             accessKeyAlias = accessKeyAlias,
             secretKeyAlias = secretKeyAlias,
             aliases = S3JceksExtension.defaultAliases + aliases,
+            additionalHdfsPaths = additionalHdfsPaths.toList(),
         )
 }
 
