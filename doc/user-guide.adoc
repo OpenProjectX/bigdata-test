@@ -1220,6 +1220,29 @@ The `KerberosMaterialExtension` publishes reusable client and service material t
 ----
 [kerberosMaterial]
 enabled = true
+localClientKeytabCopyPaths = [
+  "build/app/client.keytab",
+  "build/worker/client.keytab"
+]
+localKrb5ConfCopyPaths = [
+  "build/app/krb5.conf",
+  "build/worker/krb5.conf"
+]
+----
+
+`localClientKeytabCopyPaths` copies the same generated client keytab to multiple stable host-local paths. This is useful when several app frameworks, tools, or IDE run configurations expect their own file location. `localKrb5ConfCopyPaths` does the same for the generated client `krb5.conf`. Existing files at those destinations are overwritten.
+
+Programmatic configuration is also supported:
+
+[source,kotlin]
+----
+bigDataExtensions {
+    kerberosMaterial {
+        localClientKeytabCopyPath("build/app/client.keytab")
+        localClientKeytabCopyPath("build/worker/client.keytab")
+        localKrb5ConfCopyPath("build/app/krb5.conf")
+    }
+}
 ----
 
 Common output keys are:
@@ -1230,6 +1253,10 @@ Common output keys are:
 * `kerberos-material.client.principal`
 * `kerberos-material.client.password`
 * `kerberos-material.client.keytab`
+* `kerberos-material.client.keytab.copies`
+* `kerberos-material.client.keytab.copy.0`
+* `kerberos-material.krb5-conf.copies`
+* `kerberos-material.krb5-conf.copy.0`
 * `kerberos-material.kafka.service-name`
 * `kerberos-material.kafka.principal`
 * `kerberos-material.kafka.keytab`

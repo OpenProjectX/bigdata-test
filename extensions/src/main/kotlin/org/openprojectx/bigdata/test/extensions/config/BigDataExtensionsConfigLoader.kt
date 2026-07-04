@@ -71,6 +71,8 @@ class BigDataExtensionsConfigLoader(
             if (config.boolean("enabled", default = true)) {
                 extensions += KerberosMaterialExtension(
                     id = config.string("id", "kerberos-material"),
+                    localClientKeytabCopyPaths = config.stringList("localClientKeytabCopyPaths"),
+                    localKrb5ConfCopyPaths = config.stringList("localKrb5ConfCopyPaths"),
                 )
             }
         }
@@ -166,6 +168,12 @@ class BigDataExtensionsConfigLoader(
 
     private fun JsonObject.stringMap(name: String): Map<String, String> =
         this[name]?.jsonObject?.flattenStringMap(errorPath = name).orEmpty()
+
+    private fun JsonObject.stringList(name: String): List<String> =
+        this[name]?.jsonArray?.mapIndexed { index, item ->
+            item.jsonPrimitive.contentOrNull
+                ?: error("Extension config field '$name[$index]' must be a string")
+        }.orEmpty()
 
     private fun JsonObject.flattenStringMap(prefix: String = "", errorPath: String): Map<String, String> =
         flatMap { (key, value) ->

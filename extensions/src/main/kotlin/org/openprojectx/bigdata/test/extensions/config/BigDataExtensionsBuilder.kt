@@ -44,11 +44,19 @@ class BigDataExtensionsBuilder {
     }
 
     fun kerberosMaterial(id: String = "kerberos-material") {
-        extensions += KerberosMaterialExtension(id = id)
+        extensions += KerberosMaterialBuilder().apply { this.id = id }.build()
     }
 
     fun kerberosMaterial() {
         kerberosMaterial(id = "kerberos-material")
+    }
+
+    fun kerberosMaterial(configure: KerberosMaterialBuilder.() -> Unit) {
+        extensions += KerberosMaterialBuilder().apply(configure).build()
+    }
+
+    fun kerberosMaterial(configure: Consumer<KerberosMaterialBuilder>) {
+        extensions += KerberosMaterialBuilder().also { configure.accept(it) }.build()
     }
 
     fun s3Bucket(bucket: String, id: String = "s3-bucket-$bucket") {
@@ -182,6 +190,35 @@ class S3JceksBuilder {
             accessKeyAlias = accessKeyAlias,
             secretKeyAlias = secretKeyAlias,
             aliases = S3JceksExtension.defaultAliases + aliases,
+        )
+}
+
+class KerberosMaterialBuilder {
+    var id: String = "kerberos-material"
+    private val localClientKeytabCopyPaths = mutableListOf<String>()
+    private val localKrb5ConfCopyPaths = mutableListOf<String>()
+
+    fun localClientKeytabCopyPath(path: String) {
+        localClientKeytabCopyPaths += path
+    }
+
+    fun localClientKeytabCopyPaths(paths: Iterable<String>) {
+        localClientKeytabCopyPaths += paths
+    }
+
+    fun localKrb5ConfCopyPath(path: String) {
+        localKrb5ConfCopyPaths += path
+    }
+
+    fun localKrb5ConfCopyPaths(paths: Iterable<String>) {
+        localKrb5ConfCopyPaths += paths
+    }
+
+    internal fun build(): KerberosMaterialExtension =
+        KerberosMaterialExtension(
+            id = id,
+            localClientKeytabCopyPaths = localClientKeytabCopyPaths.toList(),
+            localKrb5ConfCopyPaths = localKrb5ConfCopyPaths.toList(),
         )
 }
 
