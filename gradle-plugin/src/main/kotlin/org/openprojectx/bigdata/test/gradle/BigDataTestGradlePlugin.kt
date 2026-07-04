@@ -252,16 +252,17 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         javaClass.`package`.implementationVersion?.takeIf { it.isNotBlank() } ?: "0.1.12-SNAPSHOT"
 
     private fun Project.extensionResourceDirectories(): List<String> {
-        val sourceSets = extensions.findByName("sourceSets") as? SourceSetContainer
-        val main = sourceSets?.findByName("main")
         return buildList {
-            main?.resources?.srcDirs
-                ?.filter { it.isDirectory }
-                ?.mapTo(this) { it.absolutePath }
-            main?.output?.resourcesDir
-                ?.takeIf { it.isDirectory }
-                ?.let { add(it.absolutePath) }
+            resourceSourceSets()
+                .flatMap { sourceSet ->
+                    sourceSet.resources.srcDirs + listOfNotNull(sourceSet.output.resourcesDir)
+                }
+                .filter { it.isDirectory }
+                .mapTo(this) { it.absolutePath }
             file("src/main/resources")
+                .takeIf { it.isDirectory }
+                ?.let { add(it.absolutePath) }
+            file("src/test/resources")
                 .takeIf { it.isDirectory }
                 ?.let { add(it.absolutePath) }
         }.distinct()
@@ -276,15 +277,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
                     resolved.startsWith("file:") -> file(resolved.removePrefix("file:")).readText()
                     resolved.startsWith("classpath:") -> {
                         val resource = resolved.removePrefix("classpath:").trimStart('/')
-                        val sourceSets = extensions.findByName("sourceSets") as? SourceSetContainer
-                        val resourceFile = sourceSets
-                            ?.findByName("main")
-                            ?.resources
-                            ?.srcDirs
-                            ?.asSequence()
-                            ?.map { it.resolve(resource) }
-                            ?.firstOrNull { it.isFile }
-                        resourceFile?.readText().orEmpty()
+                        classpathResourceFile(resource)?.readText().orEmpty()
                     }
                     else -> file(resolved).readText()
                 }
@@ -406,16 +399,30 @@ class BigDataTestGradlePlugin : Plugin<Project> {
     private fun Project.resolveExtensionConfigLocation(location: String): String {
         if (!location.startsWith("classpath:")) return location
         val resource = location.removePrefix("classpath:").trimStart('/')
-        val sourceSets = extensions.findByName("sourceSets") as? SourceSetContainer
-        val resourceFile = sourceSets
-            ?.findByName("main")
-            ?.resources
-            ?.srcDirs
-            ?.asSequence()
-            ?.map { it.resolve(resource) }
-            ?.firstOrNull { it.isFile }
+        val resourceFile = classpathResourceFile(resource)
         return resourceFile?.let { "file:${it.absolutePath}" } ?: location
     }
+
+    private fun Project.classpathResourceFile(resource: String) =
+        resourceSourceSets()
+            .asSequence()
+            .flatMap { sourceSet ->
+                (sourceSet.resources.srcDirs + listOfNotNull(sourceSet.output.resourcesDir)).asSequence()
+            }
+            .map { it.resolve(resource) }
+            .firstOrNull { it.isFile }
+
+    private fun Project.resourceSourceSets() =
+        (extensions.findByName("sourceSets") as? SourceSetContainer)
+            ?.toList()
+            .orEmpty()
+            .sortedBy { sourceSet ->
+                when (sourceSet.name) {
+                    "main" -> 0
+                    "test" -> 1
+                    else -> 2
+                }
+            }
 
     private fun <T : Any> Property<T>.tomlConvention(value: T?) {
         if (value != null) convention(value)

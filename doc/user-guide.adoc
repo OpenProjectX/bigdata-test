@@ -1807,7 +1807,7 @@ bigDataTest {
 }
 ----
 
-`config` loads startup TOML using the same table names as JUnit startup config where the Gradle plugin has matching fields. It is applied as Gradle property conventions, so explicit DSL values win over TOML values:
+`config` loads startup TOML using the same table names as JUnit startup config where the Gradle plugin has matching fields. `classpath:` locations are resolved from Gradle source-set resources, including `src/main/resources` and `src/test/resources`. It is applied as Gradle property conventions, so explicit DSL values win over TOML values:
 
 [source,toml]
 ----
@@ -1943,8 +1943,8 @@ The Gradle plugin has three separate classpath/resource concepts:
 |This classpath is used only by bigdata-test extension execution. Dependencies added here can affect `spark-sql-prep`, JCEKS generation, Kafka Avro seeding, and other extensions.
 
 |Extension config and SQL/resource lookup
-|Use `extensionConfig.add(...)`. `classpath:` resources are searched from the extension runtime first and then from the project's main resource directories, including `src/main/resources` and compiled main resources.
-|There is no dedicated DSL property for extra arbitrary resource directories today. Put files under main resources, reference an absolute or relative `file:` path, or add a small resource jar to `bigDataTestExtensionRuntime`.
+|Use `extensionConfig.add(...)`. `classpath:` resources are searched from the extension runtime first and then from the project's Gradle source-set resource directories, including `src/main/resources`, `src/test/resources`, and compiled resource outputs.
+|There is no dedicated DSL property for extra arbitrary resource directories today. Put files under a Gradle source-set resource directory, reference an absolute or relative `file:` path, or add a small resource jar to `bigDataTestExtensionRuntime`.
 
 |Gradle task JVM
 |Configure Gradle itself with `org.gradle.jvmargs`, `GRADLE_OPTS`, or `JAVA_TOOL_OPTIONS`.
