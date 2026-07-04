@@ -43,6 +43,7 @@ testcontainers = { module = "org.testcontainers:testcontainers" }
 testcontainersPostgresql = { module = "org.testcontainers:testcontainers-postgresql" }
 testcontainersMysql = { module = "org.testcontainers:testcontainers-mysql" }
 testcontainersKafka = { module = "org.testcontainers:testcontainers-kafka" }
+testcontainersElasticsearch = { module = "org.testcontainers:testcontainers-elasticsearch" }
 testcontainersJunitJupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 kafkaClients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
 hiveDockerTestcontainers = { module = "org.openprojectx.hive.docker.core:hive-docker-testcontainers", version.ref = "hiveDockerTestcontainers" }

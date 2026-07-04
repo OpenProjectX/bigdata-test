@@ -12,6 +12,12 @@ Modules:
 - `usage`: a test module showing how an application test uses `@BigDataTest`,
   `@BigDataExtensions`, and `@DummyAppTest` together.
 
+The `usage` module also starts a user-owned Elasticsearch Testcontainer with
+`org.testcontainers:testcontainers-elasticsearch`. This demonstrates that user
+Testcontainers can coexist with the containers managed by `bigdata-test`; keep
+those containers in the test or application extension code and let the BigData
+kit manage only the services declared through its own config.
+
 Run it with:
 
 ```bash

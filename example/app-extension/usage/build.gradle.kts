@@ -10,6 +10,7 @@ dependencies {
     testImplementation(project(":example:app-extension:dummy-app-framework"))
     testImplementation(project(":example:app-extension:dummy-app-test-extension"))
     testImplementation(libs.junitJupiterApi)
+    testImplementation(libs.testcontainersElasticsearch)
     testRuntimeOnly(libs.junitJupiterEngine)
     testRuntimeOnly(libs.junitPlatformLauncher)
 }
