@@ -9,7 +9,7 @@ bigdata:
       hdfs-name-node: 8020
       hdfs-data-node: 9866
       hdfs-web: 9870
-      localstack-s3: 4566
+      s3: 4566
     container-logs:
       mode: stdout
     container-log-levels:
@@ -23,7 +23,7 @@ bigdata:
       enabled: true
       kerberos-enabled: true
       data-node-hostname: localhost
-    localstack-s3:
+    s3:
       enabled: true
 
 example:

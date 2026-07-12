@@ -16,7 +16,7 @@ example:
       java.security.krb5.conf: ${bigdata.test.endpoint.kerberos.properties.bigdata.test.kerberos.krb5-conf}
       bigdata.test.kerberos.client-principal: ${bigdata.test.endpoint.kerberos.properties.bigdata.test.kerberos.client-principal}
       bigdata.test.kerberos.client-keytab: ${bigdata.test.endpoint.kerberos.properties.bigdata.test.kerberos.client-keytab}
-      fs.s3a.endpoint: ${bigdata.test.endpoint.localstack-s3.properties.aws.endpoint-url.s3}
+      fs.s3a.endpoint: ${bigdata.test.endpoint.s3.properties.aws.endpoint-url.s3}
       fs.s3a.endpoint.region: us-east-1
       fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
       fs.s3a.path.style.access: "true"

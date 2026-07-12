@@ -22,6 +22,32 @@ The project currently provides containers and test integration for:
 
 The project is split so lightweight users can depend on `core` or `junit5` without pulling Spark, Hadoop client utilities, or storage SDKs. Heavier setup such as JCEKS creation, Kafka Avro seeding, and Spark SQL preparation lives in the `extensions` module.
 
+=== S3 naming migration
+
+LocalStack support and its legacy naming have been removed. The S3 emulator is Floci, and all configuration and API names now describe the S3 service directly:
+
+[cols="1,1",options="header"]
+|===
+|Previous name |Current name
+
+|`localStackS3`
+|`s3`
+
+|`localStackS3Tls`
+|`s3Tls`
+
+|`BigDataService.LOCALSTACK_S3`
+|`BigDataService.S3`
+
+|`withLocalStackS3()`
+|`withS3()`
+
+|Endpoint port `edge`
+|Endpoint port `http`
+|===
+
+The old names are not retained as aliases. Update annotations, TOML, Gradle DSL, Spring properties, container customization keys, and endpoint property references together.
+
 == Module Layout
 
 [cols="1,3",options="header"]
@@ -117,7 +143,7 @@ Use `BigDataTestKit.builder()` when you want direct lifecycle control.
 val kit = BigDataTestKit.builder()
     .withHiveMetastore()
     .withKafka(KafkaOptions(enabled = true, schemaRegistryEnabled = true))
-    .withLocalStackS3()
+    .withS3()
     .build()
 
 kit.use {
@@ -157,7 +183,7 @@ Annotate a test class with `@BigDataTest` and request `BigDataTestKit` as a test
     hiveMetastore = true,
     kafka = true,
     schemaRegistry = true,
-    localStackS3 = true,
+    s3 = true,
 )
 class MyIntegrationTest {
     @Test
@@ -212,7 +238,7 @@ The JUnit extension starts the kit before all tests in the class and closes it a
 |`kafkaUiKerberos`
 |Configures Kafka UI for Kerberos/SASL Kafka access.
 
-|`localStackS3`
+|`s3`
 |Starts Floci S3-compatible AWS emulation.
 
 |`fakeGcs`
@@ -236,7 +262,7 @@ clouderaHmsMariadb = "ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb"
 kafka = "apache/kafka:4.1.2"
 schemaRegistry = "confluentinc/cp-schema-registry:7.8.0"
 kafkaUi = "ghcr.io/kafbat/kafka-ui:latest"
-localStackS3 = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
+s3 = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
 fakeGcs = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:0.5.0"
 ----
 
@@ -350,7 +376,7 @@ File sources must use one of these prefixes:
 
 Mounts are useful for local debugging, but copied files are more reliable in CI because they do not depend on Docker host path sharing. Prefer copied files for certificates, keytabs, Hadoop XML, JAAS, and other test fixtures.
 
-Available service names in container TOML are `kerberos`, `hdfs`, `hiveMetastore`, `hms`, `kafka`, `schemaRegistry`, `kafkaUi`, `localStackS3`, and `fakeGcs`.
+Available service names in container TOML are `kerberos`, `hdfs`, `hiveMetastore`, `hms`, `kafka`, `schemaRegistry`, `kafkaUi`, `s3`, and `fakeGcs`.
 
 ==== HDFS Environment Variable Names
 
@@ -476,7 +502,7 @@ Health check modes:
 [healthChecks]
 hdfs = "cli"
 kafka = "cli"
-localStackS3 = "cli"
+s3 = "cli"
 
 [healthCheckTimeouts]
 hdfs = 90
@@ -522,7 +548,7 @@ Current CLI probes:
 |Uses `wget` or `curl` against `/`.
 
 |Floci S3-compatible AWS emulator
-|Uses `awslocal s3 ls` when available, then falls back to `aws --endpoint-url`, then HTTP health.
+|Checks the Floci `/_floci/health` endpoint.
 
 |Floci GCP-compatible GCS emulator
 |Uses `wget` or `curl` against the configured HTTP health endpoint.
@@ -597,7 +623,7 @@ trustStorePath = "build/bigdata-test-truststore.p12"
 trustStorePassword = "changeit"
 haproxyImage = "haproxy:3.0-alpine"
 
-[localStackS3Tls]
+[s3Tls]
 enabled = true
 domain = "localhost"
 
@@ -628,7 +654,7 @@ domain = "hdfs.local"
 
 Do not commit the CA private key for a real shared environment. For local-only test certificates, keep it under a developer-controlled path such as `.bigdata-test/tls/root-ca.key` and add it to `.gitignore`. In CI, store the CA files as secrets or generate them before the test task and point TOML at the generated files.
 
-The HTTPS endpoint replaces the normal endpoint property for that service. For example, `aws.endpoint-url.s3` becomes `https://<domain>:<mapped-port>` when `localStackS3Tls.enabled=true`.
+The HTTPS endpoint replaces the normal endpoint property for that service. For example, `aws.endpoint-url.s3` becomes `https://<domain>:<mapped-port>` when `s3Tls.enabled=true`.
 
 ==== JVM Truststore Handling
 
@@ -652,7 +678,7 @@ With direct `BigDataTestKit.builder()` usage, the core module does not mutate gl
 
 [source,kotlin]
 ----
-val endpoint = kit.endpoint(BigDataService.LOCALSTACK_S3)
+val endpoint = kit.endpoint(BigDataService.S3)
 System.setProperty("javax.net.ssl.trustStore", endpoint.property("javax.net.ssl.trustStore"))
 System.setProperty("javax.net.ssl.trustStorePassword", endpoint.property("javax.net.ssl.trustStorePassword"))
 System.setProperty("javax.net.ssl.trustStoreType", endpoint.property("javax.net.ssl.trustStoreType"))
@@ -722,11 +748,11 @@ TLS host ports are random by default even when `sameHostPorts=true`, because mul
 [source,toml]
 ----
 [ports]
-localStackS3Tls = 443
+s3Tls = 443
 schemaRegistryTls = 8443
 ----
 
-Available TLS port fields are `hdfsWebTls`, `schemaRegistryTls`, `kafkaUiTls`, `localStackS3Tls`, and `fakeGcsTls`.
+Available TLS port fields are `hdfsWebTls`, `schemaRegistryTls`, `kafkaUiTls`, `s3Tls`, and `fakeGcsTls`.
 
 Non-HTTP services use their native TLS implementation rather than HAProxy to avoid protocol compatibility issues. Kafka TLS is native broker TLS because Kafka clients depend on broker metadata and advertised listeners. Hive Metastore TLS is native Thrift TLS on the normal metastore port.
 
@@ -827,7 +853,7 @@ To bind each enabled service to the same localhost port it uses inside the conta
     hiveMetastore = true,
     kafka = true,
     schemaRegistry = true,
-    localStackS3 = true,
+    s3 = true,
     fakeGcs = true,
     sameHostPorts = true,
 )
@@ -914,13 +940,13 @@ Available fixed host-port config:
 |`443` on the HAProxy gateway
 
 |Floci S3 HTTP
-|`localStackS3`
-|`localStackS3Port`
+|`s3`
+|`s3Port`
 |`4566`
 
 |Floci S3 TLS gateway
-|`localStackS3Tls`
-|`localStackS3Tls`
+|`s3Tls`
+|`s3Tls`
 |`443` on the HAProxy gateway
 
 |Floci GCS HTTP
@@ -996,7 +1022,7 @@ Each started service exposes a `BigDataEndpoint` with named ports and connection
 |`8080`, `443`
 |`bigdata.test.kafka-ui.url`
 
-|`BigDataService.LOCALSTACK_S3`
+|`BigDataService.S3`
 |`edge`, `https`
 |`4566`, `443`
 |`spring.cloud.aws.s3.endpoint`, `aws.endpoint-url.s3`, `aws.accessKeyId`, `aws.secretAccessKey`, `aws.region`
@@ -1074,7 +1100,7 @@ Set service container log levels from TOML:
 kafka = "DEBUG"
 schemaRegistry = "DEBUG"
 hdfs = "INFO"
-localStackS3 = "TRACE"
+s3 = "TRACE"
 ----
 
 `ContainerLogMode.STDOUT` prefixes each line with the service name. `ContainerLogMode.FILE` writes files such as:
@@ -1276,7 +1302,7 @@ Use `@BigDataExtensions` with one or more config resources.
     hdfs = true,
     kafka = true,
     schemaRegistry = true,
-    localStackS3 = true,
+    s3 = true,
 )
 class MyIntegrationTest {
     @Test
@@ -1299,7 +1325,7 @@ Use programmatic declaration when test data, topic names, paths, or custom exten
     hdfs = true,
     kafka = true,
     schemaRegistry = true,
-    localStackS3 = true,
+    s3 = true,
 )
 class MyIntegrationTest {
     companion object : BigDataExtensionsConfigurer {
@@ -1741,7 +1767,7 @@ This asks HMS to validate table metadata and location using HMS server-side Hado
 
 When Hive Metastore starts with the S3 emulator enabled, `bigdata-test` injects HMS-side S3A configuration:
 
-* `fs.s3a.endpoint=http://localstack:4566`
+* `fs.s3a.endpoint=http://s3:4566`
 * `fs.s3a.endpoint.region=us-east-1`
 * `fs.s3a.aws.credentials.provider=org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`
 * `fs.s3a.access.key=test`
@@ -1814,7 +1840,7 @@ bigDataTest {
 [services]
 kerberos = true
 hdfsKerberos = true
-localStackS3 = true
+s3 = true
 
 [kerberos]
 clientPrincipal = "app_user@EXAMPLE.COM"
@@ -1823,7 +1849,7 @@ debug = true
 
 [ports]
 hdfsNameNode = 8020
-localStackS3 = 4566
+s3 = 4566
 ----
 
 Use `extensionConfig` for post-start provisioning TOML such as bucket creation, JCEKS generation, Kafka messages, and Spark SQL preparation. The same startup values can also be configured directly with the DSL:
@@ -1834,7 +1860,7 @@ bigDataTest {
     services {
         kerberos.set(true)
         hdfs.set(true)
-        localStackS3.set(true)
+        s3.set(true)
     }
     hdfs {
         kerberosEnabled.set(true)
@@ -1845,7 +1871,7 @@ bigDataTest {
         hdfsNameNode.set(8020)
         hdfsDataNode.set(9866)
         hdfsWeb.set(9870)
-        localStackS3.set(4566)
+        s3.set(4566)
     }
     containerLogs {
         mode.set(ContainerLogMode.STDOUT)
@@ -2102,7 +2128,7 @@ bigdata.test.endpoint.hdfs.ports.namenode
 bigdata.test.endpoint.hive-metastore.properties.bigdata.test.hive-metastore.hive-site
 bigdata.test.endpoint.hive-metastore.properties.bigdata.test.hive-metastore.metastore-site
 bigdata.test.endpoint.hive-metastore.properties.hive.metastore.uris
-bigdata.test.endpoint.localstack-s3.properties.aws.endpoint-url.s3
+bigdata.test.endpoint.s3.properties.aws.endpoint-url.s3
 bigdata.test.extensions.s3-jceks.credential-provider.path
 ----
 
@@ -2117,8 +2143,8 @@ Environment variable names are generated by uppercasing property keys and replac
 bigdata.test.endpoint.hdfs.properties.fs.defaultFS
 BIGDATA_TEST_ENDPOINT_HDFS_PROPERTIES_FS_DEFAULTFS
 
-bigdata.test.endpoint.localstack-s3.properties.aws.endpoint-url.s3
-BIGDATA_TEST_ENDPOINT_LOCALSTACK_S3_PROPERTIES_AWS_ENDPOINT_URL_S3
+bigdata.test.endpoint.s3.properties.aws.endpoint-url.s3
+BIGDATA_TEST_ENDPOINT_S3_PROPERTIES_AWS_ENDPOINT_URL_S3
 ----
 
 Disable environment-variable injection when an application should only receive JVM properties:
@@ -2138,7 +2164,7 @@ example:
   s3:
     hadoop:
       fs.defaultFS: ${bigdata.test.endpoint.hdfs.properties.fs.defaultFS}
-      fs.s3a.endpoint: ${bigdata.test.endpoint.localstack-s3.properties.aws.endpoint-url.s3}
+      fs.s3a.endpoint: ${bigdata.test.endpoint.s3.properties.aws.endpoint-url.s3}
       hadoop.security.authentication: kerberos
       dfs.data.transfer.protection: authentication
       hadoop.security.credential.provider.path: ${bigdata.test.extensions.s3-jceks.credential-provider.path}
@@ -2165,7 +2191,7 @@ bigdata:
       kerberos-enabled: true
       schema-registry-enabled: true
       schema-registry-kerberos-enabled: true
-    localstack-s3:
+    s3:
       enabled: true
 ----
 
@@ -2205,7 +2231,7 @@ bigdata:
   test:
     ports:
       same-host-ports: false
-      localstack-s3: 4566
+      s3: 4566
       hdfs-name-node: 8020
       hdfs-data-node: 9866
       hdfs-web: 9870

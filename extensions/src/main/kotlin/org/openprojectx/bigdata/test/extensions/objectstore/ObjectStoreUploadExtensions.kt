@@ -39,11 +39,11 @@ data class S3UploadExtension(
     val createBucket: Boolean = true,
     val sources: List<ObjectStoreUploadSource>,
 ) : BigDataExtension {
-    override val requiredServices: Set<BigDataService> = setOf(BigDataService.LOCALSTACK_S3)
+    override val requiredServices: Set<BigDataService> = setOf(BigDataService.S3)
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)
 
     override fun onEvent(event: BigDataExtensionEvent, context: BigDataExtensionContext) {
-        val endpoint = context.endpoint(BigDataService.LOCALSTACK_S3)
+        val endpoint = context.endpoint(BigDataService.S3)
         val client = S3Client.builder()
             .endpointOverride(URI.create(endpoint.property("aws.endpoint-url.s3")))
             .region(Region.of(endpoint.properties["aws.region"] ?: "us-east-1"))

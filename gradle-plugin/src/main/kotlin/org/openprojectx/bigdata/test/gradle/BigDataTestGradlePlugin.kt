@@ -12,7 +12,7 @@ import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
 import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
-import org.openprojectx.bigdata.test.core.DEFAULT_LOCALSTACK_S3_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_S3_IMAGE
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 
 class BigDataTestGradlePlugin : Plugin<Project> {
@@ -21,7 +21,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             "bigDataTest",
             BigDataTestGradleExtension::class.java,
         )
-        extension.localStackS3.image.convention(DEFAULT_LOCALSTACK_S3_IMAGE)
+        extension.s3.image.convention(DEFAULT_S3_IMAGE)
         extension.fakeGcs.image.convention(DEFAULT_FAKE_GCS_IMAGE)
         extension.extensionRuntime.extensionsVersion.convention(pluginImplementationVersion())
         val extensionRuntimeClasspath = project.configurations.create("bigDataTestExtensionRuntime") { configuration ->
@@ -61,7 +61,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.kafka.set(extension.services.kafka)
             spec.parameters.schemaRegistry.set(extension.services.schemaRegistry)
             spec.parameters.kafkaUi.set(extension.services.kafkaUi)
-            spec.parameters.localStackS3.set(extension.services.localStackS3)
+            spec.parameters.s3.set(extension.services.s3)
             spec.parameters.fakeGcs.set(extension.services.fakeGcs)
 
             spec.parameters.sameHostPorts.set(extension.ports.sameHostPorts)
@@ -73,7 +73,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.kafkaPort.set(extension.ports.kafka)
             spec.parameters.schemaRegistryPort.set(extension.ports.schemaRegistry)
             spec.parameters.kafkaUiPort.set(extension.ports.kafkaUi)
-            spec.parameters.localStackS3Port.set(extension.ports.localStackS3)
+            spec.parameters.s3Port.set(extension.ports.s3)
             spec.parameters.fakeGcsPort.set(extension.ports.fakeGcs)
 
             spec.parameters.kerberosImage.set(extension.kerberos.image)
@@ -129,7 +129,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.kafkaKerberosEnabled.set(extension.kafka.kerberosEnabled)
             spec.parameters.kafkaUiKerberosEnabled.set(extension.kafka.kafkaUiKerberosEnabled)
 
-            spec.parameters.localStackS3Image.set(extension.localStackS3.image)
+            spec.parameters.s3Image.set(extension.s3.image)
             spec.parameters.fakeGcsImage.set(extension.fakeGcs.image)
 
             spec.parameters.containerLogMode.set(extension.containerLogs.mode)
@@ -325,7 +325,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.kafka.image.tomlConvention(config.images.kafka)
         extension.kafka.schemaRegistryImage.tomlConvention(config.images.schemaRegistry ?: config.kafka.schemaRegistryImage)
         extension.kafka.kafkaUiImage.tomlConvention(config.images.kafkaUi ?: config.kafka.kafkaUiImage)
-        extension.localStackS3.image.tomlConvention(config.images.localStackS3)
+        extension.s3.image.tomlConvention(config.images.s3)
         extension.fakeGcs.image.tomlConvention(config.images.fakeGcs)
 
         extension.services.kerberos.tomlConvention(config.services.kerberos)
@@ -340,7 +340,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.services.schemaRegistry.tomlConvention(config.services.schemaRegistry)
         extension.services.kafkaUi.tomlConvention(config.services.kafkaUi)
         extension.kafka.kafkaUiKerberosEnabled.tomlConvention(config.services.kafkaUiKerberos)
-        extension.services.localStackS3.tomlConvention(config.services.localStackS3)
+        extension.services.s3.tomlConvention(config.services.s3)
         extension.services.fakeGcs.tomlConvention(config.services.fakeGcs)
 
         extension.kerberos.realm.tomlConvention(config.kerberos.realm)
@@ -382,7 +382,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.ports.kafka.tomlConvention(config.ports.kafka)
         extension.ports.schemaRegistry.tomlConvention(config.ports.schemaRegistry)
         extension.ports.kafkaUi.tomlConvention(config.ports.kafkaUi)
-        extension.ports.localStackS3.tomlConvention(config.ports.localStackS3)
+        extension.ports.s3.tomlConvention(config.ports.s3)
         extension.ports.fakeGcs.tomlConvention(config.ports.fakeGcs)
 
         extension.containerLogs.mode.tomlConvention(config.containerLogs.mode)

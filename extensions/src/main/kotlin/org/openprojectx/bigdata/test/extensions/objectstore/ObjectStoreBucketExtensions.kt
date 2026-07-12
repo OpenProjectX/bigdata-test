@@ -15,11 +15,11 @@ data class S3BucketExtension(
     override val id: String,
     val bucket: String,
 ) : BigDataExtension {
-    override val requiredServices: Set<BigDataService> = setOf(BigDataService.LOCALSTACK_S3)
+    override val requiredServices: Set<BigDataService> = setOf(BigDataService.S3)
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)
 
     override fun onEvent(event: BigDataExtensionEvent, context: BigDataExtensionContext) {
-        val endpoint = context.endpoint(BigDataService.LOCALSTACK_S3).property("aws.endpoint-url.s3")
+        val endpoint = context.endpoint(BigDataService.S3).property("aws.endpoint-url.s3")
         val request = HttpRequest.newBuilder(URI.create("${endpoint.trimEnd('/')}/$bucket"))
             .timeout(Duration.ofSeconds(10))
             .PUT(HttpRequest.BodyPublishers.noBody())

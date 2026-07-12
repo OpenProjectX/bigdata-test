@@ -2,7 +2,7 @@ package org.openprojectx.bigdata.test.core
 
 import org.testcontainers.containers.GenericContainer
 
-const val DEFAULT_LOCALSTACK_S3_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
+const val DEFAULT_S3_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
 const val DEFAULT_FAKE_GCS_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:0.5.0"
 
 data class BigDataTestKitOptions(
@@ -11,7 +11,7 @@ data class BigDataTestKitOptions(
     val hdfs: HdfsOptions = HdfsOptions(),
     val hiveMetastore: HiveMetastoreOptions = HiveMetastoreOptions(),
     val kafka: KafkaOptions = KafkaOptions(),
-    val localStackS3: ObjectStoreOptions = ObjectStoreOptions(),
+    val s3: ObjectStoreOptions = ObjectStoreOptions(),
     val fakeGcs: ObjectStoreOptions = ObjectStoreOptions(image = DEFAULT_FAKE_GCS_IMAGE),
     val portBindings: PortBindingOptions = PortBindingOptions(),
     val containerLogs: ContainerLogOptions = ContainerLogOptions(),
@@ -151,7 +151,7 @@ data class KafkaOptions(
 
 data class ObjectStoreOptions(
     val enabled: Boolean = false,
-    val image: String = DEFAULT_LOCALSTACK_S3_IMAGE,
+    val image: String = DEFAULT_S3_IMAGE,
     val tls: HttpTlsOptions = HttpTlsOptions(),
 )
 
@@ -170,8 +170,8 @@ data class PortBindingOptions(
     val schemaRegistryTls: Int = 0,
     val kafkaUi: Int = 0,
     val kafkaUiTls: Int = 0,
-    val localStackS3: Int = 0,
-    val localStackS3Tls: Int = 0,
+    val s3: Int = 0,
+    val s3Tls: Int = 0,
     val fakeGcs: Int = 0,
     val fakeGcsTls: Int = 0,
 ) {

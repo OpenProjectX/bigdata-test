@@ -27,9 +27,8 @@ object BigDataContainerLogLevels {
             BigDataService.KAFKA_UI -> mapOf(
                 "LOGGING_LEVEL_ROOT" to normalized,
             )
-            BigDataService.LOCALSTACK_S3 -> mapOf(
-                "LS_LOG" to normalized.lowercase(),
-                "DEBUG" to if (normalized == "DEBUG" || normalized == "TRACE") "1" else "0",
+            BigDataService.S3 -> mapOf(
+                "QUARKUS_LOG_LEVEL" to normalized,
             )
             BigDataService.FAKE_GCS -> mapOf(
                 "LOG_LEVEL" to normalized,

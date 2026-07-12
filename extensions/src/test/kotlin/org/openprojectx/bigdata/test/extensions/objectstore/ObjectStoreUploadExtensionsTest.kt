@@ -92,7 +92,7 @@ class ObjectStoreUploadExtensionsTest {
         val requests = mutableListOf<CapturedRequest>()
         val endpoint = startServer(requests)
         val context = contextWithEndpoint(
-            BigDataService.LOCALSTACK_S3,
+            BigDataService.S3,
             "aws.endpoint-url.s3",
             endpoint,
         )

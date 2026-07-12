@@ -1,7 +1,7 @@
 [services]
-localStackS3 = true
+s3 = true
 
-[localStackS3Tls]
+[s3Tls]
 enabled = true
 domain = "localhost"
 

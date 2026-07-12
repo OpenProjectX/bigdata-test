@@ -164,7 +164,7 @@ abstract class SparkBigDataScenario {
         val hdfs = kit.endpoint(BigDataService.HDFS)
         val hiveMetastore = kit.endpoint(BigDataService.HIVE_METASTORE)
         val kafka = kit.endpoint(BigDataService.KAFKA)
-        val s3 = kit.endpoint(BigDataService.LOCALSTACK_S3)
+        val s3 = kit.endpoint(BigDataService.S3)
         val gcs = kit.endpoint(BigDataService.FAKE_GCS)
         val gcsBucket = extensions.required("$gcsBucketExtensionId.bucket")
         return SparkScenarioEnvironment(

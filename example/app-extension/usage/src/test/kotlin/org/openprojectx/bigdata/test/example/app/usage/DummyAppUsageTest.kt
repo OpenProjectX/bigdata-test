@@ -21,7 +21,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 
-@BigDataTest(localStackS3 = true)
+@BigDataTest(s3 = true)
 @BigDataExtensions
 @DummyAppTest
 @Testcontainers
@@ -58,7 +58,7 @@ class DummyAppUsageTest : DummyAppConfigCustomizer {
         )
 
         assertTrue(app.started)
-        assertTrue(kit.endpoints().containsKey(BigDataService.LOCALSTACK_S3))
+        assertTrue(kit.endpoints().containsKey(BigDataService.S3))
         assertEquals(200, response.statusCode())
         assertTrue(response.body().contains("\"cluster_name\""))
     }

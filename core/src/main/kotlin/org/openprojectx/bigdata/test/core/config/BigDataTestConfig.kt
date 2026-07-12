@@ -30,7 +30,7 @@ data class BigDataTestConfig(
     val kafkaTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val schemaRegistryTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val kafkaUiTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
-    val localStackS3Tls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
+    val s3Tls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val fakeGcsTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val ports: BigDataTestPortConfig = BigDataTestPortConfig(),
     val containerLogs: BigDataTestContainerLogConfig = BigDataTestContainerLogConfig(),
@@ -53,7 +53,7 @@ data class BigDataTestConfig(
             kafkaTls = kafkaTls.merge(override.kafkaTls),
             schemaRegistryTls = schemaRegistryTls.merge(override.schemaRegistryTls),
             kafkaUiTls = kafkaUiTls.merge(override.kafkaUiTls),
-            localStackS3Tls = localStackS3Tls.merge(override.localStackS3Tls),
+            s3Tls = s3Tls.merge(override.s3Tls),
             fakeGcsTls = fakeGcsTls.merge(override.fakeGcsTls),
             ports = ports.merge(override.ports),
             containerLogs = containerLogs.merge(override.containerLogs),
@@ -212,7 +212,7 @@ data class BigDataTestImageConfig(
     val kafka: String? = null,
     val schemaRegistry: String? = null,
     val kafkaUi: String? = null,
-    val localStackS3: String? = null,
+    val s3: String? = null,
     val fakeGcs: String? = null,
 ) {
     fun merge(override: BigDataTestImageConfig): BigDataTestImageConfig =
@@ -227,7 +227,7 @@ data class BigDataTestImageConfig(
             kafka = override.kafka ?: kafka,
             schemaRegistry = override.schemaRegistry ?: schemaRegistry,
             kafkaUi = override.kafkaUi ?: kafkaUi,
-            localStackS3 = override.localStackS3 ?: localStackS3,
+            s3 = override.s3 ?: s3,
             fakeGcs = override.fakeGcs ?: fakeGcs,
         )
 }
@@ -244,7 +244,7 @@ data class BigDataTestServiceConfig(
     val schemaRegistry: Boolean? = null,
     val kafkaUi: Boolean? = null,
     val kafkaUiKerberos: Boolean? = null,
-    val localStackS3: Boolean? = null,
+    val s3: Boolean? = null,
     val fakeGcs: Boolean? = null,
 ) {
     fun merge(override: BigDataTestServiceConfig): BigDataTestServiceConfig =
@@ -260,7 +260,7 @@ data class BigDataTestServiceConfig(
             schemaRegistry = override.schemaRegistry ?: schemaRegistry,
             kafkaUi = override.kafkaUi ?: kafkaUi,
             kafkaUiKerberos = override.kafkaUiKerberos ?: kafkaUiKerberos,
-            localStackS3 = override.localStackS3 ?: localStackS3,
+            s3 = override.s3 ?: s3,
             fakeGcs = override.fakeGcs ?: fakeGcs,
         )
 }
@@ -278,8 +278,8 @@ data class BigDataTestPortConfig(
     val schemaRegistryTls: Int? = null,
     val kafkaUi: Int? = null,
     val kafkaUiTls: Int? = null,
-    val localStackS3: Int? = null,
-    val localStackS3Tls: Int? = null,
+    val s3: Int? = null,
+    val s3Tls: Int? = null,
     val fakeGcs: Int? = null,
     val fakeGcsTls: Int? = null,
 ) {
@@ -297,8 +297,8 @@ data class BigDataTestPortConfig(
             schemaRegistryTls = override.schemaRegistryTls ?: schemaRegistryTls,
             kafkaUi = override.kafkaUi ?: kafkaUi,
             kafkaUiTls = override.kafkaUiTls ?: kafkaUiTls,
-            localStackS3 = override.localStackS3 ?: localStackS3,
-            localStackS3Tls = override.localStackS3Tls ?: localStackS3Tls,
+            s3 = override.s3 ?: s3,
+            s3Tls = override.s3Tls ?: s3Tls,
             fakeGcs = override.fakeGcs ?: fakeGcs,
             fakeGcsTls = override.fakeGcsTls ?: fakeGcsTls,
         )
@@ -340,7 +340,7 @@ class BigDataTestConfigLoader(
         val kafkaTls = tables["kafkaTls"].orEmpty()
         val schemaRegistryTls = tables["schemaRegistryTls"].orEmpty()
         val kafkaUiTls = tables["kafkaUiTls"].orEmpty()
-        val localStackS3Tls = tables["localStackS3Tls"].orEmpty()
+        val s3Tls = tables["s3Tls"].orEmpty()
         val fakeGcsTls = tables["fakeGcsTls"].orEmpty()
         val ports = tables["ports"].orEmpty()
         val containerLogs = tables["containerLogs"].orEmpty()
@@ -356,7 +356,7 @@ class BigDataTestConfigLoader(
                 kafka = images.string("kafka"),
                 schemaRegistry = images.string("schemaRegistry"),
                 kafkaUi = images.string("kafkaUi"),
-                localStackS3 = images.string("localStackS3"),
+                s3 = images.string("s3"),
                 fakeGcs = images.string("fakeGcs"),
             ),
             services = BigDataTestServiceConfig(
@@ -371,7 +371,7 @@ class BigDataTestConfigLoader(
                 schemaRegistry = services.boolean("schemaRegistry"),
                 kafkaUi = services.boolean("kafkaUi"),
                 kafkaUiKerberos = services.boolean("kafkaUiKerberos"),
-                localStackS3 = services.boolean("localStackS3"),
+                s3 = services.boolean("s3"),
                 fakeGcs = services.boolean("fakeGcs"),
             ),
             kerberos = BigDataTestKerberosConfig(
@@ -427,7 +427,7 @@ class BigDataTestConfigLoader(
             kafkaTls = httpTls(kafkaTls),
             schemaRegistryTls = httpTls(schemaRegistryTls),
             kafkaUiTls = httpTls(kafkaUiTls),
-            localStackS3Tls = httpTls(localStackS3Tls),
+            s3Tls = httpTls(s3Tls),
             fakeGcsTls = httpTls(fakeGcsTls),
             ports = BigDataTestPortConfig(
                 sameHostPorts = ports.boolean("sameHostPorts"),
@@ -442,8 +442,8 @@ class BigDataTestConfigLoader(
                 schemaRegistryTls = ports.int("schemaRegistryTls"),
                 kafkaUi = ports.int("kafkaUi"),
                 kafkaUiTls = ports.int("kafkaUiTls"),
-                localStackS3 = ports.int("localStackS3"),
-                localStackS3Tls = ports.int("localStackS3Tls"),
+                s3 = ports.int("s3"),
+                s3Tls = ports.int("s3Tls"),
                 fakeGcs = ports.int("fakeGcs"),
                 fakeGcsTls = ports.int("fakeGcsTls"),
             ),
@@ -628,7 +628,7 @@ class BigDataTestConfigLoader(
             "kafka" to BigDataService.KAFKA,
             "schemaregistry" to BigDataService.SCHEMA_REGISTRY,
             "kafkaui" to BigDataService.KAFKA_UI,
-            "localstacks3" to BigDataService.LOCALSTACK_S3,
+            "s3" to BigDataService.S3,
             "fakegcs" to BigDataService.FAKE_GCS,
         )
     }

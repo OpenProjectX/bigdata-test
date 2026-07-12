@@ -57,7 +57,7 @@ class BigDataTestKit private constructor(
         private var hdfs = HdfsOptions()
         private var hiveMetastore = HiveMetastoreOptions()
         private var kafka = KafkaOptions()
-        private var localStackS3 = ObjectStoreOptions()
+        private var s3 = ObjectStoreOptions()
         private var fakeGcs = ObjectStoreOptions(image = DEFAULT_FAKE_GCS_IMAGE)
         private var portBindings = PortBindingOptions()
         private var containerLogs = ContainerLogOptions()
@@ -89,8 +89,8 @@ class BigDataTestKit private constructor(
         fun withKafka(options: KafkaOptions = KafkaOptions(enabled = true)): Builder =
             apply { kafka = options.copy(enabled = true) }
 
-        fun withLocalStackS3(options: ObjectStoreOptions = ObjectStoreOptions(enabled = true)): Builder =
-            apply { localStackS3 = options.copy(enabled = true) }
+        fun withS3(options: ObjectStoreOptions = ObjectStoreOptions(enabled = true)): Builder =
+            apply { s3 = options.copy(enabled = true) }
 
         fun withFakeGcs(options: ObjectStoreOptions = ObjectStoreOptions(enabled = true, image = DEFAULT_FAKE_GCS_IMAGE)): Builder =
             apply { fakeGcs = options.copy(enabled = true) }
@@ -164,7 +164,7 @@ class BigDataTestKit private constructor(
                     hdfs = hdfs,
                     hiveMetastore = hiveMetastore,
                     kafka = kafka,
-                    localStackS3 = localStackS3,
+                    s3 = s3,
                     fakeGcs = fakeGcs,
                     portBindings = portBindings,
                     containerLogs = containerLogs,

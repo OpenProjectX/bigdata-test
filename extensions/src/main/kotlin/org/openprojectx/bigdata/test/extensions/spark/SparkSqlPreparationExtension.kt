@@ -101,7 +101,7 @@ class SparkSqlPreparationExtension(
                 }
             }
         }
-        context.kit.endpoints()[BigDataService.LOCALSTACK_S3]?.let { endpoint ->
+        context.kit.endpoints()[BigDataService.S3]?.let { endpoint ->
             endpoint.properties["aws.endpoint-url.s3"]?.let { builder.config("spark.hadoop.fs.s3a.endpoint", it) }
             endpoint.properties["aws.accessKeyId"]?.let { builder.config("spark.hadoop.fs.s3a.access.key", it) }
             endpoint.properties["aws.secretAccessKey"]?.let { builder.config("spark.hadoop.fs.s3a.secret.key", it) }

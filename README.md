@@ -36,7 +36,7 @@ Use `@BigDataTest` in a JUnit 5 test and request `BigDataTestKit` as a parameter
     hiveMetastore = true,
     kafka = true,
     schemaRegistry = true,
-    localStackS3 = true,
+    s3 = true,
 )
 class MyIntegrationTest {
     @Test
@@ -53,7 +53,7 @@ For declarative test setup, add `@BigDataExtensions` with TOML config:
 
 ```kotlin
 @BigDataExtensions("classpath:bigdata-extensions.toml")
-@BigDataTest(hdfs = true, kafka = true, schemaRegistry = true, localStackS3 = true)
+@BigDataTest(hdfs = true, kafka = true, schemaRegistry = true, s3 = true)
 class MyIntegrationTest
 ```
 
@@ -78,9 +78,9 @@ HTTP services can be exposed through an HAProxy TLS gateway from TOML:
 
 ```toml
 [services]
-localStackS3 = true
+s3 = true
 
-[localStackS3Tls]
+[s3Tls]
 enabled = true
 domain = "localhost"
 ```
@@ -106,7 +106,7 @@ Optional CLI health checks can run after container startup:
 ```toml
 [healthChecks]
 hdfs = "cli"
-localStackS3 = "cli"
+s3 = "cli"
 ```
 
 ## Run Examples

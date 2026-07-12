@@ -83,7 +83,7 @@ internal class BigDataContainerFactory(
         val containers = mutableListOf<BigDataServiceContainer>()
         if (kerberosRequired()) containers += kerberos()
         if (options.hdfs.enabled) containers += hdfs()
-        if (options.localStackS3.enabled) containers += localStackS3()
+        if (options.s3.enabled) containers += s3()
         if (options.fakeGcs.enabled) containers += fakeGcs()
         if (options.hiveMetastore.enabled) containers += hiveMetastore()
         if (options.kafka.enabled) {
@@ -708,38 +708,34 @@ internal class BigDataContainerFactory(
         }
     }
 
-    private fun localStackS3(): BigDataServiceContainer {
-        val objectStore = options.localStackS3
-        val isFloci = objectStore.image.isImageNamed("floci/floci")
+    private fun s3(): BigDataServiceContainer {
+        val objectStore = options.s3
         val container = GenericBigDataContainer(objectStore.image)
             .withNetwork(network)
-            .withNetworkAliases("localstack")
-            .withServicePort(4566, options.portBindings.hostPort(4566, options.portBindings.localStackS3))
+            .withNetworkAliases("s3")
+            .withServicePort(4566, options.portBindings.hostPort(4566, options.portBindings.s3))
             .waitingFor(
-                Wait.forHttp(if (isFloci) "/_floci/health" else "/_localstack/health")
+                Wait.forHttp("/_floci/health")
                     .forStatusCode(200)
                     .withStartupTimeout(Duration.ofMinutes(3)),
             )
-        if (!isFloci) {
-            container.withEnv("SERVICES", "s3")
-        }
 
         return BigDataServiceContainer(
-            BigDataService.LOCALSTACK_S3,
-            attachLogs("localstack-s3", applyContainerCustomizations(BigDataService.LOCALSTACK_S3, container)),
+            BigDataService.S3,
+            attachLogs("s3", applyContainerCustomizations(BigDataService.S3, container)),
         ) {
             val tlsEndpoint = httpTlsEndpoint(
-                name = "localstack-s3",
+                name = "s3",
                 tls = objectStore.tls,
-                backendHost = "localstack",
+                backendHost = "s3",
                 backendPort = 4566,
-                hostPort = tlsHostPort(options.portBindings.localStackS3Tls),
+                hostPort = tlsHostPort(options.portBindings.s3Tls),
             )
             val endpoint = tlsEndpoint.url ?: "http://${container.host}:${container.getMappedPort(4566)}"
             BigDataEndpoint(
-                service = BigDataService.LOCALSTACK_S3,
+                service = BigDataService.S3,
                 host = tlsEndpoint.host ?: container.host,
-                ports = mapOf("edge" to container.getMappedPort(4566)) + tlsEndpoint.port("https"),
+                ports = mapOf("http" to container.getMappedPort(4566)) + tlsEndpoint.port("https"),
                 properties = mapOf(
                     "spring.cloud.aws.s3.endpoint" to endpoint,
                     "aws.endpoint-url.s3" to endpoint,
@@ -805,8 +801,8 @@ internal class BigDataContainerFactory(
                 put("dfs.client.use.datanode.hostname", "true")
                 put("dfs.datanode.hostname", options.hdfs.dataNodeHostname)
             }
-            if (options.localStackS3.enabled) {
-                put("fs.s3a.endpoint", "http://localstack:4566")
+            if (options.s3.enabled) {
+                put("fs.s3a.endpoint", "http://s3:4566")
                 put("fs.s3a.endpoint.region", "us-east-1")
                 put("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
                 put("fs.s3a.access.key", "test")
@@ -853,10 +849,10 @@ internal class BigDataContainerFactory(
         }
 
     private fun configureHiveDockerObjectStores(container: HiveMetastoreContainer) {
-        if (options.localStackS3.enabled) {
+        if (options.s3.enabled) {
             container
                 .withEnv("S3A_FILE_SYSTEM_IMPL", "org.apache.hadoop.fs.s3a.S3AFileSystem")
-                .withEnv("S3_ENDPOINT_URL", "http://localstack:4566")
+                .withEnv("S3_ENDPOINT_URL", "http://s3:4566")
                 .withEnv("AWS_ACCESS_KEY_ID", "test")
                 .withEnv("AWS_SECRET_ACCESS_KEY", "test")
                 .withEnv("S3_PATH_STYLE_ACCESS", "true")
@@ -1219,16 +1215,8 @@ internal class BigDataContainerFactory(
                 httpContainerProbe("http://localhost:8085/subjects")
             BigDataService.KAFKA_UI ->
                 httpContainerProbe("http://localhost:8080/")
-            BigDataService.LOCALSTACK_S3 ->
-                """
-                if command -v awslocal >/dev/null 2>&1; then
-                  awslocal s3 ls >/dev/null
-                elif command -v aws >/dev/null 2>&1; then
-                  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url=http://localhost:4566 s3 ls >/dev/null
-                else
-                  ${httpContainerProbe("http://localhost:4566/_floci/health")} || ${httpContainerProbe("http://localhost:4566/_localstack/health")}
-                fi
-                """.trimIndent()
+            BigDataService.S3 ->
+                httpContainerProbe("http://localhost:4566/_floci/health")
             BigDataService.FAKE_GCS ->
                 "${httpContainerProbe("http://localhost:4588/_floci-gcp/health")} || ${httpContainerProbe("http://localhost:4443/storage/v1/b")}"
         }

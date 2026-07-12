@@ -5,7 +5,7 @@ hdfs = true
 hiveMetastore = false
 clouderaHms = true
 
-localStackS3 = true
+s3 = true
 #schemaRegistry = true
 #kafka = true
 
@@ -49,7 +49,7 @@ localHdfsSitePath = "build/bigdata-test/hadoop/hdfs-site.xml"
 # dataNodeHostname = "localhost".
 hdfsDataNode = 9866
 #hdfsWeb = 9870
-#localStackS3 = 4566
+#s3 = 4566
 #hiveMetastore = 9083
 
 [containerLogs]
@@ -61,7 +61,7 @@ append = false
 kerberos = "DEBUG"
 hdfs = "DEBUG"
 
-[containers.localstackS3.env]
+[containers.s3.env]
 DISABLE_CORS_CHECKS = "1"
 
 #[containers.hdfs.env]

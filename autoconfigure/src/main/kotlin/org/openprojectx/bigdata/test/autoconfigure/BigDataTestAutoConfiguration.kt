@@ -36,7 +36,7 @@ class BigDataTestAutoConfiguration {
                     hdfsNameNode = properties.ports.hdfsNameNode,
                     hdfsDataNode = properties.ports.hdfsDataNode,
                     hdfsWeb = properties.ports.hdfsWeb,
-                    localStackS3 = properties.ports.localstackS3,
+                    s3 = properties.ports.s3,
                 ),
             )
             .withContainerLogs(
@@ -166,12 +166,12 @@ class BigDataTestAutoConfiguration {
             )
         }
 
-        if (properties.localstackS3.enabled) {
-            builder.withLocalStackS3(
+        if (properties.s3.enabled) {
+            builder.withS3(
                 ObjectStoreOptions(
                     enabled = true,
-                    image = properties.localstackS3.image,
-                    tls = properties.localstackS3.tls.toCore(),
+                    image = properties.s3.image,
+                    tls = properties.s3.tls.toCore(),
                 ),
             )
         }
@@ -199,7 +199,7 @@ class BigDataTestAutoConfiguration {
         hdfs.webTls.enabled ||
             kafka.schemaRegistryTls.enabled ||
             kafka.kafkaUiTls.enabled ||
-            localstackS3.tls.enabled ||
+            s3.tls.enabled ||
             fakeGcs.tls.enabled
 
     private fun String.toBigDataService(): BigDataService =

@@ -35,7 +35,7 @@ abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFac
     val hiveMetastore: BigDataTestGradleHiveMetastore = objects.newInstance(BigDataTestGradleHiveMetastore::class.java)
     val clouderaHms: BigDataTestGradleClouderaHms = objects.newInstance(BigDataTestGradleClouderaHms::class.java)
     val kafka: BigDataTestGradleKafka = objects.newInstance(BigDataTestGradleKafka::class.java)
-    val localStackS3: BigDataTestGradleObjectStore = objects.newInstance(BigDataTestGradleObjectStore::class.java)
+    val s3: BigDataTestGradleObjectStore = objects.newInstance(BigDataTestGradleObjectStore::class.java)
     val fakeGcs: BigDataTestGradleObjectStore = objects.newInstance(BigDataTestGradleObjectStore::class.java)
     val containerLogs: BigDataTestGradleContainerLogs = objects.newInstance(BigDataTestGradleContainerLogs::class.java)
 
@@ -71,8 +71,8 @@ abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFac
         action.execute(kafka)
     }
 
-    fun localStackS3(action: Action<in BigDataTestGradleObjectStore>) {
-        action.execute(localStackS3)
+    fun s3(action: Action<in BigDataTestGradleObjectStore>) {
+        action.execute(s3)
     }
 
     fun fakeGcs(action: Action<in BigDataTestGradleObjectStore>) {
@@ -113,7 +113,7 @@ abstract class BigDataTestGradleServices @Inject constructor(objects: ObjectFact
     val kafka: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val schemaRegistry: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val kafkaUi: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
-    val localStackS3: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+    val s3: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val fakeGcs: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
 }
 
@@ -127,7 +127,7 @@ abstract class BigDataTestGradlePorts @Inject constructor(objects: ObjectFactory
     val kafka: Property<Int> = objects.property(Int::class.java).convention(0)
     val schemaRegistry: Property<Int> = objects.property(Int::class.java).convention(0)
     val kafkaUi: Property<Int> = objects.property(Int::class.java).convention(0)
-    val localStackS3: Property<Int> = objects.property(Int::class.java).convention(0)
+    val s3: Property<Int> = objects.property(Int::class.java).convention(0)
     val fakeGcs: Property<Int> = objects.property(Int::class.java).convention(0)
 }
 

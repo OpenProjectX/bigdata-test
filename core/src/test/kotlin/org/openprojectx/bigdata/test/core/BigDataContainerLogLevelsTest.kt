@@ -14,11 +14,10 @@ class BigDataContainerLogLevelsTest {
     }
 
     @Test
-    fun `maps localstack debug level to localstack environment`() {
-        val environment = BigDataContainerLogLevels.environment(BigDataService.LOCALSTACK_S3, "TRACE")
+    fun `maps S3 log level to Floci environment`() {
+        val environment = BigDataContainerLogLevels.environment(BigDataService.S3, "TRACE")
 
-        assertEquals("trace", environment["LS_LOG"])
-        assertEquals("1", environment["DEBUG"])
+        assertEquals("TRACE", environment["QUARKUS_LOG_LEVEL"])
     }
 
     @Test

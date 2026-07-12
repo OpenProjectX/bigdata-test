@@ -49,7 +49,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val kafka: Property<Boolean>
         val schemaRegistry: Property<Boolean>
         val kafkaUi: Property<Boolean>
-        val localStackS3: Property<Boolean>
+        val s3: Property<Boolean>
         val fakeGcs: Property<Boolean>
 
         val sameHostPorts: Property<Boolean>
@@ -61,7 +61,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val kafkaPort: Property<Int>
         val schemaRegistryPort: Property<Int>
         val kafkaUiPort: Property<Int>
-        val localStackS3Port: Property<Int>
+        val s3Port: Property<Int>
         val fakeGcsPort: Property<Int>
 
         val kerberosImage: Property<String>
@@ -117,7 +117,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val kafkaKerberosEnabled: Property<Boolean>
         val kafkaUiKerberosEnabled: Property<Boolean>
 
-        val localStackS3Image: Property<String>
+        val s3Image: Property<String>
         val fakeGcsImage: Property<String>
 
         val containerLogMode: Property<ContainerLogMode>
@@ -188,7 +188,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                     kafka = parameters.kafkaPort.get(),
                     schemaRegistry = parameters.schemaRegistryPort.get(),
                     kafkaUi = parameters.kafkaUiPort.get(),
-                    localStackS3 = parameters.localStackS3Port.get(),
+                    s3 = parameters.s3Port.get(),
                     fakeGcs = parameters.fakeGcsPort.get(),
                 ),
             )
@@ -298,8 +298,8 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                 ),
             )
         }
-        if (parameters.localStackS3.get()) {
-            builder.withLocalStackS3(ObjectStoreOptions(enabled = true, image = parameters.localStackS3Image.get()))
+        if (parameters.s3.get()) {
+            builder.withS3(ObjectStoreOptions(enabled = true, image = parameters.s3Image.get()))
         }
         if (parameters.fakeGcs.get()) {
             builder.withFakeGcs(ObjectStoreOptions(enabled = true, image = parameters.fakeGcsImage.get()))

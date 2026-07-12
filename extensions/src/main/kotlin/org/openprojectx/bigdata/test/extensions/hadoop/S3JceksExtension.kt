@@ -14,12 +14,12 @@ data class S3JceksExtension(
     val aliases: Map<String, String> = defaultAliases,
     val additionalHdfsPaths: List<String> = emptyList(),
 ) : BigDataExtension {
-    override val requiredServices: Set<BigDataService> = setOf(BigDataService.HDFS, BigDataService.LOCALSTACK_S3)
+    override val requiredServices: Set<BigDataService> = setOf(BigDataService.HDFS, BigDataService.S3)
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)
 
     override fun onEvent(event: BigDataExtensionEvent, context: BigDataExtensionContext) {
         val hdfs = context.endpoint(BigDataService.HDFS)
-        val s3 = context.endpoint(BigDataService.LOCALSTACK_S3)
+        val s3 = context.endpoint(BigDataService.S3)
         val kerberosProperties = context.kit.endpoints()[BigDataService.KERBEROS]?.properties.orEmpty()
         val credentials = mapOf(
             accessKeyAlias to s3.property("aws.accessKeyId"),

@@ -20,7 +20,7 @@ import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerLogOptions
 import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
-import org.openprojectx.bigdata.test.core.DEFAULT_LOCALSTACK_S3_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_S3_IMAGE
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KerberosOptions
@@ -75,8 +75,8 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     schemaRegistryTls = ports.schemaRegistryTls ?: 0,
                     kafkaUi = annotation.kafkaUiPort.takeIfPositive() ?: ports.kafkaUi ?: 0,
                     kafkaUiTls = ports.kafkaUiTls ?: 0,
-                    localStackS3 = annotation.localStackS3Port.takeIfPositive() ?: ports.localStackS3 ?: 0,
-                    localStackS3Tls = ports.localStackS3Tls ?: 0,
+                    s3 = annotation.s3Port.takeIfPositive() ?: ports.s3 ?: 0,
+                    s3Tls = ports.s3Tls ?: 0,
                     fakeGcs = annotation.fakeGcsPort.takeIfPositive() ?: ports.fakeGcs ?: 0,
                     fakeGcsTls = ports.fakeGcsTls ?: 0,
                 ),
@@ -123,7 +123,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         val schemaRegistry = annotation.schemaRegistry || services.schemaRegistry == true
         val kafkaUi = annotation.kafkaUi || services.kafkaUi == true
         val kafkaUiKerberos = annotation.kafkaUiKerberos || services.kafkaUiKerberos == true
-        val localStackS3 = annotation.localStackS3 || services.localStackS3 == true
+        val s3 = annotation.s3 || services.s3 == true
         val fakeGcs = annotation.fakeGcs || services.fakeGcs == true
         val defaultKerberos = KerberosOptions()
         val kerberosRealm = kerberosConfig.realm ?: defaultKerberos.realm
@@ -134,7 +134,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             kafkaTls ||
             config.schemaRegistryTls.enabled == true ||
             config.kafkaUiTls.enabled == true ||
-            config.localStackS3Tls.enabled == true ||
+            config.s3Tls.enabled == true ||
             config.fakeGcsTls.enabled == true
         if (tlsEnabled || tls.hasValues()) {
             builder.withTls(
@@ -279,12 +279,12 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 ),
             )
         }
-        if (localStackS3) {
-            builder.withLocalStackS3(
+        if (s3) {
+            builder.withS3(
                 ObjectStoreOptions(
                     enabled = true,
-                    image = images.localStackS3 ?: DEFAULT_LOCALSTACK_S3_IMAGE,
-                    tls = config.localStackS3Tls.toHttpTls("localhost"),
+                    image = images.s3 ?: DEFAULT_S3_IMAGE,
+                    tls = config.s3Tls.toHttpTls("localhost"),
                 ),
             )
         }

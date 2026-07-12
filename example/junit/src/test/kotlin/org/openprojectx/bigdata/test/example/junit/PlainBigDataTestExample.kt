@@ -11,7 +11,7 @@ import org.openprojectx.bigdata.test.junit5.BigDataTest
     hiveMetastore = true,
     kafka = true,
     schemaRegistry = true,
-    localStackS3 = true,
+    s3 = true,
 )
 class PlainBigDataTestExample {
     @Test

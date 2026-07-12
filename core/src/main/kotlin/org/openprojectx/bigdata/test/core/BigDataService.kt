@@ -48,8 +48,8 @@ enum class BigDataService(
         defaultPorts = mapOf("http" to 8080, "https" to 443),
         endpointProperties = setOf("bigdata.test.kafka-ui.url"),
     ),
-    LOCALSTACK_S3(
-        defaultPorts = mapOf("edge" to 4566, "https" to 443),
+    S3(
+        defaultPorts = mapOf("http" to 4566, "https" to 443),
         endpointProperties = setOf(
             "spring.cloud.aws.s3.endpoint",
             "aws.endpoint-url.s3",

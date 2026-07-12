@@ -11,11 +11,11 @@ import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.junit5.BigDataTest
 
-@BigDataTest(config = ["classpath:localstack-s3-tls.toml"])
-class LocalStackS3TlsExampleTest {
+@BigDataTest(config = ["classpath:s3-tls.toml"])
+class S3TlsExampleTest {
     @Test
-    fun `localstack s3 exposes an https endpoint through haproxy`(kit: BigDataTestKit) {
-        val endpoint = kit.endpoint(BigDataService.LOCALSTACK_S3)
+    fun `S3 exposes an https endpoint through haproxy`(kit: BigDataTestKit) {
+        val endpoint = kit.endpoint(BigDataService.S3)
         val url = endpoint.property("aws.endpoint-url.s3")
         val client = HttpClient.newHttpClient()
 
