@@ -236,8 +236,8 @@ clouderaHmsMariadb = "ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb"
 kafka = "apache/kafka:4.1.2"
 schemaRegistry = "confluentinc/cp-schema-registry:7.8.0"
 kafkaUi = "ghcr.io/kafbat/kafka-ui:latest"
-localStackS3 = "ghcr.io/openprojectx/dockerhub/floci/floci:latest"
-fakeGcs = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:latest"
+localStackS3 = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
+fakeGcs = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:0.5.0"
 ----
 
 Kafka and the open-source HMS database sidecar use typed Testcontainers classes instead of plain generic containers. When you override those images, `bigdata-test` marks the configured Kafka image as a compatible substitute for `apache/kafka`, PostgreSQL as a compatible substitute for `postgres`, and MySQL as a compatible substitute for `mysql`, so private mirrors or rebuilt images can still pass Testcontainers image checks.

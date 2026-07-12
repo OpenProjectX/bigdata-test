@@ -2,8 +2,8 @@ package org.openprojectx.bigdata.test.core
 
 import org.testcontainers.containers.GenericContainer
 
-const val DEFAULT_LOCALSTACK_S3_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci:latest"
-const val DEFAULT_FAKE_GCS_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:latest"
+const val DEFAULT_LOCALSTACK_S3_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
+const val DEFAULT_FAKE_GCS_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:0.5.0"
 
 data class BigDataTestKitOptions(
     val kerberos: KerberosOptions = KerberosOptions(),

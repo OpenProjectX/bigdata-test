@@ -798,11 +798,6 @@ internal class BigDataContainerFactory(
     private fun fakeGcsServicePort(): Int =
         if (isFlociGcp()) 4588 else 4443
 
-    private fun String.isImageNamed(repository: String): Boolean {
-        val image = substringBefore("@").substringBefore(":")
-        return image == repository || image.endsWith("/$repository")
-    }
-
     private fun hiveMetastoreObjectStoreConfiguration(): Map<String, String> =
         buildMap {
             if (options.hdfs.enabled) {
@@ -1712,4 +1707,12 @@ internal class BigDataContainerFactory(
         val HADOOP_IMAGE_ENV_TO_CONF_SUPPORTED_FORMATS = setOf("xml", "properties", "yaml", "yml")
         val HADOOP_IMAGE_ENV_TO_CONF_BROKEN_FORMATS = setOf("env", "sh", "cfg", "conf")
     }
+}
+
+internal fun String.isImageNamed(repository: String): Boolean {
+    val withoutDigest = substringBefore("@")
+    val lastSlash = withoutDigest.lastIndexOf('/')
+    val tagSeparator = withoutDigest.indexOf(':', startIndex = lastSlash + 1)
+    val image = if (tagSeparator >= 0) withoutDigest.substring(0, tagSeparator) else withoutDigest
+    return image == repository || image.endsWith("/$repository")
 }
