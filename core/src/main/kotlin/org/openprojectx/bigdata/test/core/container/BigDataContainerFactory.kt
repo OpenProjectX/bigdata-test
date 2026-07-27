@@ -1153,7 +1153,7 @@ internal class BigDataContainerFactory(
                 "parser. '$conflict' is treated as a config file format by the image entrypoint. " +
                 "Use a non-reserved name, for example '${name}_VALUE'. For image-native config generation, " +
                 "use a supported format with a property key suffix, for example 'CORE_XML_fs_defaultFS'. " +
-                "Avoid the image's env/sh/cfg/conf formats; they are broken in apache/hadoop:3.5.0.",
+                "Avoid the image's env/sh/cfg/conf formats; they are broken in ghcr.io/openprojectx/dockerhub/apache/hadoop:3.5.0.",
         )
     }
 

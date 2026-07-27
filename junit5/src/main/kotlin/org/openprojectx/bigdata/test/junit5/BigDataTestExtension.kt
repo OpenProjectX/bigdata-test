@@ -20,7 +20,13 @@ import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerLogOptions
 import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_HAPROXY_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_HDFS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_UI_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_KERBEROS_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_S3_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_SCHEMA_REGISTRY_IMAGE
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KerberosOptions
@@ -144,7 +150,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     caKeyPath = tls.caKeyPath,
                     trustStorePath = tls.trustStorePath,
                     trustStorePassword = tls.trustStorePassword ?: "changeit",
-                    haproxyImage = tls.haproxyImage ?: "haproxy:3.0-alpine",
+                    haproxyImage = tls.haproxyImage ?: DEFAULT_HAPROXY_IMAGE,
                 ),
             )
         }
@@ -153,7 +159,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             builder.withKerberos(
                 KerberosOptions(
                     enabled = true,
-                    image = images.kerberos ?: "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest",
+                    image = images.kerberos ?: DEFAULT_KERBEROS_IMAGE,
                     realm = kerberosRealm,
                     domain = kerberosDomain,
                     clientPrincipal = annotation.kerberosClientPrincipal
@@ -179,7 +185,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             builder.withHdfs(
                 HdfsOptions(
                     enabled = true,
-                    image = images.hdfs ?: "apache/hadoop:3.5.0",
+                    image = images.hdfs ?: DEFAULT_HDFS_IMAGE,
                     dataNodeHostname = annotation.hdfsDataNodeHostname.takeIf { it.isNotBlank() }
                         ?: config.hdfs.dataNodeHostname
                         ?: HdfsOptions().dataNodeHostname,
@@ -258,13 +264,13 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             builder.withKafka(
                 KafkaOptions(
                     enabled = true,
-                    image = images.kafka ?: "apache/kafka:4.1.2",
+                    image = images.kafka ?: DEFAULT_KAFKA_IMAGE,
                     tls = config.kafkaTls.toHttpTls("localhost").copy(enabled = kafkaTls),
                     schemaRegistryEnabled = schemaRegistry,
-                    schemaRegistryImage = images.schemaRegistry ?: "confluentinc/cp-schema-registry:7.8.0",
+                    schemaRegistryImage = images.schemaRegistry ?: DEFAULT_SCHEMA_REGISTRY_IMAGE,
                     schemaRegistryTls = config.schemaRegistryTls.toHttpTls("localhost"),
                     kafkaUiEnabled = kafkaUi,
-                    kafkaUiImage = images.kafkaUi ?: "ghcr.io/kafbat/kafka-ui:latest",
+                    kafkaUiImage = images.kafkaUi ?: DEFAULT_KAFKA_UI_IMAGE,
                     kafkaUiTls = config.kafkaUiTls.toHttpTls("localhost"),
                     kerberos = KerberosAuthOptions(
                         enabled = kafkaKerberos,

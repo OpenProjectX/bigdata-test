@@ -7,6 +7,12 @@ import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.ContainerLogMode
+import org.openprojectx.bigdata.test.core.DEFAULT_HAPROXY_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_HDFS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_UI_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_KERBEROS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_SCHEMA_REGISTRY_IMAGE
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import javax.inject.Inject
@@ -133,7 +139,7 @@ abstract class BigDataTestGradlePorts @Inject constructor(objects: ObjectFactory
 
 abstract class BigDataTestGradleKerberos @Inject constructor(objects: ObjectFactory) {
     val image: Property<String> = objects.property(String::class.java)
-        .convention("ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest")
+        .convention(DEFAULT_KERBEROS_IMAGE)
     val realm: Property<String> = objects.property(String::class.java).convention("EXAMPLE.COM")
     val domain: Property<String> = objects.property(String::class.java).convention("example.com")
     val clientPrincipal: Property<String> = objects.property(String::class.java).convention("app_user@EXAMPLE.COM")
@@ -154,11 +160,11 @@ abstract class BigDataTestGradleTls @Inject constructor(objects: ObjectFactory) 
     val caKeyPath: Property<String> = objects.property(String::class.java).convention("")
     val trustStorePath: Property<String> = objects.property(String::class.java).convention("")
     val trustStorePassword: Property<String> = objects.property(String::class.java).convention("changeit")
-    val haproxyImage: Property<String> = objects.property(String::class.java).convention("haproxy:3.0-alpine")
+    val haproxyImage: Property<String> = objects.property(String::class.java).convention(DEFAULT_HAPROXY_IMAGE)
 }
 
 abstract class BigDataTestGradleHdfs @Inject constructor(objects: ObjectFactory) {
-    val image: Property<String> = objects.property(String::class.java).convention("apache/hadoop:3.5.0")
+    val image: Property<String> = objects.property(String::class.java).convention(DEFAULT_HDFS_IMAGE)
     val kerberosEnabled: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val dataNodeHostname: Property<String> = objects.property(String::class.java).convention("hdfs")
     val localHdfsSitePath: Property<String> = objects.property(String::class.java).convention("")
@@ -208,10 +214,10 @@ abstract class BigDataTestGradleClouderaHms @Inject constructor(objects: ObjectF
 }
 
 abstract class BigDataTestGradleKafka @Inject constructor(objects: ObjectFactory) {
-    val image: Property<String> = objects.property(String::class.java).convention("apache/kafka:4.1.2")
+    val image: Property<String> = objects.property(String::class.java).convention(DEFAULT_KAFKA_IMAGE)
     val schemaRegistryImage: Property<String> = objects.property(String::class.java)
-        .convention("confluentinc/cp-schema-registry:7.8.0")
-    val kafkaUiImage: Property<String> = objects.property(String::class.java).convention("ghcr.io/kafbat/kafka-ui:latest")
+        .convention(DEFAULT_SCHEMA_REGISTRY_IMAGE)
+    val kafkaUiImage: Property<String> = objects.property(String::class.java).convention(DEFAULT_KAFKA_UI_IMAGE)
     val kerberosEnabled: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val kafkaUiKerberosEnabled: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
 }

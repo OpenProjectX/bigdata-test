@@ -4,6 +4,13 @@ import org.testcontainers.containers.GenericContainer
 
 const val DEFAULT_S3_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
 const val DEFAULT_FAKE_GCS_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:0.5.0"
+const val DEFAULT_KERBEROS_IMAGE = "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest"
+const val DEFAULT_HAPROXY_IMAGE = "ghcr.io/openprojectx/dockerhub/library/haproxy:3.0-alpine"
+const val DEFAULT_HDFS_IMAGE = "ghcr.io/openprojectx/dockerhub/apache/hadoop:3.5.0"
+const val DEFAULT_KAFKA_IMAGE = "ghcr.io/openprojectx/dockerhub/apache/kafka:4.1.2"
+const val DEFAULT_SCHEMA_REGISTRY_IMAGE =
+    "ghcr.io/openprojectx/dockerhub/confluentinc/cp-schema-registry:7.8.0"
+const val DEFAULT_KAFKA_UI_IMAGE = "ghcr.io/kafbat/kafka-ui:latest"
 
 data class BigDataTestKitOptions(
     val kerberos: KerberosOptions = KerberosOptions(),
@@ -21,7 +28,7 @@ data class BigDataTestKitOptions(
 
 data class KerberosOptions(
     val enabled: Boolean = false,
-    val image: String = "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest",
+    val image: String = DEFAULT_KERBEROS_IMAGE,
     val realm: String = "EXAMPLE.COM",
     val domain: String = "example.com",
     val clientPrincipal: String = "app_user@EXAMPLE.COM",
@@ -55,7 +62,7 @@ data class TlsOptions(
     val caKeyPath: String? = null,
     val trustStorePath: String? = null,
     val trustStorePassword: String = "changeit",
-    val haproxyImage: String = "haproxy:3.0-alpine",
+    val haproxyImage: String = DEFAULT_HAPROXY_IMAGE,
     @Deprecated("Use caCertPath for the root CA certificate")
     val certPath: String? = null,
     @Deprecated("Use caKeyPath for the root CA private key")
@@ -69,7 +76,7 @@ data class HttpTlsOptions(
 
 data class HdfsOptions(
     val enabled: Boolean = false,
-    val image: String = "apache/hadoop:3.5.0",
+    val image: String = DEFAULT_HDFS_IMAGE,
     val nameNodePort: Int = 8020,
     val dataNodePort: Int = 9866,
     val dataNodeHostname: String = "hdfs",
@@ -108,8 +115,8 @@ data class HiveMetastoreOptions(
         const val DEFAULT_CLOUDERA_IMAGE = "ghcr.io/openprojectx/cloudera-hms:0.1.74"
         const val DEFAULT_CLOUDERA_MARIADB_IMAGE = "ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb"
         const val DEFAULT_CLOUDERA_WAREHOUSE_DIR = "/tmp/cloudera-hms/warehouse"
-        const val DEFAULT_POSTGRES_IMAGE = "postgres:16-alpine"
-        const val DEFAULT_MYSQL_IMAGE = "mysql:8.0.44-bookworm"
+        const val DEFAULT_POSTGRES_IMAGE = "ghcr.io/openprojectx/dockerhub/library/postgres:16-alpine"
+        const val DEFAULT_MYSQL_IMAGE = "ghcr.io/openprojectx/dockerhub/library/mysql:8.0.44-bookworm"
     }
 }
 
@@ -130,13 +137,13 @@ enum class ClouderaHmsDatabaseType {
 
 data class KafkaOptions(
     val enabled: Boolean = false,
-    val image: String = "apache/kafka:4.1.2",
+    val image: String = DEFAULT_KAFKA_IMAGE,
     val tls: HttpTlsOptions = HttpTlsOptions(),
     val schemaRegistryEnabled: Boolean = false,
-    val schemaRegistryImage: String = "confluentinc/cp-schema-registry:7.8.0",
+    val schemaRegistryImage: String = DEFAULT_SCHEMA_REGISTRY_IMAGE,
     val schemaRegistryTls: HttpTlsOptions = HttpTlsOptions(),
     val kafkaUiEnabled: Boolean = false,
-    val kafkaUiImage: String = "ghcr.io/kafbat/kafka-ui:latest",
+    val kafkaUiImage: String = DEFAULT_KAFKA_UI_IMAGE,
     val kafkaUiTls: HttpTlsOptions = HttpTlsOptions(),
     val clusterId: String = "MkU3OEVBNTcwNTJENDM2Qk",
     val kerberos: KerberosAuthOptions = KerberosAuthOptions(

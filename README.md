@@ -15,6 +15,11 @@ Cloudera HMS defaults to `ghcr.io/openprojectx/cloudera-hms:0.1.74`; set
 `[clouderaHms] databaseHostPort` can expose the embedded PostgreSQL/MariaDB
 port on a stable local port for troubleshooting.
 
+Default container images are hosted on GHCR. OpenProjectX-built images use
+`ghcr.io/openprojectx`, Docker Hub images use the synchronized
+`ghcr.io/openprojectx/dockerhub` mirror, and native third-party GHCR images
+remain in their upstream GHCR namespace. Every image can still be overridden.
+
 ## Modules
 
 - `core`: container builder, service options, endpoints, and log routing
@@ -99,7 +104,7 @@ HADOOP_OPTS = "-Dsun.security.krb5.debug=true"
 
 Programmatic tests can also call `customizeContainer(...)` for last-resort Testcontainers access.
 
-For HDFS, avoid arbitrary env names whose second token is an Apache Hadoop image config format such as `ENV`, `CONF`, `XML`, or `SH`. For example, `TEST_ENV=TEST` is parsed by `apache/hadoop:3.5.0` as an env-to-config instruction and fails before HDFS starts. Use a non-reserved name such as `TEST_VALUE`, or use the image convention intentionally, for example `CORE_XML_fs_defaultFS=...`.
+For HDFS, avoid arbitrary env names whose second token is an Apache Hadoop image config format such as `ENV`, `CONF`, `XML`, or `SH`. For example, `TEST_ENV=TEST` is parsed by `ghcr.io/openprojectx/dockerhub/apache/hadoop:3.5.0` as an env-to-config instruction and fails before HDFS starts. Use a non-reserved name such as `TEST_VALUE`, or use the image convention intentionally, for example `CORE_XML_fs_defaultFS=...`.
 
 Optional CLI health checks can run after container startup:
 

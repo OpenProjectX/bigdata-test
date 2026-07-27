@@ -48,6 +48,10 @@ LocalStack support and its legacy naming have been removed. The S3 emulator is F
 
 The old names are not retained as aliases. Update annotations, TOML, Gradle DSL, Spring properties, container customization keys, and endpoint property references together.
 
+=== Default image registry
+
+Default images are pulled from GHCR. Images built by OpenProjectX use the `ghcr.io/openprojectx` namespace. Docker Hub dependencies use paths under `ghcr.io/openprojectx/dockerhub` maintained by the `image-sync` project. Native third-party GHCR images, such as Kafka UI, remain in their upstream GHCR namespace. Image overrides continue to accept any compatible registry.
+
 == Module Layout
 
 [cols="1,3",options="header"]
@@ -253,14 +257,14 @@ Service images can be overridden from TOML with an `[images]` table. The JUnit e
 ----
 [images]
 kerberos = "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest"
-hdfs = "apache/hadoop:3.5.0"
+hdfs = "ghcr.io/openprojectx/dockerhub/apache/hadoop:3.5.0"
 hiveMetastore = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5"
-hiveMetastorePostgres = "postgres:16-alpine"
-hiveMetastoreMysql = "mysql:8.0.44-bookworm"
+hiveMetastorePostgres = "ghcr.io/openprojectx/dockerhub/library/postgres:16-alpine"
+hiveMetastoreMysql = "ghcr.io/openprojectx/dockerhub/library/mysql:8.0.44-bookworm"
 clouderaHms = "ghcr.io/openprojectx/cloudera-hms:0.1.74"
 clouderaHmsMariadb = "ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb"
-kafka = "apache/kafka:4.1.2"
-schemaRegistry = "confluentinc/cp-schema-registry:7.8.0"
+kafka = "ghcr.io/openprojectx/dockerhub/apache/kafka:4.1.2"
+schemaRegistry = "ghcr.io/openprojectx/dockerhub/confluentinc/cp-schema-registry:7.8.0"
 kafkaUi = "ghcr.io/kafbat/kafka-ui:latest"
 s3 = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
 fakeGcs = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:0.5.0"
@@ -380,7 +384,7 @@ Available service names in container TOML are `kerberos`, `hdfs`, `hiveMetastore
 
 ==== HDFS Environment Variable Names
 
-The HDFS service currently defaults to the `apache/hadoop:3.5.0` image. Its entrypoint runs the image's own `envtoconf.py` bootstrap before the `bigdata-test` HDFS startup command. This is an Apache Hadoop Docker image convention, not a general Hadoop runtime specification.
+The HDFS service currently defaults to the `ghcr.io/openprojectx/dockerhub/apache/hadoop:3.5.0` image. Its entrypoint runs the image's own `envtoconf.py` bootstrap before the `bigdata-test` HDFS startup command. This is an Apache Hadoop Docker image convention, not a general Hadoop runtime specification.
 
 That image parser treats environment variable names whose second token is a known config format as instructions to generate files under `HADOOP_CONF_DIR`. Tokens are split on `_` and `.`. For example:
 
@@ -407,7 +411,7 @@ For example, this looks harmless but conflicts with the image parser:
 TEST_ENV = "TEST"
 ----
 
-`TEST_ENV` is interpreted as "create `test.env`" with no config key. In `apache/hadoop:3.5.0`, the `env`, `sh`, `cfg`, and `conf` transforms are also buggy because they iterate parsed keys incorrectly. Names such as `TEST_ENV`, `TEST_ENV_FOO`, `APP_CONF`, and `FOO_SH_BAR` can fail before HDFS starts.
+`TEST_ENV` is interpreted as "create `test.env`" with no config key. In `ghcr.io/openprojectx/dockerhub/apache/hadoop:3.5.0`, the `env`, `sh`, `cfg`, and `conf` transforms are also buggy because they iterate parsed keys incorrectly. Names such as `TEST_ENV`, `TEST_ENV_FOO`, `APP_CONF`, and `FOO_SH_BAR` can fail before HDFS starts.
 
 Use a non-reserved name instead:
 
@@ -418,7 +422,7 @@ TEST_VALUE = "TEST"
 MYAPP_ENV_VALUE = "TEST"
 ----
 
-For Hadoop XML settings, prefer the typed `bigdata-test` options or copied XML files. If you intentionally use the image convention, use one of the working formats with a property suffix, such as `CORE_XML_fs_defaultFS`. Avoid the image's `env`, `sh`, `cfg`, and `conf` formats with `apache/hadoop:3.5.0`.
+For Hadoop XML settings, prefer the typed `bigdata-test` options or copied XML files. If you intentionally use the image convention, use one of the working formats with a property suffix, such as `CORE_XML_fs_defaultFS`. Avoid the image's `env`, `sh`, `cfg`, and `conf` formats with `ghcr.io/openprojectx/dockerhub/apache/hadoop:3.5.0`.
 
 Programmatic tests can use the same portable operations:
 
@@ -621,7 +625,7 @@ caCertPath = "build/tls/root-ca.crt"
 caKeyPath = "build/tls/root-ca.key"
 trustStorePath = "build/bigdata-test-truststore.p12"
 trustStorePassword = "changeit"
-haproxyImage = "haproxy:3.0-alpine"
+haproxyImage = "ghcr.io/openprojectx/dockerhub/library/haproxy:3.0-alpine"
 
 [s3Tls]
 enabled = true
@@ -1688,7 +1692,7 @@ databaseHostPort = 0
 
 [images]
 hiveMetastore = "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5"
-hiveMetastoreMysql = "mysql:8.0.44-bookworm"
+hiveMetastoreMysql = "ghcr.io/openprojectx/dockerhub/library/mysql:8.0.44-bookworm"
 ----
 
 `databaseType` is explicit: setting `hiveMetastoreMysql` alone only changes the MySQL image that will be used when `databaseType = "mysql"` is selected. `databaseHostPort` controls only the host-side mapped port of the support database; the HMS container still connects to the database through the Docker network alias and the database container port.
@@ -2185,7 +2189,7 @@ bigdata:
       enabled: true
       image: ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5
       database-type: postgresql
-      database-image: postgres:16-alpine
+      database-image: ghcr.io/openprojectx/dockerhub/library/postgres:16-alpine
     kafka:
       enabled: true
       kerberos-enabled: true

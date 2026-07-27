@@ -6,7 +6,13 @@ import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_HAPROXY_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_HDFS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_UI_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_KERBEROS_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_S3_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_SCHEMA_REGISTRY_IMAGE
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties("bigdata.test")
@@ -26,7 +32,7 @@ data class BigDataTestProperties(
 ) {
     data class Kerberos(
         var enabled: Boolean = false,
-        var image: String = "openprojectx/kerby-kdc:latest",
+        var image: String = DEFAULT_KERBEROS_IMAGE,
         var realm: String = "EXAMPLE.COM",
         var domain: String = "example.com",
         var clientPrincipal: String = "app_user@EXAMPLE.COM",
@@ -39,7 +45,7 @@ data class BigDataTestProperties(
         var caKeyPath: String? = null,
         var trustStorePath: String? = null,
         var trustStorePassword: String = "changeit",
-        var haproxyImage: String = "haproxy:3.0-alpine",
+        var haproxyImage: String = DEFAULT_HAPROXY_IMAGE,
         @Deprecated("Use caCertPath")
         var certPath: String? = null,
         @Deprecated("Use caKeyPath")
@@ -62,7 +68,7 @@ data class BigDataTestProperties(
 
     data class Hdfs(
         var enabled: Boolean = false,
-        var image: String = "apache/hadoop:3.5.0",
+        var image: String = DEFAULT_HDFS_IMAGE,
         var kerberosEnabled: Boolean = false,
         var dataNodeHostname: String = "hdfs",
         var webTls: HttpTls = HttpTls(),
@@ -97,12 +103,12 @@ data class BigDataTestProperties(
 
     data class Kafka(
         var enabled: Boolean = false,
-        var image: String = "apache/kafka:4.1.2",
+        var image: String = DEFAULT_KAFKA_IMAGE,
         var schemaRegistryEnabled: Boolean = false,
-        var schemaRegistryImage: String = "confluentinc/cp-schema-registry:7.8.0",
+        var schemaRegistryImage: String = DEFAULT_SCHEMA_REGISTRY_IMAGE,
         var schemaRegistryTls: HttpTls = HttpTls(),
         var kafkaUiEnabled: Boolean = false,
-        var kafkaUiImage: String = "ghcr.io/kafbat/kafka-ui:latest",
+        var kafkaUiImage: String = DEFAULT_KAFKA_UI_IMAGE,
         var kafkaUiTls: HttpTls = HttpTls(),
         var kerberosEnabled: Boolean = false,
         var kafkaUiKerberosEnabled: Boolean = false,
