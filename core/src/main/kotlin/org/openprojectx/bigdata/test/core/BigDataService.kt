@@ -1,5 +1,24 @@
 package org.openprojectx.bigdata.test.core
 
+const val DEFAULT_SERVICE_INSTANCE = "default"
+
+data class BigDataServiceId(
+    val service: BigDataService,
+    val instance: String = DEFAULT_SERVICE_INSTANCE,
+) {
+    init {
+        requireValidServiceInstanceName(instance)
+    }
+
+    override fun toString(): String = "${service.name.lowercase()}:$instance"
+}
+
+internal fun requireValidServiceInstanceName(name: String) {
+    require(name.matches(Regex("[A-Za-z][A-Za-z0-9_-]*"))) {
+        "Service instance name '$name' must start with a letter and contain only letters, digits, '-' or '_'"
+    }
+}
+
 enum class BigDataService(
     val defaultPorts: Map<String, Int>,
     val endpointProperties: Set<String>,

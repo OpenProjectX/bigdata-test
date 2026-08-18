@@ -38,6 +38,7 @@ data class S3UploadExtension(
     val prefix: String = "",
     val createBucket: Boolean = true,
     val sources: List<ObjectStoreUploadSource>,
+    override val instance: String = "default",
 ) : BigDataExtension {
     override val requiredServices: Set<BigDataService> = setOf(BigDataService.S3)
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)
@@ -82,6 +83,7 @@ data class GcsUploadExtension(
     val project: String = "bigdata-test",
     val createBucket: Boolean = true,
     val sources: List<ObjectStoreUploadSource>,
+    override val instance: String = "default",
 ) : BigDataExtension {
     override val requiredServices: Set<BigDataService> = setOf(BigDataService.FAKE_GCS)
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)

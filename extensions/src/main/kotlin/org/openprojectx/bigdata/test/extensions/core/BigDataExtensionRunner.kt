@@ -8,19 +8,25 @@ class BigDataExtensionRunner(
 ) {
     fun fire(event: BigDataExtensionEvent, kit: BigDataTestKit, previous: BigDataExtensionResult? = null): BigDataExtensionResult {
         val outputs = previous?.outputs?.toMutableMap() ?: linkedMapOf()
-        val context = BigDataExtensionContext(kit = kit, resources = resources, mutableOutputs = outputs)
         extensions.filter { event in it.events }.forEach { extension ->
             validateServices(extension, kit)
+            val context = BigDataExtensionContext(
+                kit = kit,
+                resources = resources,
+                instance = extension.instance,
+                mutableOutputs = outputs,
+            )
             extension.onEvent(event, context)
         }
-        return BigDataExtensionResult(context.outputs)
+        return BigDataExtensionResult(outputs.toMap())
     }
 
     private fun validateServices(extension: BigDataExtension, kit: BigDataTestKit) {
-        val available = kit.endpoints().keys
-        val missing = extension.requiredServices - available
+        val available = kit.allEndpoints().keys
+        val missing = extension.requiredServiceInstances - available
         check(missing.isEmpty()) {
-            "BigData extension '${extension.id}' requires services $missing, but available services are $available"
+            "BigData extension '${extension.id}' requires service instances $missing, but available service " +
+                "instances are $available"
         }
     }
 }

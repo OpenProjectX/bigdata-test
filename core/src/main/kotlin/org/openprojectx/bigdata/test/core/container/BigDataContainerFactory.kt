@@ -41,6 +41,7 @@ import java.util.Locale
 
 internal class BigDataContainerFactory(
     private val options: BigDataTestKitOptions,
+    private val instanceName: String = org.openprojectx.bigdata.test.core.DEFAULT_SERVICE_INSTANCE,
 ) : AutoCloseable {
     private val network = Network.newNetwork()
     private val supportContainers = mutableListOf<Startable>()
@@ -1271,14 +1272,19 @@ internal class BigDataContainerFactory(
     }
 
     private fun <T : GenericContainer<*>> attachLogs(name: String, container: T): T {
+        val qualifiedName = if (instanceName == org.openprojectx.bigdata.test.core.DEFAULT_SERVICE_INSTANCE) {
+            name
+        } else {
+            "$name-$instanceName"
+        }
         when (options.containerLogs.mode) {
             ContainerLogMode.NONE -> Unit
-            ContainerLogMode.STDOUT -> container.withLogConsumer { frame -> writeConsoleFrame(name, frame) }
+            ContainerLogMode.STDOUT -> container.withLogConsumer { frame -> writeConsoleFrame(qualifiedName, frame) }
             ContainerLogMode.FILE -> {
                 val logDir = Files.createDirectories(Path.of(options.containerLogs.directory))
                 val writer = OutputStreamWriter(
                     Files.newOutputStream(
-                        logDir.resolve("${sanitizeLogName(name)}.log"),
+                        logDir.resolve("${sanitizeLogName(qualifiedName)}.log"),
                         StandardOpenOption.CREATE,
                         if (options.containerLogs.append) {
                             StandardOpenOption.APPEND

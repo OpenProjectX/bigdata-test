@@ -35,6 +35,7 @@ import org.openprojectx.bigdata.test.core.PortBindingOptions
 import org.openprojectx.bigdata.test.core.TlsOptions
 import org.openprojectx.bigdata.test.core.config.BigDataTestConfigLoader
 import org.openprojectx.bigdata.test.core.config.BigDataTestHttpTlsConfig
+import org.openprojectx.bigdata.test.core.config.toTestKitOptions
 
 class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResolver {
     override fun beforeAll(context: ExtensionContext) {
@@ -302,6 +303,9 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     tls = config.fakeGcsTls.toHttpTls("storage.googleapis.com"),
                 ),
             )
+        }
+        config.instances.forEach { (name, instanceConfig) ->
+            builder.withInstance(name, instanceConfig.toTestKitOptions())
         }
         return builder.build()
     }

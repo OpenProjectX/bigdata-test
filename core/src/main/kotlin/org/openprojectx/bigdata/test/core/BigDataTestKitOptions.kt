@@ -24,6 +24,7 @@ data class BigDataTestKitOptions(
     val containerLogs: ContainerLogOptions = ContainerLogOptions(),
     val containerCustomizations: Map<BigDataService, ContainerCustomizationOptions> = emptyMap(),
     val healthChecks: Map<BigDataService, BigDataHealthCheckOptions> = emptyMap(),
+    val instances: Map<String, BigDataTestKitOptions> = emptyMap(),
 )
 
 data class KerberosOptions(

@@ -28,6 +28,7 @@ class SparkSqlPreparationExtension(
     private val useKitEndpoints: Boolean = true,
     private val configs: Map<String, String> = emptyMap(),
     private val sql: List<SparkSqlPreparationStatement> = emptyList(),
+    override val instance: String = "default",
 ) : BigDataExtension {
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)
 
@@ -79,7 +80,7 @@ class SparkSqlPreparationExtension(
     }
 
     private fun configureFromKit(builder: SparkSession.Builder, context: BigDataExtensionContext) {
-        context.kit.endpoints()[BigDataService.HIVE_METASTORE]?.let { endpoint ->
+        context.endpointOrNull(BigDataService.HIVE_METASTORE)?.let { endpoint ->
             endpoint.properties["hive.metastore.uris"]?.let { uri ->
                 builder.config("hive.metastore.uris", uri)
             }
@@ -90,7 +91,7 @@ class SparkSqlPreparationExtension(
                 }
             }
         }
-        context.kit.endpoints()[BigDataService.HDFS]?.let { endpoint ->
+        context.endpointOrNull(BigDataService.HDFS)?.let { endpoint ->
             endpoint.properties["fs.defaultFS"]?.let { builder.config("spark.hadoop.fs.defaultFS", it) }
             endpoint.properties["dfs.client.use.datanode.hostname"]?.let {
                 builder.config("spark.hadoop.dfs.client.use.datanode.hostname", it)
@@ -101,7 +102,7 @@ class SparkSqlPreparationExtension(
                 }
             }
         }
-        context.kit.endpoints()[BigDataService.S3]?.let { endpoint ->
+        context.endpointOrNull(BigDataService.S3)?.let { endpoint ->
             endpoint.properties["aws.endpoint-url.s3"]?.let { builder.config("spark.hadoop.fs.s3a.endpoint", it) }
             endpoint.properties["aws.accessKeyId"]?.let { builder.config("spark.hadoop.fs.s3a.access.key", it) }
             endpoint.properties["aws.secretAccessKey"]?.let { builder.config("spark.hadoop.fs.s3a.secret.key", it) }
@@ -113,7 +114,7 @@ class SparkSqlPreparationExtension(
                 "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
             )
         }
-        context.kit.endpoints()[BigDataService.FAKE_GCS]?.let { endpoint ->
+        context.endpointOrNull(BigDataService.FAKE_GCS)?.let { endpoint ->
             endpoint.properties["google.cloud.storage.host"]?.trimEnd('/')?.let { url ->
                 builder.config("spark.hadoop.fs.gs.storage.root.url", "$url/")
             }
@@ -128,7 +129,7 @@ class SparkSqlPreparationExtension(
             builder.config("spark.hadoop.fs.gs.implicit.dir.repair.enable", "false")
             builder.config("spark.hadoop.fs.gs.hierarchical.namespace.folders.enable", "false")
         }
-        context.kit.endpoints()[BigDataService.KERBEROS]?.let { endpoint ->
+        context.endpointOrNull(BigDataService.KERBEROS)?.let { endpoint ->
             endpoint.properties["bigdata.test.kerberos.krb5-conf"]?.let {
                 System.setProperty("java.security.krb5.conf", it)
                 builder.config("spark.hadoop.java.security.krb5.conf", it)
@@ -157,7 +158,7 @@ class SparkSqlPreparationExtension(
     }
 
     private fun loginFromKeytabIfNeeded(spark: SparkSession, context: BigDataExtensionContext) {
-        val kerberos = context.kit.endpoints()[BigDataService.KERBEROS]?.properties ?: return
+        val kerberos = context.endpointOrNull(BigDataService.KERBEROS)?.properties ?: return
         val principal = kerberos["bigdata.test.kerberos.client-principal"] ?: return
         val keytab = kerberos["bigdata.test.kerberos.client-keytab"] ?: return
         val conf = spark.sparkContext().hadoopConfiguration()
@@ -180,6 +181,7 @@ object SparkSqlPreparationExtensionProvider : BigDataExtensionProvider {
     override fun create(config: JsonObject, resources: BigDataExtensionResourceLoader): BigDataExtension =
         SparkSqlPreparationExtension(
             id = config.string("id", "spark-sql-prep"),
+            instance = config.string("instance", "default"),
             appName = config.string("appName", "bigdata-test-spark-sql-prep"),
             master = config.string("master", "local[2]"),
             enableHiveSupport = config.boolean("enableHiveSupport", true),

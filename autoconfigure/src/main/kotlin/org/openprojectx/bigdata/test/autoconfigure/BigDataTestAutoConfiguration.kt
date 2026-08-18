@@ -28,8 +28,18 @@ class BigDataTestAutoConfiguration {
     @Bean(destroyMethod = "close")
     @ConditionalOnMissingBean
     fun bigDataTestKit(properties: BigDataTestProperties): BigDataTestKit {
-        val builder = BigDataTestKit.builder()
-            .withPortBindings(
+        val builder = configure(BigDataTestKit.builder(), properties)
+        properties.instances.forEach { (name, instanceProperties) ->
+            builder.withInstance(name, configure(BigDataTestKit.builder(), instanceProperties).options())
+        }
+        return builder.build().also { it.start() }
+    }
+
+    private fun configure(
+        builder: BigDataTestKit.Builder,
+        properties: BigDataTestProperties,
+    ): BigDataTestKit.Builder {
+        builder.withPortBindings(
                 PortBindingOptions(
                     sameHostPorts = properties.ports.sameHostPorts,
                     kerberosKdc = properties.ports.kerberosKdc,
@@ -186,7 +196,7 @@ class BigDataTestAutoConfiguration {
             )
         }
 
-        return builder.build().also { it.start() }
+        return builder
     }
 
     private fun BigDataTestProperties.HttpTls.toCore(defaultDomain: String = "localhost"): HttpTlsOptions =

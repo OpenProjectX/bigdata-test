@@ -12,6 +12,7 @@ data class KerberosMaterialExtension(
     override val id: String = "kerberos-material",
     val localClientKeytabCopyPaths: List<String> = emptyList(),
     val localKrb5ConfCopyPaths: List<String> = emptyList(),
+    override val instance: String = "default",
 ) : BigDataExtension {
     override val requiredServices: Set<BigDataService> = setOf(BigDataService.KERBEROS)
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)
@@ -30,7 +31,8 @@ data class KerberosMaterialExtension(
         copyMaterial(context, "client.keytab", clientKeytab, localClientKeytabCopyPaths)
         copyMaterial(context, "krb5-conf", krb5Conf, localKrb5ConfCopyPaths)
 
-        context.kit.endpoints().forEach { (service, endpoint) ->
+        context.kit.allEndpoints().filterKeys { it.instance == instance }.forEach { (serviceId, endpoint) ->
+            val service = serviceId.service
             endpoint.properties.forEach { (key, value) ->
                 if (key.endsWith(".kerberos.principal")) put(context, "${service.key}.principal", value)
                 if (key.endsWith(".kerberos.service-name")) put(context, "${service.key}.service-name", value)

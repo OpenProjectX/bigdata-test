@@ -51,6 +51,9 @@ class BigDataExtensionsConfigLoader(
             if (config.boolean("enabled", default = true)) {
                 extensions += S3JceksExtension(
                     id = config.string("id", "s3-jceks"),
+                    instance = config.string("instance", "default"),
+                    hdfsInstance = config.string("hdfsInstance", config.string("instance", "default")),
+                    s3Instance = config.string("s3Instance", config.string("instance", "default")),
                     hdfsDir = config.string("hdfsDir", "/bigdata-test/config"),
                     fileName = config.string("fileName", "s3.jceks"),
                     accessKeyAlias = config.string("accessKeyAlias", "fs.s3a.access.key"),
@@ -64,6 +67,7 @@ class BigDataExtensionsConfigLoader(
             if (config.boolean("enabled", default = true)) {
                 extensions += KafkaAvroSeedExtension(
                     id = config.string("id", "kafka-avro-seed"),
+                    instance = config.string("instance", "default"),
                     topics = config["topics"]?.jsonArray?.map { it.jsonObject.toKafkaAvroTopic() }.orEmpty(),
                 )
             }
@@ -72,6 +76,7 @@ class BigDataExtensionsConfigLoader(
             if (config.boolean("enabled", default = true)) {
                 extensions += KerberosMaterialExtension(
                     id = config.string("id", "kerberos-material"),
+                    instance = config.string("instance", "default"),
                     localClientKeytabCopyPaths = config.stringList("localClientKeytabCopyPaths"),
                     localKrb5ConfCopyPaths = config.stringList("localKrb5ConfCopyPaths"),
                 )
@@ -83,6 +88,7 @@ class BigDataExtensionsConfigLoader(
                 val bucket = config.string("bucket")
                 extensions += S3BucketExtension(
                     id = config.string("id", "s3-bucket-$bucket"),
+                    instance = config.string("instance", "default"),
                     bucket = bucket,
                 )
             }
@@ -93,6 +99,7 @@ class BigDataExtensionsConfigLoader(
                 val bucket = config.string("bucket")
                 extensions += GcsBucketExtension(
                     id = config.string("id", "gcs-bucket-$bucket"),
+                    instance = config.string("instance", "default"),
                     bucket = bucket,
                     project = config.string("project", "bigdata-test"),
                 )
@@ -104,6 +111,7 @@ class BigDataExtensionsConfigLoader(
                 val bucket = config.string("bucket")
                 extensions += S3UploadExtension(
                     id = config.string("id", "s3-upload-$bucket"),
+                    instance = config.string("instance", "default"),
                     bucket = bucket,
                     prefix = config.string("prefix", ""),
                     createBucket = config.boolean("createBucket", default = true),
@@ -117,6 +125,7 @@ class BigDataExtensionsConfigLoader(
                 val bucket = config.string("bucket")
                 extensions += GcsUploadExtension(
                     id = config.string("id", "gcs-upload-$bucket"),
+                    instance = config.string("instance", "default"),
                     bucket = bucket,
                     prefix = config.string("prefix", ""),
                     project = config.string("project", "bigdata-test"),

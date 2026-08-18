@@ -11,13 +11,14 @@ import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionEvent
 data class KafkaAvroSeedExtension(
     override val id: String = "kafka-avro-seed",
     val topics: List<KafkaAvroTopicSeed>,
+    override val instance: String = "default",
 ) : BigDataExtension {
     override val requiredServices: Set<BigDataService> = setOf(BigDataService.KAFKA)
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)
 
     override fun onEvent(event: BigDataExtensionEvent, context: BigDataExtensionContext) {
         val kafka = context.endpoint(BigDataService.KAFKA)
-        val schemaRegistry = context.kit.endpoints()[BigDataService.SCHEMA_REGISTRY]
+        val schemaRegistry = context.endpointOrNull(BigDataService.SCHEMA_REGISTRY)
         kafka.properties["java.security.krb5.conf.local"]?.let { krb5Conf ->
             System.setProperty("java.security.krb5.conf", krb5Conf)
         }

@@ -53,6 +53,14 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.extensionRuntimeClasspath.from(extensionRuntimeClasspath)
             spec.parameters.containerLogLevels.set(extension.containerLogLevels)
             spec.parameters.containerCustomizations.set(extension.containerCustomizations)
+            spec.parameters.configLocations.set(
+                project.provider { extension.config.get().map { project.resolveExtensionConfigLocation(it) } },
+            )
+            spec.parameters.instances.set(
+                project.provider {
+                    extension.instances.get().mapValues { (_, location) -> project.resolveExtensionConfigLocation(location) }
+                },
+            )
 
             spec.parameters.kerberos.set(extension.services.kerberos)
             spec.parameters.hdfs.set(extension.services.hdfs)

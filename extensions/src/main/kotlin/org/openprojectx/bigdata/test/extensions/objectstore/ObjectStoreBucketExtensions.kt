@@ -14,6 +14,7 @@ import java.time.Duration
 data class S3BucketExtension(
     override val id: String,
     val bucket: String,
+    override val instance: String = "default",
 ) : BigDataExtension {
     override val requiredServices: Set<BigDataService> = setOf(BigDataService.S3)
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)
@@ -37,6 +38,7 @@ data class GcsBucketExtension(
     override val id: String,
     val bucket: String,
     val project: String = "bigdata-test",
+    override val instance: String = "default",
 ) : BigDataExtension {
     override val requiredServices: Set<BigDataService> = setOf(BigDataService.FAKE_GCS)
     override val events: Set<BigDataExtensionEvent> = setOf(BigDataExtensionEvent.AFTER_KIT_START)

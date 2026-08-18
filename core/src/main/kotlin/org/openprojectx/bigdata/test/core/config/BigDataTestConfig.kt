@@ -37,6 +37,7 @@ data class BigDataTestConfig(
     val containerLogLevels: Map<BigDataService, String> = emptyMap(),
     val containerCustomizations: Map<BigDataService, ContainerCustomizationOptions> = emptyMap(),
     val healthChecks: Map<BigDataService, BigDataHealthCheckOptions> = emptyMap(),
+    val instances: Map<String, BigDataTestConfig> = emptyMap(),
 ) {
     fun merge(override: BigDataTestConfig): BigDataTestConfig =
         BigDataTestConfig(
@@ -60,7 +61,19 @@ data class BigDataTestConfig(
             containerLogLevels = containerLogLevels + override.containerLogLevels,
             containerCustomizations = containerCustomizations.merge(override.containerCustomizations),
             healthChecks = healthChecks + override.healthChecks,
+            instances = instances.mergeInstances(override.instances),
         )
+
+    private fun Map<String, BigDataTestConfig>.mergeInstances(
+        override: Map<String, BigDataTestConfig>,
+    ): Map<String, BigDataTestConfig> =
+        (keys + override.keys).associateWith { name ->
+            when {
+                name in this && name in override -> getValue(name).merge(override.getValue(name))
+                name in override -> override.getValue(name)
+                else -> getValue(name)
+            }
+        }
 
     private fun Map<BigDataService, ContainerCustomizationOptions>.merge(
         override: Map<BigDataService, ContainerCustomizationOptions>,
@@ -327,6 +340,10 @@ class BigDataTestConfigLoader(
 
     fun load(location: String): BigDataTestConfig {
         val tables = TomlConfigParser.parseTables(readText(location))
+        return parseTables(tables)
+    }
+
+    private fun parseTables(tables: Map<String, Map<String, Any?>>): BigDataTestConfig {
         val images = tables["images"].orEmpty()
         val services = tables["services"].orEmpty()
         val kerberos = tables["kerberos"].orEmpty()
@@ -455,7 +472,27 @@ class BigDataTestConfigLoader(
             containerLogLevels = parseContainerLogLevels(tables),
             containerCustomizations = parseContainerCustomizations(tables),
             healthChecks = parseHealthChecks(tables),
+            instances = parseInstances(tables),
         )
+    }
+
+    private fun parseInstances(
+        tables: Map<String, Map<String, Any?>>,
+    ): Map<String, BigDataTestConfig> {
+        val prefix = "instances."
+        return tables.keys
+            .asSequence()
+            .filter { it.startsWith(prefix) }
+            .map { it.removePrefix(prefix).substringBefore('.') }
+            .filter(String::isNotBlank)
+            .distinct()
+            .associateWith { name ->
+                val instancePrefix = "$prefix$name."
+                val instanceTables = tables
+                    .filterKeys { it.startsWith(instancePrefix) }
+                    .mapKeys { (table, _) -> table.removePrefix(instancePrefix) }
+                parseTables(instanceTables)
+            }
     }
 
     private fun readText(location: String): String =

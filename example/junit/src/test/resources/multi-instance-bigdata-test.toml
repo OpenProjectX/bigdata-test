@@ -1,0 +1,5 @@
+[instances.analytics.services]
+s3 = true
+
+[instances.archive.services]
+s3 = true

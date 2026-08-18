@@ -92,6 +92,26 @@ domain = "localhost"
 
 The endpoint properties then return HTTPS URLs and JVM truststore settings such as `javax.net.ssl.trustStore`.
 
+Services can also be repeated as isolated named instances using the same TOML schema:
+
+```toml
+[services]
+s3 = true
+
+[instances.analytics.services]
+kafka = true
+schemaRegistry = true
+s3 = true
+
+[instances.archive.services]
+s3 = true
+```
+
+Use `kit.endpoint(BigDataService.S3, "archive")` for one instance,
+`kit.endpoints(BigDataService.S3)` for every S3 instance, and
+`kit.allEndpoints()` for the complete `(service, instance)` map. See the user
+guide for programmatic, Gradle, Spring Boot, and extension configuration.
+
 For image-specific troubleshooting, containers can be customized from TOML:
 
 ```toml

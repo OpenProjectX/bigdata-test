@@ -177,6 +177,107 @@ val port = endpoint.ports["bootstrap"]
 
 `kit.springProperties()` flattens all endpoint properties into one map, which is useful for application context initializers and Spring Boot tests.
 
+=== Multiple Service Instances
+
+Every service can be repeated in a named instance. The existing configuration and APIs address the reserved `default` instance. Each additional instance is an independently configured service stack with its own Docker network, so fixed internal aliases such as `kafka`, `hdfs`, and `s3` do not collide. Host ports remain random unless that instance explicitly requests fixed ports.
+
+Programmatic Kotlin configuration:
+
+[source,kotlin]
+----
+val kit = BigDataTestKit.builder()
+    .withS3()
+    .withInstance("analytics") {
+        withKafka(KafkaOptions(enabled = true, schemaRegistryEnabled = true))
+        withS3()
+    }
+    .withInstance("archive") {
+        withS3()
+    }
+    .build()
+
+kit.start()
+val defaultS3 = kit.endpoint(BigDataService.S3)
+val archiveS3 = kit.endpoint(BigDataService.S3, "archive")
+val allS3 = kit.endpoints(BigDataService.S3) // keyed by instance name
+val allEndpoints = kit.allEndpoints()        // keyed by BigDataServiceId
+----
+
+Java uses the `Consumer<Builder>` overload:
+
+[source,java]
+----
+BigDataTestKit kit = BigDataTestKit.builder()
+    .withS3()
+    .withInstance("archive", instance -> instance.withS3())
+    .build();
+
+BigDataEndpoint archive = kit.endpoint(BigDataService.S3, "archive");
+----
+
+The regular TOML schema can be nested under `[instances.<name>.*]`. This works with `@BigDataTest`, the Gradle plugin, and every existing service option:
+
+[source,toml]
+----
+[services]
+s3 = true
+
+[instances.analytics.services]
+kafka = true
+schemaRegistry = true
+s3 = true
+
+[instances.analytics.ports]
+kafka = 0
+
+[instances.analytics.containers.kafka.env]
+KAFKA_HEAP_OPTS = "-Xms256m -Xmx256m"
+
+[instances.archive.services]
+s3 = true
+----
+
+For the Gradle plugin, named instances may alternatively point to standalone TOML files from the DSL:
+
+[source,kotlin]
+----
+bigDataTest {
+    instances.put("analytics", "config/bigdata-analytics.toml")
+    instances.put("archive", "config/bigdata-archive.toml")
+}
+----
+
+Spring Boot supports the same hierarchy under `bigdata.test.instances`:
+
+[source,yaml]
+----
+bigdata:
+  test:
+    enabled: true
+    s3:
+      enabled: true
+    instances:
+      archive:
+        s3:
+          enabled: true
+----
+
+Only default-instance endpoint properties retain conventional unqualified keys such as `bootstrap.servers`. Named endpoints are exported without collisions under `bigdata.test.instances.<instance>.<service>.*`. Gradle's endpoint injection also exposes `bigdata.test.endpoint.<instance>.<service>.*`.
+
+Built-in extensions accept `instance = "<name>"`. The S3 JCEKS extension additionally accepts separate `hdfsInstance` and `s3Instance` references:
+
+[source,toml]
+----
+[s3Jceks]
+instance = "analytics"
+hdfsInstance = "analytics"
+s3Instance = "archive"
+----
+
+Use unique extension ids when the same extension type runs against multiple instances, because extension output keys are still identified by extension id.
+
+Named instances are independent service stacks, not distributed clusters. Two Kafka instances create two independent brokers; they do not create a two-broker Kafka cluster. Likewise, multiple HDFS instances do not provide NameNode HA.
+
 == JUnit 5 Usage
 
 Annotate a test class with `@BigDataTest` and request `BigDataTestKit` as a test parameter.

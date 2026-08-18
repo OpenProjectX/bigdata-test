@@ -14,6 +14,7 @@ import org.openprojectx.bigdata.test.core.ContainerCustomizationOptions
 import org.openprojectx.bigdata.test.core.ContainerFileTransferOptions
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.ContainerLogOptions
+import org.openprojectx.bigdata.test.core.DEFAULT_SERVICE_INSTANCE
 import org.openprojectx.bigdata.test.core.ContainerMountOptions
 import org.openprojectx.bigdata.test.core.ContainerPortOptions
 import org.openprojectx.bigdata.test.core.HdfsOptions
@@ -27,6 +28,8 @@ import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.bigdata.test.core.ObjectStoreOptions
 import org.openprojectx.bigdata.test.core.PortBindingOptions
 import org.openprojectx.bigdata.test.core.TlsOptions
+import org.openprojectx.bigdata.test.core.config.BigDataTestConfigLoader
+import org.openprojectx.bigdata.test.core.config.toTestKitOptions
 import java.nio.file.Path
 
 abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.Parameters>, AutoCloseable {
@@ -41,6 +44,8 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val extensionRuntimeClasspath: ConfigurableFileCollection
         val containerLogLevels: MapProperty<String, String>
         val containerCustomizations: ListProperty<String>
+        val configLocations: ListProperty<String>
+        val instances: MapProperty<String, String>
 
         val kerberos: Property<Boolean>
         val hdfs: Property<Boolean>
@@ -310,6 +315,12 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         decodeContainerCustomizations(parameters.containerCustomizations.get()).forEach { (service, customization) ->
             builder.withContainerCustomization(service, customization)
         }
+        val loader = BigDataTestConfigLoader(javaClass.classLoader)
+        val nestedInstances = loader.load(parameters.configLocations.get()).instances
+        nestedInstances.forEach { (name, config) -> builder.withInstance(name, config.toTestKitOptions()) }
+        parameters.instances.get().forEach { (name, location) ->
+            builder.withInstance(name, loader.load(location).toTestKitOptions())
+        }
         return builder.build()
     }
 
@@ -348,14 +359,19 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
             properties += current.springProperties()
         }
         if (parameters.injectNamespacedEndpointProperties.get()) {
-            current.endpoints().forEach { (service, endpoint) ->
-                val serviceName = service.propertyName()
-                properties["bigdata.test.endpoint.$serviceName.host"] = endpoint.host
+            current.allEndpoints().forEach { (id, endpoint) ->
+                val serviceName = id.service.propertyName()
+                val endpointPrefix = if (id.instance == DEFAULT_SERVICE_INSTANCE) {
+                    "bigdata.test.endpoint.$serviceName"
+                } else {
+                    "bigdata.test.endpoint.${id.instance}.$serviceName"
+                }
+                properties["$endpointPrefix.host"] = endpoint.host
                 endpoint.ports.forEach { (name, port) ->
-                    properties["bigdata.test.endpoint.$serviceName.ports.$name"] = port.toString()
+                    properties["$endpointPrefix.ports.$name"] = port.toString()
                 }
                 endpoint.properties.forEach { (key, value) ->
-                    properties["bigdata.test.endpoint.$serviceName.properties.$key"] = value
+                    properties["$endpointPrefix.properties.$key"] = value
                 }
             }
             extensionOutputs.forEach { (key, value) ->

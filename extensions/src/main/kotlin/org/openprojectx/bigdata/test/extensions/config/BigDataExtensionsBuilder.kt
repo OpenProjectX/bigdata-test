@@ -59,24 +59,29 @@ class BigDataExtensionsBuilder {
         extensions += KerberosMaterialBuilder().also { configure.accept(it) }.build()
     }
 
-    fun s3Bucket(bucket: String, id: String = "s3-bucket-$bucket") {
-        extensions += S3BucketExtension(id = id, bucket = bucket)
+    fun s3Bucket(bucket: String, id: String = "s3-bucket-$bucket", instance: String = "default") {
+        extensions += S3BucketExtension(id = id, instance = instance, bucket = bucket)
     }
 
     fun s3Bucket(bucket: String) {
-        s3Bucket(bucket = bucket, id = "s3-bucket-$bucket")
+        s3Bucket(bucket = bucket, id = "s3-bucket-$bucket", instance = "default")
     }
 
-    fun gcsBucket(bucket: String, id: String = "gcs-bucket-$bucket", project: String = "bigdata-test") {
-        extensions += GcsBucketExtension(id = id, bucket = bucket, project = project)
+    fun gcsBucket(
+        bucket: String,
+        id: String = "gcs-bucket-$bucket",
+        project: String = "bigdata-test",
+        instance: String = "default",
+    ) {
+        extensions += GcsBucketExtension(id = id, instance = instance, bucket = bucket, project = project)
     }
 
     fun gcsBucket(bucket: String) {
-        gcsBucket(bucket = bucket, id = "gcs-bucket-$bucket", project = "bigdata-test")
+        gcsBucket(bucket = bucket, id = "gcs-bucket-$bucket", project = "bigdata-test", instance = "default")
     }
 
     fun gcsBucket(bucket: String, id: String) {
-        gcsBucket(bucket = bucket, id = id, project = "bigdata-test")
+        gcsBucket(bucket = bucket, id = id, project = "bigdata-test", instance = "default")
     }
 
     fun s3Upload(bucket: String, configure: ObjectStoreUploadBuilder.() -> Unit) {
@@ -112,6 +117,7 @@ open class ObjectStoreUploadBuilder internal constructor(
 ) {
     var prefix: String = ""
     var createBucket: Boolean = true
+    var instance: String = "default"
     protected val sources = mutableListOf<ObjectStoreUploadSource>()
 
     fun file(source: String, key: String? = null, contentType: String? = null) {
@@ -142,6 +148,7 @@ open class ObjectStoreUploadBuilder internal constructor(
     internal fun buildS3(): S3UploadExtension =
         S3UploadExtension(
             id = id,
+            instance = instance,
             bucket = bucket,
             prefix = prefix,
             createBucket = createBucket,
@@ -158,6 +165,7 @@ class GcsUploadBuilder internal constructor(
     internal fun buildGcs(): GcsUploadExtension =
         GcsUploadExtension(
             id = id,
+            instance = instance,
             bucket = bucket,
             prefix = prefix,
             project = project,
@@ -168,6 +176,9 @@ class GcsUploadBuilder internal constructor(
 
 class S3JceksBuilder {
     var id: String = "s3-jceks"
+    var instance: String = "default"
+    var hdfsInstance: String? = null
+    var s3Instance: String? = null
     var hdfsDir: String = "/bigdata-test/config"
     var fileName: String = "s3.jceks"
     var accessKeyAlias: String = "fs.s3a.access.key"
@@ -194,6 +205,9 @@ class S3JceksBuilder {
     internal fun build(): S3JceksExtension =
         S3JceksExtension(
             id = id,
+            instance = instance,
+            hdfsInstance = hdfsInstance ?: instance,
+            s3Instance = s3Instance ?: instance,
             hdfsDir = hdfsDir,
             fileName = fileName,
             accessKeyAlias = accessKeyAlias,
@@ -205,6 +219,7 @@ class S3JceksBuilder {
 
 class KerberosMaterialBuilder {
     var id: String = "kerberos-material"
+    var instance: String = "default"
     private val localClientKeytabCopyPaths = mutableListOf<String>()
     private val localKrb5ConfCopyPaths = mutableListOf<String>()
 
@@ -227,6 +242,7 @@ class KerberosMaterialBuilder {
     internal fun build(): KerberosMaterialExtension =
         KerberosMaterialExtension(
             id = id,
+            instance = instance,
             localClientKeytabCopyPaths = localClientKeytabCopyPaths.toList(),
             localKrb5ConfCopyPaths = localKrb5ConfCopyPaths.toList(),
         )
@@ -234,6 +250,7 @@ class KerberosMaterialBuilder {
 
 class KafkaAvroBuilder {
     var id: String = "kafka-avro-seed"
+    var instance: String = "default"
     private val topics = mutableListOf<KafkaAvroTopicSeed>()
 
     fun topic(
@@ -265,7 +282,7 @@ class KafkaAvroBuilder {
     }
 
     internal fun build(): KafkaAvroSeedExtension =
-        KafkaAvroSeedExtension(id = id, topics = topics.toList())
+        KafkaAvroSeedExtension(id = id, instance = instance, topics = topics.toList())
 }
 
 class KafkaAvroTopicBuilder internal constructor(
@@ -296,6 +313,7 @@ class KafkaAvroTopicBuilder internal constructor(
 
 class SparkSqlPreparationBuilder {
     var id: String = "spark-sql-prep"
+    var instance: String = "default"
     var appName: String = "bigdata-test-spark-sql-prep"
     var master: String = "local[2]"
     var enableHiveSupport: Boolean = true
@@ -321,6 +339,7 @@ class SparkSqlPreparationBuilder {
     internal fun build(): SparkSqlPreparationExtension =
         SparkSqlPreparationExtension(
             id = id,
+            instance = instance,
             appName = appName,
             master = master,
             enableHiveSupport = enableHiveSupport,

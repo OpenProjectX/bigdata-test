@@ -29,6 +29,7 @@ data class BigDataTestProperties(
     var fakeGcs: ObjectStore = ObjectStore(image = DEFAULT_FAKE_GCS_IMAGE),
     var containerLogs: ContainerLogs = ContainerLogs(),
     var containerLogLevels: Map<String, String> = emptyMap(),
+    var instances: Map<String, BigDataTestProperties> = emptyMap(),
 ) {
     data class Kerberos(
         var enabled: Boolean = false,

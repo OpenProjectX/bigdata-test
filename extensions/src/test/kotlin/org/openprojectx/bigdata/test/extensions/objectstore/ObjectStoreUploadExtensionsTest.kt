@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.openprojectx.bigdata.test.core.BigDataEndpoint
 import org.openprojectx.bigdata.test.core.BigDataService
+import org.openprojectx.bigdata.test.core.BigDataServiceId
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.extensions.config.BigDataExtensionsConfigLoader
 import org.openprojectx.bigdata.test.extensions.core.BigDataExtensionContext
@@ -204,7 +205,7 @@ class ObjectStoreUploadExtensionsTest {
         val endpoints = BigDataTestKit::class.java.getDeclaredField("endpoints")
         endpoints.isAccessible = true
         @Suppress("UNCHECKED_CAST")
-        (endpoints.get(kit) as MutableMap<BigDataService, BigDataEndpoint>)[service] =
+        (endpoints.get(kit) as MutableMap<BigDataServiceId, BigDataEndpoint>)[BigDataServiceId(service)] =
             BigDataEndpoint(service, "127.0.0.1", emptyMap(), mapOf(property to endpoint))
         return BigDataExtensionContext(kit)
     }
