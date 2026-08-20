@@ -237,6 +237,119 @@ KAFKA_HEAP_OPTS = "-Xms256m -Xmx256m"
 s3 = true
 ----
 
+==== Instance Wiring
+
+Each named instance is a complete, isolated service stack. Configuration from the `default` instance is not inherited by named instances. Declare every service that must communicate inside the same `[instances.<name>.services]` table.
+
+For example, this creates an `analytics` HMS that can use the `analytics` HDFS, S3, GCS emulator, and Kerberos KDC:
+
+[source,toml]
+----
+[instances.analytics.services]
+kerberos = true
+hdfs = true
+hdfsKerberos = true
+hiveMetastore = true
+hiveMetastoreKerberos = true
+s3 = true
+fakeGcs = true
+----
+
+The containers in that instance share one Docker network and use stable internal aliases:
+
+[cols="1,2,3", options="header"]
+|===
+|Consumer
+|Dependency
+|Internal address
+
+|Hive Metastore
+|HDFS NameNode
+|`hdfs://hdfs:8020`
+
+|Hive Metastore
+|S3 emulator
+|`http://s3:4566`
+
+|Hive Metastore
+|GCS emulator
+|`http://fake-gcs:<service-port>`
+
+|HDFS, Hive Metastore, Kafka, or Kafka UI
+|Kerberos KDC
+|`kerby-kdc:88`
+
+|Schema Registry or Kafka UI
+|Kafka
+|The `kafka` alias and the security-specific internal listener
+|===
+
+Aliases can be reused by every instance because each instance has a different Docker network. The framework generates and transfers Kerberos configuration and keytabs separately for each instance.
+
+Default-instance services are not visible from a named instance. The following configuration does _not_ connect the `analytics` HMS to the default S3 emulator:
+
+[source,toml]
+----
+[services]
+s3 = true
+
+[instances.analytics.services]
+hiveMetastore = true
+----
+
+Enable `instances.analytics.services.s3` when the analytics HMS must access S3. Direct container-to-container wiring across instances is not supported because the stacks are intentionally on separate networks. Host-side extensions may explicitly combine instances when their API provides separate instance selectors. For example, `S3JceksExtension` supports `hdfsInstance` and `s3Instance` because it connects through the endpoints exposed to the test JVM.
+
+Host applications and tests should use the mapped endpoint for the required instance rather than an internal Docker alias:
+
+[source,kotlin]
+----
+val analyticsHms = kit.endpoint(BigDataService.HIVE_METASTORE, "analytics")
+val analyticsS3 = kit.endpoint(BigDataService.S3, "analytics")
+
+val metastoreUri = analyticsHms.property("hive.metastore.uris")
+val s3Endpoint = analyticsS3.property("aws.endpoint-url.s3")
+----
+
+==== Generated Files
+
+Default generated files are isolated per instance. Each instance receives separate temporary directories for:
+
+* `hdfs-site.xml`
+* `hive-site.xml` and `metastore-site.xml`
+* Kerberos `krb5.conf` and keytabs
+* generated TLS certificates, keystores, and truststores
+
+Retrieve a generated path from the corresponding named endpoint:
+
+[source,kotlin]
+----
+val analyticsHiveSite = kit.endpoint(BigDataService.HIVE_METASTORE, "analytics")
+    .property("bigdata.test.hive-metastore.hive-site")
+val analyticsHdfsSite = kit.endpoint(BigDataService.HDFS, "analytics")
+    .property("bigdata.test.hdfs.hdfs-site")
+----
+
+Explicit local output paths are exact paths. The framework does not append the instance name and does not reject duplicate paths. Configure distinct paths when multiple instances generate files:
+
+[source,toml]
+----
+[instances.analytics.hdfs]
+localHdfsSitePath = "build/bigdata-test/analytics/hdfs-site.xml"
+
+[instances.analytics.hiveMetastore]
+localHiveSitePath = "build/bigdata-test/analytics/hive-site.xml"
+localMetastoreSitePath = "build/bigdata-test/analytics/metastore-site.xml"
+
+[instances.archive.hdfs]
+localHdfsSitePath = "build/bigdata-test/archive/hdfs-site.xml"
+
+[instances.archive.hiveMetastore]
+localHiveSitePath = "build/bigdata-test/archive/hive-site.xml"
+localMetastoreSitePath = "build/bigdata-test/archive/metastore-site.xml"
+----
+
+The same rule applies to Kerberos `materialDirectory`, explicit local Kerberos copy paths, TLS `trustStorePath`, and extension copy destinations. Reusing read-only input files such as `caCertPath` and `caKeyPath` is valid and is the expected way to make multiple instances trust the same stable CA. Generated output files should remain instance-specific.
+
 For the Gradle plugin, named instances may alternatively point to standalone TOML files from the DSL:
 
 [source,kotlin]
