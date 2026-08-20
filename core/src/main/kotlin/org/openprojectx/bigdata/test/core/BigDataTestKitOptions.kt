@@ -139,6 +139,7 @@ enum class ClouderaHmsDatabaseType {
 data class KafkaOptions(
     val enabled: Boolean = false,
     val image: String = DEFAULT_KAFKA_IMAGE,
+    val startupTimeoutSeconds: Long = 180,
     val tls: HttpTlsOptions = HttpTlsOptions(),
     val schemaRegistryEnabled: Boolean = false,
     val schemaRegistryImage: String = DEFAULT_SCHEMA_REGISTRY_IMAGE,

@@ -594,7 +594,19 @@ Do not use the callback as the normal configuration API for reusable tests. If a
 
 === Startup Health Checks
 
-Every service still uses a Testcontainers wait strategy to detect process startup. Optional health checks run after a service starts and after its endpoint is registered. Use these when a test should fail early if a service is not actually usable.
+Every service uses a Testcontainers wait strategy to detect process startup. Kafka additionally runs `kafka-broker-api-versions.sh` against an internal broker listener before publishing its endpoint. This mandatory protocol probe does not depend on a particular Kafka log message, and it supports the framework's plaintext, TLS, and Kerberos configurations.
+
+Configure the timeout used by each Kafka startup gate (the port wait and the protocol probe) with TOML:
+
+[source,toml]
+----
+[kafka]
+startupTimeoutSeconds = 180
+----
+
+The equivalent programmatic option is `KafkaOptions(startupTimeoutSeconds = 180)`. Spring Boot exposes `bigdata.test.kafka.startup-timeout-seconds`, and the Gradle plugin DSL exposes `kafka.startupTimeoutSeconds`.
+
+Optional health checks run after a service starts and after its endpoint is registered. Use these for an additional service-specific smoke check.
 
 Health check modes:
 
@@ -644,7 +656,7 @@ Current CLI probes:
 |Checks the Thrift port from inside the HMS container. HMS does not provide a good standalone metadata CLI unless a client stack is also present.
 
 |Kafka
-|Runs `kafka-topics.sh --list` against the in-container broker endpoint. This is best for plaintext-compatible listeners; TLS or Kerberos Kafka may need service-specific client properties before this probe can be enabled.
+|Runs `kafka-topics.sh --list` against the in-container broker endpoint. This is additional to Kafka's mandatory `kafka-broker-api-versions.sh` startup probe.
 
 |Schema Registry
 |Uses `wget` or `curl` against `/subjects`.
@@ -659,7 +671,7 @@ Current CLI probes:
 |Uses `wget` or `curl` against the configured HTTP health endpoint.
 |===
 
-CLI probes validate the container's own environment. For host-side behavior, such as Windows HDFS clients connecting through mapped ports, use a host/JVM smoke test as well because an in-container `hdfs dfs` command cannot prove host network reachability.
+CLI probes validate the container's own environment. They do not prove that an advertised listener, mapped host port, host DNS, or client security configuration is usable. Use a Kafka `AdminClient`, producer, or consumer smoke test from the test JVM for that boundary. The same distinction applies to Windows HDFS clients: an in-container `hdfs dfs` command cannot prove host network reachability.
 
 `hiveMetastore` is the open-source HMS image and defaults to `ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.5`. Hive 4 images can be tested by overriding this image key, but Spark 3.x brings a Hive 2.3 metastore client and should use the Hive 3 image unless that client stack is changed. The open-source HMS path starts an external database support container. By default it uses PostgreSQL from `hiveMetastorePostgres`. Set `[hiveMetastore] databaseType = "mysql"` to use MySQL from `hiveMetastoreMysql`. The support database uses a random host port by default; set `[hiveMetastore] databaseHostPort` when you need a stable local database port for troubleshooting.
 

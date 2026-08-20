@@ -266,6 +266,8 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                 KafkaOptions(
                     enabled = true,
                     image = images.kafka ?: DEFAULT_KAFKA_IMAGE,
+                    startupTimeoutSeconds = config.kafka.startupTimeoutSeconds?.toLong()
+                        ?: KafkaOptions().startupTimeoutSeconds,
                     tls = config.kafkaTls.toHttpTls("localhost").copy(enabled = kafkaTls),
                     schemaRegistryEnabled = schemaRegistry,
                     schemaRegistryImage = images.schemaRegistry ?: DEFAULT_SCHEMA_REGISTRY_IMAGE,

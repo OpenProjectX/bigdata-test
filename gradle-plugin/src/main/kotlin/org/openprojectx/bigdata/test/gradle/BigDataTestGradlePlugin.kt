@@ -132,6 +132,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.clouderaHmsKerberosEnabled.set(extension.clouderaHms.kerberosEnabled)
 
             spec.parameters.kafkaImage.set(extension.kafka.image)
+            spec.parameters.kafkaStartupTimeoutSeconds.set(extension.kafka.startupTimeoutSeconds)
             spec.parameters.schemaRegistryImage.set(extension.kafka.schemaRegistryImage)
             spec.parameters.kafkaUiImage.set(extension.kafka.kafkaUiImage)
             spec.parameters.kafkaKerberosEnabled.set(extension.kafka.kerberosEnabled)
@@ -331,6 +332,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         )
         extension.hiveMetastore.databaseHostPort.tomlConvention(config.hiveMetastore.databaseHostPort)
         extension.kafka.image.tomlConvention(config.images.kafka)
+        extension.kafka.startupTimeoutSeconds.tomlConvention(config.kafka.startupTimeoutSeconds)
         extension.kafka.schemaRegistryImage.tomlConvention(config.images.schemaRegistry ?: config.kafka.schemaRegistryImage)
         extension.kafka.kafkaUiImage.tomlConvention(config.images.kafkaUi ?: config.kafka.kafkaUiImage)
         extension.s3.image.tomlConvention(config.images.s3)

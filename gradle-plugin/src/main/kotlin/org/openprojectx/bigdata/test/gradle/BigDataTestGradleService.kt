@@ -117,6 +117,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val clouderaHmsKerberosEnabled: Property<Boolean>
 
         val kafkaImage: Property<String>
+        val kafkaStartupTimeoutSeconds: Property<Int>
         val schemaRegistryImage: Property<String>
         val kafkaUiImage: Property<String>
         val kafkaKerberosEnabled: Property<Boolean>
@@ -286,6 +287,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                 KafkaOptions(
                     enabled = true,
                     image = parameters.kafkaImage.get(),
+                    startupTimeoutSeconds = parameters.kafkaStartupTimeoutSeconds.get().toLong(),
                     schemaRegistryEnabled = parameters.schemaRegistry.get(),
                     schemaRegistryImage = parameters.schemaRegistryImage.get(),
                     kafkaUiEnabled = parameters.kafkaUi.get(),

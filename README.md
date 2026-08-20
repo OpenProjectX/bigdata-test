@@ -134,6 +134,13 @@ hdfs = "cli"
 s3 = "cli"
 ```
 
+Kafka startup always includes an in-container protocol readiness probe and does not depend on a broker log line. Increase its total startup budget when needed:
+
+```toml
+[kafka]
+startupTimeoutSeconds = 180
+```
+
 ## Run Examples
 
 Use the shared Gradle home when running this repository locally:

@@ -218,6 +218,7 @@ abstract class BigDataTestGradleClouderaHms @Inject constructor(objects: ObjectF
 
 abstract class BigDataTestGradleKafka @Inject constructor(objects: ObjectFactory) {
     val image: Property<String> = objects.property(String::class.java).convention(DEFAULT_KAFKA_IMAGE)
+    val startupTimeoutSeconds: Property<Int> = objects.property(Int::class.java).convention(180)
     val schemaRegistryImage: Property<String> = objects.property(String::class.java)
         .convention(DEFAULT_SCHEMA_REGISTRY_IMAGE)
     val kafkaUiImage: Property<String> = objects.property(String::class.java).convention(DEFAULT_KAFKA_UI_IMAGE)

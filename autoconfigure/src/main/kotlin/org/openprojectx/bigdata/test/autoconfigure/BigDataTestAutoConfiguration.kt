@@ -156,6 +156,7 @@ class BigDataTestAutoConfiguration {
                 KafkaOptions(
                     enabled = true,
                     image = properties.kafka.image,
+                    startupTimeoutSeconds = properties.kafka.startupTimeoutSeconds,
                     schemaRegistryEnabled = properties.kafka.schemaRegistryEnabled,
                     schemaRegistryImage = properties.kafka.schemaRegistryImage,
                     schemaRegistryTls = properties.kafka.schemaRegistryTls.toCore(),

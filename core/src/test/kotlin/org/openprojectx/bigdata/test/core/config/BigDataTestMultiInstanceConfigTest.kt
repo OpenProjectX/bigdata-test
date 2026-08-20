@@ -29,6 +29,9 @@ class BigDataTestMultiInstanceConfigTest {
             [instances.analytics.containers.kafka.env]
             TEST_INSTANCE = "analytics"
 
+            [instances.analytics.kafka]
+            startupTimeoutSeconds = 47
+
             [instances.archive.services]
             fakeGcs = true
             """.trimIndent(),
@@ -41,6 +44,7 @@ class BigDataTestMultiInstanceConfigTest {
         assertEquals(setOf("analytics", "archive"), options.instances.keys)
         assertTrue(options.instances.getValue("analytics").kafka.enabled)
         assertTrue(options.instances.getValue("analytics").kafka.schemaRegistryEnabled)
+        assertEquals(47, options.instances.getValue("analytics").kafka.startupTimeoutSeconds)
         assertEquals(
             "analytics",
             options.instances.getValue("analytics")

@@ -150,6 +150,7 @@ fun BigDataTestConfig.toTestKitOptions(): BigDataTestKitOptions {
         kafka = KafkaOptions(
             enabled = kafkaEnabled,
             image = images.kafka ?: DEFAULT_KAFKA_IMAGE,
+            startupTimeoutSeconds = kafka.startupTimeoutSeconds?.toLong() ?: KafkaOptions().startupTimeoutSeconds,
             tls = kafkaTls.toHttpTls("localhost"),
             schemaRegistryEnabled = services.schemaRegistry == true,
             schemaRegistryImage = images.schemaRegistry ?: kafka.schemaRegistryImage ?: DEFAULT_SCHEMA_REGISTRY_IMAGE,

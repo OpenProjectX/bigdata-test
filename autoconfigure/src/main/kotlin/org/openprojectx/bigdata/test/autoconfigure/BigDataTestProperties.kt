@@ -105,6 +105,7 @@ data class BigDataTestProperties(
     data class Kafka(
         var enabled: Boolean = false,
         var image: String = DEFAULT_KAFKA_IMAGE,
+        var startupTimeoutSeconds: Long = 180,
         var schemaRegistryEnabled: Boolean = false,
         var schemaRegistryImage: String = DEFAULT_SCHEMA_REGISTRY_IMAGE,
         var schemaRegistryTls: HttpTls = HttpTls(),

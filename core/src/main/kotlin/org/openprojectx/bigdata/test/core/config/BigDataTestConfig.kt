@@ -142,11 +142,13 @@ data class BigDataTestClouderaHmsConfig(
 data class BigDataTestKafkaConfig(
     val schemaRegistryImage: String? = null,
     val kafkaUiImage: String? = null,
+    val startupTimeoutSeconds: Int? = null,
 ) {
     fun merge(override: BigDataTestKafkaConfig): BigDataTestKafkaConfig =
         BigDataTestKafkaConfig(
             schemaRegistryImage = override.schemaRegistryImage ?: schemaRegistryImage,
             kafkaUiImage = override.kafkaUiImage ?: kafkaUiImage,
+            startupTimeoutSeconds = override.startupTimeoutSeconds ?: startupTimeoutSeconds,
         )
 }
 
@@ -438,6 +440,7 @@ class BigDataTestConfigLoader(
             kafka = BigDataTestKafkaConfig(
                 schemaRegistryImage = kafka.string("schemaRegistryImage"),
                 kafkaUiImage = kafka.string("kafkaUiImage"),
+                startupTimeoutSeconds = kafka.int("startupTimeoutSeconds"),
             ),
             hdfsWebTls = httpTls(hdfsWebTls),
             hiveMetastoreTls = httpTls(hiveMetastoreTls),

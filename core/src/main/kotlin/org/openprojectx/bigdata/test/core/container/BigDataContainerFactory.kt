@@ -453,6 +453,7 @@ internal class BigDataContainerFactory(
 
     private fun kafka(): BigDataServiceContainer {
         val kafka = options.kafka
+        require(kafka.startupTimeoutSeconds > 0) { "Kafka startupTimeoutSeconds must be positive" }
         if (!kafka.kerberos.enabled) {
             return if (kafka.tls.enabled) tlsKafka(kafka) else plaintextKafka(kafka)
         }
@@ -480,7 +481,7 @@ internal class BigDataContainerFactory(
             .withEnv("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", "1")
             .withEnv("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", "1")
             .withEnv("CLUSTER_ID", kafka.clusterId)
-            .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(3)))
+            .waitingFor(kafkaListeningPortWait(kafka))
         mountKerberos(container)
         container
             .withEnv(
@@ -502,20 +503,25 @@ internal class BigDataContainerFactory(
             )
         val sslProperties = if (kafka.tls.enabled) configureKafkaBrokerTls(container, kafka, "SASL_SSL") else emptyMap()
 
-        return BigDataServiceContainer(BigDataService.KAFKA, attachLogs("kafka", applyContainerCustomizations(BigDataService.KAFKA, container))) {
-            val bootstrapServers = "${container.host}:${container.getMappedPort(9092)}"
-            BigDataEndpoint(
-                service = BigDataService.KAFKA,
-                host = container.host,
-                ports = mapOf("bootstrap" to container.getMappedPort(9092)),
-                properties = mapOf(
-                    "bootstrap.servers" to bootstrapServers,
-                    "spring.kafka.bootstrap-servers" to bootstrapServers,
-                ) + kerberosProperties("kafka", kafka.kerberos) +
-                    kafkaClientKerberosProperties(kafka.kerberos, options.kerberos, kafka.tls.enabled) +
-                    sslProperties,
-            )
-        }
+        return BigDataServiceContainer(
+            service = BigDataService.KAFKA,
+            container = attachLogs("kafka", applyContainerCustomizations(BigDataService.KAFKA, container)),
+            afterStart = { awaitKafkaReady(container, kafka) },
+            endpoint = {
+                val bootstrapServers = "${container.host}:${container.getMappedPort(9092)}"
+                BigDataEndpoint(
+                    service = BigDataService.KAFKA,
+                    host = container.host,
+                    ports = mapOf("bootstrap" to container.getMappedPort(9092)),
+                    properties = mapOf(
+                        "bootstrap.servers" to bootstrapServers,
+                        "spring.kafka.bootstrap-servers" to bootstrapServers,
+                    ) + kerberosProperties("kafka", kafka.kerberos) +
+                        kafkaClientKerberosProperties(kafka.kerberos, options.kerberos, kafka.tls.enabled) +
+                        sslProperties,
+                )
+            },
+        )
     }
 
     private fun ClouderaHmsDatabaseType.propertyValue(): String =
@@ -559,26 +565,31 @@ internal class BigDataContainerFactory(
         container
             .withNetwork(network)
             .withNetworkAliases("kafka")
-            .withStartupTimeout(Duration.ofMinutes(3))
+            .waitingFor(kafkaListeningPortWait(kafka))
             .withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "BROKER:SSL,PLAINTEXT:SSL,CONTROLLER:PLAINTEXT")
             .withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "BROKER")
             .withEnv("KAFKA_SSL_CLIENT_AUTH", "none")
             .withEnv("KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM", "")
         val sslProperties = configureKafkaBrokerTls(container, kafka, "SSL")
 
-        return BigDataServiceContainer(BigDataService.KAFKA, attachLogs("kafka", applyContainerCustomizations(BigDataService.KAFKA, container))) {
-            val bootstrapServers = container.bootstrapServers
-            BigDataEndpoint(
-                service = BigDataService.KAFKA,
-                host = container.host,
-                ports = mapOf("bootstrap" to container.getMappedPort(9092)),
-                properties = mapOf(
-                    "bootstrap.servers" to bootstrapServers,
-                    "spring.kafka.bootstrap-servers" to bootstrapServers,
-                    "bootstrap.servers.internal" to "kafka:9093",
-                ) + sslProperties,
-            )
-        }
+        return BigDataServiceContainer(
+            service = BigDataService.KAFKA,
+            container = attachLogs("kafka", applyContainerCustomizations(BigDataService.KAFKA, container)),
+            afterStart = { awaitKafkaReady(container, kafka) },
+            endpoint = {
+                val bootstrapServers = container.bootstrapServers
+                BigDataEndpoint(
+                    service = BigDataService.KAFKA,
+                    host = container.host,
+                    ports = mapOf("bootstrap" to container.getMappedPort(9092)),
+                    properties = mapOf(
+                        "bootstrap.servers" to bootstrapServers,
+                        "spring.kafka.bootstrap-servers" to bootstrapServers,
+                        "bootstrap.servers.internal" to "kafka:9093",
+                    ) + sslProperties,
+                )
+            },
+        )
     }
 
     private fun plaintextKafka(kafka: KafkaOptions): BigDataServiceContainer {
@@ -592,21 +603,86 @@ internal class BigDataContainerFactory(
             .withNetwork(network)
             .withNetworkAliases("kafka")
             .withListener("kafka:19092")
-            .withStartupTimeout(Duration.ofMinutes(3))
+            .waitingFor(kafkaListeningPortWait(kafka))
 
-        return BigDataServiceContainer(BigDataService.KAFKA, attachLogs("kafka", applyContainerCustomizations(BigDataService.KAFKA, container))) {
-            val bootstrapServers = container.bootstrapServers
-            BigDataEndpoint(
-                service = BigDataService.KAFKA,
-                host = container.host,
-                ports = mapOf("bootstrap" to container.getMappedPort(9092)),
-                properties = mapOf(
-                    "bootstrap.servers" to bootstrapServers,
-                    "spring.kafka.bootstrap-servers" to bootstrapServers,
-                    "bootstrap.servers.internal" to "kafka:19092",
-                ),
-            )
+        return BigDataServiceContainer(
+            service = BigDataService.KAFKA,
+            container = attachLogs("kafka", applyContainerCustomizations(BigDataService.KAFKA, container)),
+            afterStart = { awaitKafkaReady(container, kafka) },
+            endpoint = {
+                val bootstrapServers = container.bootstrapServers
+                BigDataEndpoint(
+                    service = BigDataService.KAFKA,
+                    host = container.host,
+                    ports = mapOf("bootstrap" to container.getMappedPort(9092)),
+                    properties = mapOf(
+                        "bootstrap.servers" to bootstrapServers,
+                        "spring.kafka.bootstrap-servers" to bootstrapServers,
+                        "bootstrap.servers.internal" to "kafka:19092",
+                    ),
+                )
+            },
+        )
+    }
+
+    private fun kafkaListeningPortWait(kafka: KafkaOptions) =
+        Wait.forListeningPort().withStartupTimeout(Duration.ofSeconds(kafka.startupTimeoutSeconds))
+
+    private fun awaitKafkaReady(container: GenericContainer<*>, kafka: KafkaOptions) {
+        val command = kafkaReadinessCommand(kafka)
+        val deadline = System.nanoTime() + Duration.ofSeconds(kafka.startupTimeoutSeconds).toNanos()
+        var lastResult: org.testcontainers.containers.Container.ExecResult? = null
+        do {
+            lastResult = container.execInContainer("sh", "-lc", withShellTimeout(10, command))
+            if (lastResult.exitCode == 0) return
+            Thread.sleep(1_000)
+        } while (System.nanoTime() < deadline)
+
+        error(
+            buildString {
+                appendLine("Kafka protocol readiness check did not succeed within ${kafka.startupTimeoutSeconds} seconds")
+                appendLine("Probe: kafka-broker-api-versions.sh against the internal broker listener")
+                lastResult?.stdout?.takeIf(String::isNotBlank)?.let {
+                    appendLine("stdout:")
+                    appendLine(it.trimEnd())
+                }
+                lastResult?.stderr?.takeIf(String::isNotBlank)?.let {
+                    appendLine("stderr:")
+                    appendLine(it.trimEnd())
+                }
+            },
+        )
+    }
+
+    private fun kafkaReadinessCommand(kafka: KafkaOptions): String {
+        val script = """
+            kafka_health_cli() {
+              if command -v kafka-broker-api-versions.sh >/dev/null 2>&1; then
+                kafka-broker-api-versions.sh "${'$'}@"
+              else
+                /opt/kafka/bin/kafka-broker-api-versions.sh "${'$'}@"
+              fi
+            }
+        """.trimIndent()
+        if (kafka.kerberos.enabled || !kafka.tls.enabled) {
+            return "$script\nkafka_health_cli --bootstrap-server kafka:19092 >/dev/null"
         }
+        return buildString {
+            appendLine(
+                "printf '%s\\n' " +
+                    "'security.protocol=SSL' " +
+                    "'ssl.truststore.location=/etc/kafka/secrets/kafka.truststore.p12' " +
+                    shellQuote("ssl.truststore.password=${tlsMaterial.trustStorePassword}") + " " +
+                    "'ssl.truststore.type=PKCS12' " +
+                    "'ssl.endpoint.identification.algorithm=' " +
+                    "> /tmp/bigdata-test-kafka-client.properties",
+            )
+            appendLine(script)
+            appendLine(
+                "kafka_health_cli --bootstrap-server kafka:9093 " +
+                    "--command-config /tmp/bigdata-test-kafka-client.properties >/dev/null",
+            )
+        }.trimEnd()
     }
 
     private fun compatibleKafkaImage(image: String): DockerImageName =
@@ -1227,7 +1303,9 @@ internal class BigDataContainerFactory(
 
     private fun withShellTimeout(timeoutSeconds: Long, command: String): String =
         if (timeoutSeconds > 0) {
-            "if command -v timeout >/dev/null 2>&1; then timeout $timeoutSeconds sh -c ${shellQuote(command)}; else $command; fi"
+            "if command -v timeout >/dev/null 2>&1; then\n" +
+                "  timeout $timeoutSeconds sh -c ${shellQuote(command)}\n" +
+                "else\n$command\nfi"
         } else {
             command
         }
