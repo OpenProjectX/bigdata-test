@@ -330,6 +330,10 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     jdbcUser = config.icebergRestCatalog.jdbcUser ?: defaults.jdbcUser,
                     jdbcPassword = config.icebergRestCatalog.jdbcPassword ?: defaults.jdbcPassword,
                     ioImpl = config.icebergRestCatalog.ioImpl,
+                    credentialProviders = config.icebergRestCatalog.credentialProviders,
+                    s3RoleArn = config.icebergRestCatalog.s3RoleArn,
+                    s3ExternalId = config.icebergRestCatalog.s3ExternalId,
+                    s3TokenServiceEndpoint = config.icebergRestCatalog.s3TokenServiceEndpoint,
                     tls = config.icebergRestCatalogTls.toHttpTls("localhost").copy(enabled = icebergRestCatalogTls),
                 ),
             )

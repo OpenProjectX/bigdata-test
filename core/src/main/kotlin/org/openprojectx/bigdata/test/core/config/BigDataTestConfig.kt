@@ -164,6 +164,10 @@ data class BigDataTestIcebergRestCatalogConfig(
     val jdbcUser: String? = null,
     val jdbcPassword: String? = null,
     val ioImpl: String? = null,
+    val credentialProviders: String? = null,
+    val s3RoleArn: String? = null,
+    val s3ExternalId: String? = null,
+    val s3TokenServiceEndpoint: String? = null,
 ) {
     fun merge(override: BigDataTestIcebergRestCatalogConfig): BigDataTestIcebergRestCatalogConfig =
         BigDataTestIcebergRestCatalogConfig(
@@ -174,6 +178,10 @@ data class BigDataTestIcebergRestCatalogConfig(
             jdbcUser = override.jdbcUser ?: jdbcUser,
             jdbcPassword = override.jdbcPassword ?: jdbcPassword,
             ioImpl = override.ioImpl ?: ioImpl,
+            credentialProviders = override.credentialProviders ?: credentialProviders,
+            s3RoleArn = override.s3RoleArn ?: s3RoleArn,
+            s3ExternalId = override.s3ExternalId ?: s3ExternalId,
+            s3TokenServiceEndpoint = override.s3TokenServiceEndpoint ?: s3TokenServiceEndpoint,
         )
 }
 
@@ -487,6 +495,10 @@ class BigDataTestConfigLoader(
                 jdbcUser = icebergRestCatalog.string("jdbcUser"),
                 jdbcPassword = icebergRestCatalog.string("jdbcPassword"),
                 ioImpl = icebergRestCatalog.string("ioImpl"),
+                credentialProviders = icebergRestCatalog.string("credentialProviders"),
+                s3RoleArn = icebergRestCatalog.string("s3RoleArn"),
+                s3ExternalId = icebergRestCatalog.string("s3ExternalId"),
+                s3TokenServiceEndpoint = icebergRestCatalog.string("s3TokenServiceEndpoint"),
             ),
             hdfsWebTls = httpTls(hdfsWebTls),
             hiveMetastoreTls = httpTls(hiveMetastoreTls),

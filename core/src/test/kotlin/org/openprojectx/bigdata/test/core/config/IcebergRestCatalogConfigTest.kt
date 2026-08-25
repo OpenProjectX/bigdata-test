@@ -20,6 +20,10 @@ class IcebergRestCatalogConfigTest {
             [icebergRestCatalog]
             warehouse = "s3://catalog/warehouse"
             ioImpl = "org.apache.iceberg.aws.s3.S3FileIO"
+            credentialProviders = "s3-token"
+            s3RoleArn = "arn:aws:iam::000000000000:role/iceberg"
+            s3ExternalId = "catalog-test"
+            s3TokenServiceEndpoint = "http://s3:4566"
 
             [ports]
             icebergRestCatalog = 19001
@@ -35,6 +39,10 @@ class IcebergRestCatalogConfigTest {
         assertEquals(DEFAULT_ICEBERG_REST_CATALOG_IMAGE, options.icebergRestCatalog.image)
         assertEquals("s3://catalog/warehouse", options.icebergRestCatalog.warehouse)
         assertEquals("org.apache.iceberg.aws.s3.S3FileIO", options.icebergRestCatalog.ioImpl)
+        assertEquals("s3-token", options.icebergRestCatalog.credentialProviders)
+        assertEquals("arn:aws:iam::000000000000:role/iceberg", options.icebergRestCatalog.s3RoleArn)
+        assertEquals("catalog-test", options.icebergRestCatalog.s3ExternalId)
+        assertEquals("http://s3:4566", options.icebergRestCatalog.s3TokenServiceEndpoint)
         assertEquals(19001, options.portBindings.icebergRestCatalog)
         assertEquals(
             "enabled",

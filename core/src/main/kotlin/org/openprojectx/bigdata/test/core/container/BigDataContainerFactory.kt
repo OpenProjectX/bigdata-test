@@ -32,6 +32,7 @@ import org.testcontainers.utility.DockerImageName
 import org.testcontainers.utility.MountableFile
 import java.io.OutputStreamWriter
 import java.io.Closeable
+import java.net.URI
 import java.nio.file.Files
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
@@ -874,6 +875,11 @@ internal class BigDataContainerFactory(
 
     private fun icebergRestCatalog(): BigDataServiceContainer {
         val catalog = options.icebergRestCatalog
+        val internalNoProxy = internalNoProxyHosts(
+            "iceberg-rest-catalog",
+            if (options.s3.enabled) "s3" else null,
+            catalog.s3TokenServiceEndpoint?.let { runCatching { URI.create(it).host }.getOrNull() },
+        )
         val container = GenericBigDataContainer(catalog.image)
             .withNetwork(network)
             .withNetworkAliases("iceberg-rest-catalog")
@@ -886,6 +892,8 @@ internal class BigDataContainerFactory(
             .withEnv("GRAVITINO_ICEBERG_REST_JDBC_DRIVER", catalog.jdbcDriver)
             .withEnv("GRAVITINO_ICEBERG_REST_JDBC_USER", catalog.jdbcUser)
             .withEnv("GRAVITINO_ICEBERG_REST_JDBC_PASSWORD", catalog.jdbcPassword)
+            .withEnv("NO_PROXY", internalNoProxy)
+            .withEnv("no_proxy", internalNoProxy)
             .waitingFor(
                 Wait.forHttp("/iceberg/v1/config")
                     .forPort(9001)
@@ -894,6 +902,18 @@ internal class BigDataContainerFactory(
             )
         catalog.ioImpl?.takeIf(String::isNotBlank)?.let {
             container.withEnv("GRAVITINO_ICEBERG_REST_IO_IMPL", it)
+        }
+        catalog.credentialProviders?.takeIf(String::isNotBlank)?.let {
+            container.withEnv("GRAVITINO_ICEBERG_REST_CREDENTIAL_PROVIDERS", it)
+        }
+        catalog.s3RoleArn?.takeIf(String::isNotBlank)?.let {
+            container.withEnv("GRAVITINO_ICEBERG_REST_S3_ROLE_ARN", it)
+        }
+        catalog.s3ExternalId?.takeIf(String::isNotBlank)?.let {
+            container.withEnv("GRAVITINO_ICEBERG_REST_S3_EXTERNAL_ID", it)
+        }
+        catalog.s3TokenServiceEndpoint?.takeIf(String::isNotBlank)?.let {
+            container.withEnv("GRAVITINO_ICEBERG_REST_S3_TOKEN_SERVICE_ENDPOINT", it)
         }
         if (options.s3.enabled) {
             container
@@ -934,6 +954,15 @@ internal class BigDataContainerFactory(
             )
         }
     }
+
+    private fun internalNoProxyHosts(vararg hosts: String?): String =
+        buildSet {
+            System.getenv("NO_PROXY")?.split(',')?.mapTo(this) { it.trim() }
+            System.getenv("no_proxy")?.split(',')?.mapTo(this) { it.trim() }
+            add("localhost")
+            add("127.0.0.1")
+            hosts.filterNotNull().filter(String::isNotBlank).forEach(::add)
+        }.filter(String::isNotBlank).joinToString(",")
 
     private fun hiveMetastoreObjectStoreConfiguration(): Map<String, String> =
         buildMap {

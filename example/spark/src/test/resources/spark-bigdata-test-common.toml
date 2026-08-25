@@ -9,7 +9,7 @@ clouderaHmsMariadb = "ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb"
 kafka = "ghcr.io/openprojectx/dockerhub/apache/kafka:4.1.2"
 schemaRegistry = "ghcr.io/openprojectx/dockerhub/confluentinc/cp-schema-registry:7.8.0"
 kafkaUi = "ghcr.io/kafbat/kafka-ui:latest"
-s3 = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
+s3 = "ghcr.io/openprojectx/dockerhub/floci/floci:1.7.0"
 fakeGcs = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:0.5.0"
 
 [services]

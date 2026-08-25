@@ -1,5 +1,6 @@
 package org.openprojectx.bigdata.test.example.spark
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -12,6 +13,12 @@ import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.extensions.junit5.BigDataExtensions
 import org.openprojectx.bigdata.test.junit5.BigDataTest
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request
+import software.amazon.awssdk.services.sts.StsClient
 
 @BigDataExtensions("classpath:spark-iceberg-rest-s3-extensions.toml")
 @BigDataTest(config = ["classpath:spark-iceberg-rest-s3.toml"])
@@ -45,6 +52,8 @@ class SparkIcebergRestS3Example {
             assertEquals(3, rows.size)
             assertEquals(listOf("alpha", "beta", "gamma"), rows.map { it.getString(1) })
 
+            verifyVendedCredentials(restUri, s3Endpoint)
+
             val objects = listS3Objects(s3Endpoint)
             assertTrue(objects.contains("warehouse/demo/events/metadata/"), objects)
             assertTrue(objects.contains("warehouse/demo/events/data/"), objects)
@@ -67,13 +76,61 @@ class SparkIcebergRestS3Example {
             .config("spark.sql.catalog.rest.uri", restUri)
             .config("spark.sql.catalog.rest.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
             .config("spark.sql.catalog.rest.s3.endpoint", s3Endpoint)
-            .config("spark.sql.catalog.rest.s3.access-key-id", "test")
-            .config("spark.sql.catalog.rest.s3.secret-access-key", "test")
             .config("spark.sql.catalog.rest.s3.region", "us-east-1")
             .config("spark.sql.catalog.rest.s3.path-style-access", "true")
+            .config("spark.sql.catalog.rest.s3.access-key-id", "test")
+            .config("spark.sql.catalog.rest.s3.secret-access-key", "test")
             .config("spark.sql.defaultCatalog", "rest")
             .config("spark.sql.warehouse.dir", "file:${System.getProperty("java.io.tmpdir")}/spark-iceberg-rest")
             .getOrCreate()
+
+    private fun verifyVendedCredentials(restUri: String, s3Endpoint: String) {
+        val response = HttpClient.newHttpClient().send(
+            HttpRequest.newBuilder(URI.create("$restUri/v1/namespaces/demo/tables/events"))
+                .header("X-Iceberg-Access-Delegation", "vended-credentials")
+                .GET()
+                .build(),
+            HttpResponse.BodyHandlers.ofString(),
+        )
+        assertEquals(200, response.statusCode(), response.body())
+        val config = ObjectMapper().readTree(response.body()).path("config")
+        val credentials = AwsSessionCredentials.create(
+            config.path("s3.access-key-id").requireText(),
+            config.path("s3.secret-access-key").requireText(),
+            config.path("s3.session-token").requireText(),
+        )
+        val provider = StaticCredentialsProvider.create(credentials)
+        val endpoint = URI.create(s3Endpoint)
+
+        StsClient.builder()
+            .endpointOverride(endpoint)
+            .region(Region.US_EAST_1)
+            .credentialsProvider(provider)
+            .build().use { sts ->
+                val identity = sts.getCallerIdentity()
+                assertTrue(
+                    identity.arn().contains("assumed-role/iceberg-rest/"),
+                    identity.arn(),
+                )
+            }
+        S3Client.builder()
+            .endpointOverride(endpoint)
+            .region(Region.US_EAST_1)
+            .forcePathStyle(true)
+            .credentialsProvider(provider)
+            .build().use { s3 ->
+                val keys = s3.listObjectsV2(
+                    ListObjectsV2Request.builder()
+                        .bucket("spark-iceberg-rest")
+                        .prefix("warehouse/demo/events")
+                        .build(),
+                ).contents().map { it.key() }
+                assertTrue(keys.any { it.endsWith(".parquet") }, keys.toString())
+            }
+    }
+
+    private fun com.fasterxml.jackson.databind.JsonNode.requireText(): String =
+        asText().takeIf(String::isNotBlank) ?: error("Missing vended credential in REST response")
 
     private fun listS3Objects(s3Endpoint: String): String {
         val response = HttpClient.newHttpClient().send(

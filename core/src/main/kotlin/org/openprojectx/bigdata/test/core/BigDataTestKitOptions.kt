@@ -2,7 +2,7 @@ package org.openprojectx.bigdata.test.core
 
 import org.testcontainers.containers.GenericContainer
 
-const val DEFAULT_S3_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
+const val DEFAULT_S3_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci:1.7.0"
 const val DEFAULT_FAKE_GCS_IMAGE = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:0.5.0"
 const val DEFAULT_KERBEROS_IMAGE = "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest"
 const val DEFAULT_HAPROXY_IMAGE = "ghcr.io/openprojectx/dockerhub/library/haproxy:3.0-alpine"
@@ -176,6 +176,10 @@ data class IcebergRestCatalogOptions(
     val jdbcUser: String = "iceberg",
     val jdbcPassword: String = "iceberg",
     val ioImpl: String? = null,
+    val credentialProviders: String? = null,
+    val s3RoleArn: String? = null,
+    val s3ExternalId: String? = null,
+    val s3TokenServiceEndpoint: String? = null,
     val tls: HttpTlsOptions = HttpTlsOptions(),
 )
 

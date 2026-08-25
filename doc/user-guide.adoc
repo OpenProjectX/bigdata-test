@@ -484,7 +484,7 @@ clouderaHmsMariadb = "ghcr.io/openprojectx/cloudera-hms:0.1.74-mariadb"
 kafka = "ghcr.io/openprojectx/dockerhub/apache/kafka:4.1.2"
 schemaRegistry = "ghcr.io/openprojectx/dockerhub/confluentinc/cp-schema-registry:7.8.0"
 kafkaUi = "ghcr.io/kafbat/kafka-ui:latest"
-s3 = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
+s3 = "ghcr.io/openprojectx/dockerhub/floci/floci:1.7.0"
 fakeGcs = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:0.5.0"
 icebergRestCatalog = "ghcr.io/openprojectx/gravitino-iceberg-rest:0.1.1"
 ----
@@ -521,6 +521,36 @@ warehouse = "s3://iceberg/warehouse"
 ioImpl = "org.apache.iceberg.aws.s3.S3FileIO"
 ----
 
+Floci `1.7.0` also provides STS. Enable Gravitino's `s3-token` credential
+provider to vend temporary, path-scoped credentials through Iceberg REST:
+
+[source,toml]
+----
+[icebergRestCatalog]
+warehouse = "s3://iceberg/warehouse"
+ioImpl = "org.apache.iceberg.aws.s3.S3FileIO"
+credentialProviders = "s3-token"
+s3RoleArn = "arn:aws:iam::000000000000:role/iceberg-rest"
+s3TokenServiceEndpoint = "http://s3:4566"
+# s3ExternalId = "optional-cross-account-id"
+----
+
+The framework supplies Gravitino's base S3 access key and secret. Gravitino
+uses those only to call STS; they are not returned as the temporary client
+identity. A REST client requests vending with
+`X-Iceberg-Access-Delegation: vended-credentials`. The response contains
+`s3.access-key-id`, `s3.secret-access-key`, `s3.session-token`, and the session
+expiration. The same fields are available through
+`IcebergRestCatalogOptions` for programmatic configuration.
+
+The configured `s3TokenServiceEndpoint` is container-side and therefore uses
+the `s3` network alias. Gravitino also returns its configured S3 endpoint in
+the credential response. With random host ports, a host-side SDK should use
+the S3 endpoint exposed by `BigDataService.S3` together with the vended
+credentials. Directly handing the returned Docker endpoint `http://s3:4566`
+to a host process will not work unless the host deliberately provides matching
+DNS and port routing.
+
 Create the warehouse bucket from the extensions configuration before the test
 method creates tables:
 
@@ -539,15 +569,18 @@ again, and lists S3 objects to verify that Iceberg metadata was written below
 `example/spark/SparkIcebergRestS3Example` is the full data-path smoke test. It
 configures Spark's Iceberg `SparkCatalog` with `type=rest`, inserts rows into an
 Iceberg table, reads the rows back through Spark, and verifies that both the
-Iceberg metadata and Parquet data files exist in S3. Run it with:
+Iceberg metadata and Parquet data files exist in S3. It then requests vended
+credentials, verifies the STS caller is the assumed role, and uses that session
+to list the table's Parquet objects. Run it with:
 
 [source,bash]
 ----
 GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkIcebergRestS3Test
 ----
 
-The table also accepts `catalogBackend`, `uri`, `jdbcDriver`, `jdbcUser`, and
-`jdbcPassword`. Programmatic users call
+The table also accepts `catalogBackend`, `uri`, `jdbcDriver`, `jdbcUser`,
+`jdbcPassword`, `credentialProviders`, `s3RoleArn`, `s3ExternalId`, and
+`s3TokenServiceEndpoint`. Programmatic users call
 `withIcebergRestCatalog(IcebergRestCatalogOptions(...))`. Advanced image-specific
 settings can be passed through `[containers.icebergRestCatalog.env]` or the
 general container customization API.
