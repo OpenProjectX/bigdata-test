@@ -8,6 +8,7 @@ import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_HAPROXY_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_HDFS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_ICEBERG_REST_CATALOG_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_UI_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KERBEROS_IMAGE
@@ -27,6 +28,7 @@ data class BigDataTestProperties(
     var kafka: Kafka = Kafka(),
     var s3: ObjectStore = ObjectStore(image = DEFAULT_S3_IMAGE),
     var fakeGcs: ObjectStore = ObjectStore(image = DEFAULT_FAKE_GCS_IMAGE),
+    var icebergRestCatalog: IcebergRestCatalog = IcebergRestCatalog(),
     var containerLogs: ContainerLogs = ContainerLogs(),
     var containerLogLevels: Map<String, String> = emptyMap(),
     var instances: Map<String, BigDataTestProperties> = emptyMap(),
@@ -65,6 +67,7 @@ data class BigDataTestProperties(
         var hdfsDataNode: Int = 0,
         var hdfsWeb: Int = 0,
         var s3: Int = 0,
+        var icebergRestCatalog: Int = 0,
     )
 
     data class Hdfs(
@@ -119,6 +122,19 @@ data class BigDataTestProperties(
     data class ObjectStore(
         var enabled: Boolean = false,
         var image: String,
+        var tls: HttpTls = HttpTls(),
+    )
+
+    data class IcebergRestCatalog(
+        var enabled: Boolean = false,
+        var image: String = DEFAULT_ICEBERG_REST_CATALOG_IMAGE,
+        var warehouse: String = "/tmp/iceberg/warehouse",
+        var catalogBackend: String = "jdbc",
+        var uri: String = "jdbc:sqlite::memory:",
+        var jdbcDriver: String = "org.sqlite.JDBC",
+        var jdbcUser: String = "iceberg",
+        var jdbcPassword: String = "iceberg",
+        var ioImpl: String? = null,
         var tls: HttpTls = HttpTls(),
     )
 

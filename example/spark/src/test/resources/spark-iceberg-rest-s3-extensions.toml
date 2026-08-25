@@ -1,0 +1,3 @@
+[[s3Buckets]]
+id = "spark-iceberg-rest-warehouse"
+bucket = "spark-iceberg-rest"

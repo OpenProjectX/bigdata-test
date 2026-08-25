@@ -15,6 +15,7 @@ import org.openprojectx.bigdata.test.core.HttpTlsOptions
 import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
+import org.openprojectx.bigdata.test.core.IcebergRestCatalogOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.BigDataTestKit
 import org.openprojectx.bigdata.test.core.ContainerLogMode
@@ -22,6 +23,7 @@ import org.openprojectx.bigdata.test.core.ContainerLogOptions
 import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_HAPROXY_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_HDFS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_ICEBERG_REST_CATALOG_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_UI_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KERBEROS_IMAGE
@@ -86,6 +88,10 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     s3Tls = ports.s3Tls ?: 0,
                     fakeGcs = annotation.fakeGcsPort.takeIfPositive() ?: ports.fakeGcs ?: 0,
                     fakeGcsTls = ports.fakeGcsTls ?: 0,
+                    icebergRestCatalog = annotation.icebergRestCatalogPort.takeIfPositive()
+                        ?: ports.icebergRestCatalog ?: 0,
+                    icebergRestCatalogTls = annotation.icebergRestCatalogTlsPort.takeIfPositive()
+                        ?: ports.icebergRestCatalogTls ?: 0,
                 ),
             )
         val containerLogMode = if (annotation.containerLogMode != ContainerLogMode.NONE) {
@@ -132,6 +138,10 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         val kafkaUiKerberos = annotation.kafkaUiKerberos || services.kafkaUiKerberos == true
         val s3 = annotation.s3 || services.s3 == true
         val fakeGcs = annotation.fakeGcs || services.fakeGcs == true
+        val icebergRestCatalogTls = annotation.icebergRestCatalogTls ||
+            config.icebergRestCatalogTls.enabled == true
+        val icebergRestCatalog = annotation.icebergRestCatalog ||
+            services.icebergRestCatalog == true || icebergRestCatalogTls
         val defaultKerberos = KerberosOptions()
         val kerberosRealm = kerberosConfig.realm ?: defaultKerberos.realm
         val kerberosDomain = kerberosConfig.domain ?: defaultKerberos.domain
@@ -142,7 +152,8 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             config.schemaRegistryTls.enabled == true ||
             config.kafkaUiTls.enabled == true ||
             config.s3Tls.enabled == true ||
-            config.fakeGcsTls.enabled == true
+            config.fakeGcsTls.enabled == true ||
+            icebergRestCatalogTls
         if (tlsEnabled || tls.hasValues()) {
             builder.withTls(
                 TlsOptions(
@@ -303,6 +314,23 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     enabled = true,
                     image = images.fakeGcs ?: DEFAULT_FAKE_GCS_IMAGE,
                     tls = config.fakeGcsTls.toHttpTls("storage.googleapis.com"),
+                ),
+            )
+        }
+        if (icebergRestCatalog) {
+            val defaults = IcebergRestCatalogOptions()
+            builder.withIcebergRestCatalog(
+                IcebergRestCatalogOptions(
+                    enabled = true,
+                    image = images.icebergRestCatalog ?: DEFAULT_ICEBERG_REST_CATALOG_IMAGE,
+                    warehouse = config.icebergRestCatalog.warehouse ?: defaults.warehouse,
+                    catalogBackend = config.icebergRestCatalog.catalogBackend ?: defaults.catalogBackend,
+                    uri = config.icebergRestCatalog.uri ?: defaults.uri,
+                    jdbcDriver = config.icebergRestCatalog.jdbcDriver ?: defaults.jdbcDriver,
+                    jdbcUser = config.icebergRestCatalog.jdbcUser ?: defaults.jdbcUser,
+                    jdbcPassword = config.icebergRestCatalog.jdbcPassword ?: defaults.jdbcPassword,
+                    ioImpl = config.icebergRestCatalog.ioImpl,
+                    tls = config.icebergRestCatalogTls.toHttpTls("localhost").copy(enabled = icebergRestCatalogTls),
                 ),
             )
         }

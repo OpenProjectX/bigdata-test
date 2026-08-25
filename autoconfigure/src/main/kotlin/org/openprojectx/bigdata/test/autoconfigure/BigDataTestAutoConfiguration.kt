@@ -9,6 +9,7 @@ import org.openprojectx.bigdata.test.core.HttpTlsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
+import org.openprojectx.bigdata.test.core.IcebergRestCatalogOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KerberosOptions
@@ -47,6 +48,7 @@ class BigDataTestAutoConfiguration {
                     hdfsDataNode = properties.ports.hdfsDataNode,
                     hdfsWeb = properties.ports.hdfsWeb,
                     s3 = properties.ports.s3,
+                    icebergRestCatalog = properties.ports.icebergRestCatalog,
                 ),
             )
             .withContainerLogs(
@@ -197,6 +199,23 @@ class BigDataTestAutoConfiguration {
             )
         }
 
+        if (properties.icebergRestCatalog.enabled) {
+            builder.withIcebergRestCatalog(
+                IcebergRestCatalogOptions(
+                    enabled = true,
+                    image = properties.icebergRestCatalog.image,
+                    warehouse = properties.icebergRestCatalog.warehouse,
+                    catalogBackend = properties.icebergRestCatalog.catalogBackend,
+                    uri = properties.icebergRestCatalog.uri,
+                    jdbcDriver = properties.icebergRestCatalog.jdbcDriver,
+                    jdbcUser = properties.icebergRestCatalog.jdbcUser,
+                    jdbcPassword = properties.icebergRestCatalog.jdbcPassword,
+                    ioImpl = properties.icebergRestCatalog.ioImpl,
+                    tls = properties.icebergRestCatalog.tls.toCore(),
+                ),
+            )
+        }
+
         return builder
     }
 
@@ -211,7 +230,8 @@ class BigDataTestAutoConfiguration {
             kafka.schemaRegistryTls.enabled ||
             kafka.kafkaUiTls.enabled ||
             s3.tls.enabled ||
-            fakeGcs.tls.enabled
+            fakeGcs.tls.enabled ||
+            icebergRestCatalog.tls.enabled
 
     private fun String.toBigDataService(): BigDataService =
         BigDataService.entries.firstOrNull { service ->

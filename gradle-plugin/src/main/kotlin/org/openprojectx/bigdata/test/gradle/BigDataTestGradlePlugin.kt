@@ -12,6 +12,7 @@ import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
 import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_ICEBERG_REST_CATALOG_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_S3_IMAGE
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 
@@ -23,6 +24,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         )
         extension.s3.image.convention(DEFAULT_S3_IMAGE)
         extension.fakeGcs.image.convention(DEFAULT_FAKE_GCS_IMAGE)
+        extension.icebergRestCatalog.image.convention(DEFAULT_ICEBERG_REST_CATALOG_IMAGE)
         extension.extensionRuntime.extensionsVersion.convention(pluginImplementationVersion())
         val extensionRuntimeClasspath = project.configurations.create("bigDataTestExtensionRuntime") { configuration ->
             configuration.isCanBeConsumed = false
@@ -71,6 +73,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.kafkaUi.set(extension.services.kafkaUi)
             spec.parameters.s3.set(extension.services.s3)
             spec.parameters.fakeGcs.set(extension.services.fakeGcs)
+            spec.parameters.icebergRestCatalog.set(extension.services.icebergRestCatalog)
 
             spec.parameters.sameHostPorts.set(extension.ports.sameHostPorts)
             spec.parameters.kerberosKdcPort.set(extension.ports.kerberosKdc)
@@ -83,6 +86,8 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.kafkaUiPort.set(extension.ports.kafkaUi)
             spec.parameters.s3Port.set(extension.ports.s3)
             spec.parameters.fakeGcsPort.set(extension.ports.fakeGcs)
+            spec.parameters.icebergRestCatalogPort.set(extension.ports.icebergRestCatalog)
+            spec.parameters.icebergRestCatalogTlsPort.set(extension.ports.icebergRestCatalogTls)
 
             spec.parameters.kerberosImage.set(extension.kerberos.image)
             spec.parameters.kerberosRealm.set(extension.kerberos.realm)
@@ -140,6 +145,16 @@ class BigDataTestGradlePlugin : Plugin<Project> {
 
             spec.parameters.s3Image.set(extension.s3.image)
             spec.parameters.fakeGcsImage.set(extension.fakeGcs.image)
+            spec.parameters.icebergRestCatalogImage.set(extension.icebergRestCatalog.image)
+            spec.parameters.icebergRestCatalogWarehouse.set(extension.icebergRestCatalog.warehouse)
+            spec.parameters.icebergRestCatalogBackend.set(extension.icebergRestCatalog.catalogBackend)
+            spec.parameters.icebergRestCatalogUri.set(extension.icebergRestCatalog.uri)
+            spec.parameters.icebergRestCatalogJdbcDriver.set(extension.icebergRestCatalog.jdbcDriver)
+            spec.parameters.icebergRestCatalogJdbcUser.set(extension.icebergRestCatalog.jdbcUser)
+            spec.parameters.icebergRestCatalogJdbcPassword.set(extension.icebergRestCatalog.jdbcPassword)
+            spec.parameters.icebergRestCatalogIoImpl.set(extension.icebergRestCatalog.ioImpl)
+            spec.parameters.icebergRestCatalogTlsEnabled.set(extension.icebergRestCatalog.tlsEnabled)
+            spec.parameters.icebergRestCatalogTlsDomain.set(extension.icebergRestCatalog.tlsDomain)
 
             spec.parameters.containerLogMode.set(extension.containerLogs.mode)
             spec.parameters.containerLogDirectory.set(extension.containerLogs.directory)
@@ -337,6 +352,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.kafka.kafkaUiImage.tomlConvention(config.images.kafkaUi ?: config.kafka.kafkaUiImage)
         extension.s3.image.tomlConvention(config.images.s3)
         extension.fakeGcs.image.tomlConvention(config.images.fakeGcs)
+        extension.icebergRestCatalog.image.tomlConvention(config.images.icebergRestCatalog)
 
         extension.services.kerberos.tomlConvention(config.services.kerberos)
         extension.services.hdfs.tomlConvention(config.services.hdfs ?: config.services.hdfsKerberos)
@@ -352,6 +368,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.kafka.kafkaUiKerberosEnabled.tomlConvention(config.services.kafkaUiKerberos)
         extension.services.s3.tomlConvention(config.services.s3)
         extension.services.fakeGcs.tomlConvention(config.services.fakeGcs)
+        extension.services.icebergRestCatalog.tomlConvention(config.services.icebergRestCatalog)
 
         extension.kerberos.realm.tomlConvention(config.kerberos.realm)
         extension.kerberos.domain.tomlConvention(config.kerberos.domain)
@@ -382,6 +399,15 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.hiveMetastore.localHiveSitePath.tomlConvention(config.hiveMetastore.localHiveSitePath)
         extension.hiveMetastore.localMetastoreSitePath.tomlConvention(config.hiveMetastore.localMetastoreSitePath)
         extension.clouderaHms.warehouseDir.tomlConvention(config.clouderaHms.warehouseDir)
+        extension.icebergRestCatalog.warehouse.tomlConvention(config.icebergRestCatalog.warehouse)
+        extension.icebergRestCatalog.catalogBackend.tomlConvention(config.icebergRestCatalog.catalogBackend)
+        extension.icebergRestCatalog.uri.tomlConvention(config.icebergRestCatalog.uri)
+        extension.icebergRestCatalog.jdbcDriver.tomlConvention(config.icebergRestCatalog.jdbcDriver)
+        extension.icebergRestCatalog.jdbcUser.tomlConvention(config.icebergRestCatalog.jdbcUser)
+        extension.icebergRestCatalog.jdbcPassword.tomlConvention(config.icebergRestCatalog.jdbcPassword)
+        extension.icebergRestCatalog.ioImpl.tomlConvention(config.icebergRestCatalog.ioImpl)
+        extension.icebergRestCatalog.tlsEnabled.tomlConvention(config.icebergRestCatalogTls.enabled)
+        extension.icebergRestCatalog.tlsDomain.tomlConvention(config.icebergRestCatalogTls.domain)
 
         extension.ports.sameHostPorts.tomlConvention(config.ports.sameHostPorts)
         extension.ports.kerberosKdc.tomlConvention(config.ports.kerberosKdc)
@@ -394,6 +420,8 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.ports.kafkaUi.tomlConvention(config.ports.kafkaUi)
         extension.ports.s3.tomlConvention(config.ports.s3)
         extension.ports.fakeGcs.tomlConvention(config.ports.fakeGcs)
+        extension.ports.icebergRestCatalog.tomlConvention(config.ports.icebergRestCatalog)
+        extension.ports.icebergRestCatalogTls.tomlConvention(config.ports.icebergRestCatalogTls)
 
         extension.containerLogs.mode.tomlConvention(config.containerLogs.mode)
         extension.containerLogs.directory.tomlConvention(config.containerLogs.directory)

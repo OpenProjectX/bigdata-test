@@ -21,6 +21,7 @@ import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
+import org.openprojectx.bigdata.test.core.IcebergRestCatalogOptions
 import org.openprojectx.bigdata.test.core.HttpTlsOptions
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
@@ -56,6 +57,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val kafkaUi: Property<Boolean>
         val s3: Property<Boolean>
         val fakeGcs: Property<Boolean>
+        val icebergRestCatalog: Property<Boolean>
 
         val sameHostPorts: Property<Boolean>
         val kerberosKdcPort: Property<Int>
@@ -68,6 +70,8 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val kafkaUiPort: Property<Int>
         val s3Port: Property<Int>
         val fakeGcsPort: Property<Int>
+        val icebergRestCatalogPort: Property<Int>
+        val icebergRestCatalogTlsPort: Property<Int>
 
         val kerberosImage: Property<String>
         val kerberosRealm: Property<String>
@@ -125,6 +129,16 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
 
         val s3Image: Property<String>
         val fakeGcsImage: Property<String>
+        val icebergRestCatalogImage: Property<String>
+        val icebergRestCatalogWarehouse: Property<String>
+        val icebergRestCatalogBackend: Property<String>
+        val icebergRestCatalogUri: Property<String>
+        val icebergRestCatalogJdbcDriver: Property<String>
+        val icebergRestCatalogJdbcUser: Property<String>
+        val icebergRestCatalogJdbcPassword: Property<String>
+        val icebergRestCatalogIoImpl: Property<String>
+        val icebergRestCatalogTlsEnabled: Property<Boolean>
+        val icebergRestCatalogTlsDomain: Property<String>
 
         val containerLogMode: Property<ContainerLogMode>
         val containerLogDirectory: Property<String>
@@ -196,6 +210,8 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                     kafkaUi = parameters.kafkaUiPort.get(),
                     s3 = parameters.s3Port.get(),
                     fakeGcs = parameters.fakeGcsPort.get(),
+                    icebergRestCatalog = parameters.icebergRestCatalogPort.get(),
+                    icebergRestCatalogTls = parameters.icebergRestCatalogTlsPort.get(),
                 ),
             )
             .withContainerLogs(
@@ -207,7 +223,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                 ),
             )
 
-        if (parameters.tlsEnabled.get()) {
+        if (parameters.tlsEnabled.get() || parameters.icebergRestCatalogTlsEnabled.get()) {
             builder.withTls(
                 TlsOptions(
                     enabled = true,
@@ -310,6 +326,25 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         }
         if (parameters.fakeGcs.get()) {
             builder.withFakeGcs(ObjectStoreOptions(enabled = true, image = parameters.fakeGcsImage.get()))
+        }
+        if (parameters.icebergRestCatalog.get()) {
+            builder.withIcebergRestCatalog(
+                IcebergRestCatalogOptions(
+                    enabled = true,
+                    image = parameters.icebergRestCatalogImage.get(),
+                    warehouse = parameters.icebergRestCatalogWarehouse.get(),
+                    catalogBackend = parameters.icebergRestCatalogBackend.get(),
+                    uri = parameters.icebergRestCatalogUri.get(),
+                    jdbcDriver = parameters.icebergRestCatalogJdbcDriver.get(),
+                    jdbcUser = parameters.icebergRestCatalogJdbcUser.get(),
+                    jdbcPassword = parameters.icebergRestCatalogJdbcPassword.get(),
+                    ioImpl = parameters.icebergRestCatalogIoImpl.get().ifBlank { null },
+                    tls = HttpTlsOptions(
+                        enabled = parameters.icebergRestCatalogTlsEnabled.get(),
+                        domain = parameters.icebergRestCatalogTlsDomain.get(),
+                    ),
+                ),
+            )
         }
         parameters.containerLogLevels.get().forEach { (service, level) ->
             builder.withContainerLogLevel(service.toBigDataService(), level)

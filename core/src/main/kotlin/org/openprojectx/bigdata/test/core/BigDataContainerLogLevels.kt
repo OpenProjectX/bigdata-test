@@ -33,6 +33,10 @@ object BigDataContainerLogLevels {
             BigDataService.FAKE_GCS -> mapOf(
                 "LOG_LEVEL" to normalized,
             )
+            BigDataService.ICEBERG_REST_CATALOG -> error(
+                "The Gravitino Iceberg REST image does not expose an environment-based log-level setting; " +
+                    "supply a log4j2.properties file with container customization instead",
+            )
         }
     }
 

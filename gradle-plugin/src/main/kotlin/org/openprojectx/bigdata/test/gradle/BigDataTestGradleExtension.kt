@@ -9,6 +9,7 @@ import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.DEFAULT_HAPROXY_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_HDFS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_ICEBERG_REST_CATALOG_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_UI_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KERBEROS_IMAGE
@@ -46,6 +47,8 @@ abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFac
     val kafka: BigDataTestGradleKafka = objects.newInstance(BigDataTestGradleKafka::class.java)
     val s3: BigDataTestGradleObjectStore = objects.newInstance(BigDataTestGradleObjectStore::class.java)
     val fakeGcs: BigDataTestGradleObjectStore = objects.newInstance(BigDataTestGradleObjectStore::class.java)
+    val icebergRestCatalog: BigDataTestGradleIcebergRestCatalog =
+        objects.newInstance(BigDataTestGradleIcebergRestCatalog::class.java)
     val containerLogs: BigDataTestGradleContainerLogs = objects.newInstance(BigDataTestGradleContainerLogs::class.java)
 
     fun services(action: Action<in BigDataTestGradleServices>) {
@@ -88,6 +91,10 @@ abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFac
         action.execute(fakeGcs)
     }
 
+    fun icebergRestCatalog(action: Action<in BigDataTestGradleIcebergRestCatalog>) {
+        action.execute(icebergRestCatalog)
+    }
+
     fun containerLogs(action: Action<in BigDataTestGradleContainerLogs>) {
         action.execute(containerLogs)
     }
@@ -124,6 +131,7 @@ abstract class BigDataTestGradleServices @Inject constructor(objects: ObjectFact
     val kafkaUi: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val s3: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val fakeGcs: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+    val icebergRestCatalog: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
 }
 
 abstract class BigDataTestGradlePorts @Inject constructor(objects: ObjectFactory) {
@@ -138,6 +146,21 @@ abstract class BigDataTestGradlePorts @Inject constructor(objects: ObjectFactory
     val kafkaUi: Property<Int> = objects.property(Int::class.java).convention(0)
     val s3: Property<Int> = objects.property(Int::class.java).convention(0)
     val fakeGcs: Property<Int> = objects.property(Int::class.java).convention(0)
+    val icebergRestCatalog: Property<Int> = objects.property(Int::class.java).convention(0)
+    val icebergRestCatalogTls: Property<Int> = objects.property(Int::class.java).convention(0)
+}
+
+abstract class BigDataTestGradleIcebergRestCatalog @Inject constructor(objects: ObjectFactory) {
+    val image: Property<String> = objects.property(String::class.java).convention(DEFAULT_ICEBERG_REST_CATALOG_IMAGE)
+    val warehouse: Property<String> = objects.property(String::class.java).convention("/tmp/iceberg/warehouse")
+    val catalogBackend: Property<String> = objects.property(String::class.java).convention("jdbc")
+    val uri: Property<String> = objects.property(String::class.java).convention("jdbc:sqlite::memory:")
+    val jdbcDriver: Property<String> = objects.property(String::class.java).convention("org.sqlite.JDBC")
+    val jdbcUser: Property<String> = objects.property(String::class.java).convention("iceberg")
+    val jdbcPassword: Property<String> = objects.property(String::class.java).convention("iceberg")
+    val ioImpl: Property<String> = objects.property(String::class.java).convention("")
+    val tlsEnabled: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+    val tlsDomain: Property<String> = objects.property(String::class.java).convention("localhost")
 }
 
 abstract class BigDataTestGradleKerberos @Inject constructor(objects: ObjectFactory) {

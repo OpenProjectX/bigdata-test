@@ -1,0 +1,7 @@
+[services]
+s3 = true
+icebergRestCatalog = true
+
+[icebergRestCatalog]
+warehouse = "s3://iceberg-rest-example/warehouse"
+ioImpl = "org.apache.iceberg.aws.s3.S3FileIO"

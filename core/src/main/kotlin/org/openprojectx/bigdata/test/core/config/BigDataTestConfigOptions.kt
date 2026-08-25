@@ -8,6 +8,7 @@ import org.openprojectx.bigdata.test.core.ContainerLogOptions
 import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_HAPROXY_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_HDFS_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_ICEBERG_REST_CATALOG_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_UI_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KERBEROS_IMAGE
@@ -15,6 +16,7 @@ import org.openprojectx.bigdata.test.core.DEFAULT_S3_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_SCHEMA_REGISTRY_IMAGE
 import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
+import org.openprojectx.bigdata.test.core.IcebergRestCatalogOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDistribution
 import org.openprojectx.bigdata.test.core.HiveMetastoreOptions
 import org.openprojectx.bigdata.test.core.HttpTlsOptions
@@ -50,6 +52,7 @@ fun BigDataTestConfig.toTestKitOptions(): BigDataTestKitOptions {
         kafkaUiTls,
         s3Tls,
         fakeGcsTls,
+        icebergRestCatalogTls,
     ).any { it.enabled == true }
 
     val customizations = containerCustomizations.toMutableMap()
@@ -179,6 +182,18 @@ fun BigDataTestConfig.toTestKitOptions(): BigDataTestKitOptions {
             image = images.fakeGcs ?: DEFAULT_FAKE_GCS_IMAGE,
             tls = fakeGcsTls.toHttpTls("storage.googleapis.com"),
         ),
+        icebergRestCatalog = IcebergRestCatalogOptions(
+            enabled = services.icebergRestCatalog == true,
+            image = images.icebergRestCatalog ?: DEFAULT_ICEBERG_REST_CATALOG_IMAGE,
+            warehouse = icebergRestCatalog.warehouse ?: IcebergRestCatalogOptions().warehouse,
+            catalogBackend = icebergRestCatalog.catalogBackend ?: IcebergRestCatalogOptions().catalogBackend,
+            uri = icebergRestCatalog.uri ?: IcebergRestCatalogOptions().uri,
+            jdbcDriver = icebergRestCatalog.jdbcDriver ?: IcebergRestCatalogOptions().jdbcDriver,
+            jdbcUser = icebergRestCatalog.jdbcUser ?: IcebergRestCatalogOptions().jdbcUser,
+            jdbcPassword = icebergRestCatalog.jdbcPassword ?: IcebergRestCatalogOptions().jdbcPassword,
+            ioImpl = icebergRestCatalog.ioImpl,
+            tls = icebergRestCatalogTls.toHttpTls("localhost"),
+        ),
         portBindings = ports.toPortBindings(),
         containerLogs = ContainerLogOptions(
             mode = containerLogs.mode ?: ContainerLogMode.NONE,
@@ -211,6 +226,8 @@ private fun BigDataTestPortConfig.toPortBindings(): PortBindingOptions = PortBin
     s3Tls = s3Tls ?: 0,
     fakeGcs = fakeGcs ?: 0,
     fakeGcsTls = fakeGcsTls ?: 0,
+    icebergRestCatalog = icebergRestCatalog ?: 0,
+    icebergRestCatalogTls = icebergRestCatalogTls ?: 0,
 )
 
 private fun BigDataTestConfig.clouderaHmsImage(type: ClouderaHmsDatabaseType): String =

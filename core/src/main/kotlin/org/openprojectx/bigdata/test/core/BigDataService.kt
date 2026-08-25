@@ -81,4 +81,13 @@ enum class BigDataService(
         defaultPorts = mapOf("http" to 4588, "https" to 443),
         endpointProperties = setOf("bigdata.test.gcs.endpoint", "google.cloud.storage.host"),
     ),
+    ICEBERG_REST_CATALOG(
+        defaultPorts = mapOf("http" to 9001, "https" to 443),
+        endpointProperties = setOf(
+            "iceberg.rest.uri",
+            "spark.sql.catalog.rest.uri",
+            "bigdata.test.iceberg-rest-catalog.uri",
+            "bigdata.test.iceberg-rest-catalog.internal-uri",
+        ),
+    ),
 }

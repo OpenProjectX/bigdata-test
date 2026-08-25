@@ -86,6 +86,7 @@ internal class BigDataContainerFactory(
         if (options.hdfs.enabled) containers += hdfs()
         if (options.s3.enabled) containers += s3()
         if (options.fakeGcs.enabled) containers += fakeGcs()
+        if (options.icebergRestCatalog.enabled) containers += icebergRestCatalog()
         if (options.hiveMetastore.enabled) containers += hiveMetastore()
         if (options.kafka.enabled) {
             containers += kafka()
@@ -871,6 +872,69 @@ internal class BigDataContainerFactory(
     private fun fakeGcsServicePort(): Int =
         if (isFlociGcp()) 4588 else 4443
 
+    private fun icebergRestCatalog(): BigDataServiceContainer {
+        val catalog = options.icebergRestCatalog
+        val container = GenericBigDataContainer(catalog.image)
+            .withNetwork(network)
+            .withNetworkAliases("iceberg-rest-catalog")
+            .withServicePort(9001, options.portBindings.hostPort(9001, options.portBindings.icebergRestCatalog))
+            .withEnv("GRAVITINO_ICEBERG_REST_HOST", "0.0.0.0")
+            .withEnv("GRAVITINO_ICEBERG_REST_HTTP_PORT", "9001")
+            .withEnv("GRAVITINO_ICEBERG_REST_WAREHOUSE", catalog.warehouse)
+            .withEnv("GRAVITINO_ICEBERG_REST_CATALOG_BACKEND", catalog.catalogBackend)
+            .withEnv("GRAVITINO_ICEBERG_REST_URI", catalog.uri)
+            .withEnv("GRAVITINO_ICEBERG_REST_JDBC_DRIVER", catalog.jdbcDriver)
+            .withEnv("GRAVITINO_ICEBERG_REST_JDBC_USER", catalog.jdbcUser)
+            .withEnv("GRAVITINO_ICEBERG_REST_JDBC_PASSWORD", catalog.jdbcPassword)
+            .waitingFor(
+                Wait.forHttp("/iceberg/v1/config")
+                    .forPort(9001)
+                    .forStatusCode(200)
+                    .withStartupTimeout(Duration.ofMinutes(3)),
+            )
+        catalog.ioImpl?.takeIf(String::isNotBlank)?.let {
+            container.withEnv("GRAVITINO_ICEBERG_REST_IO_IMPL", it)
+        }
+        if (options.s3.enabled) {
+            container
+                .withEnv("GRAVITINO_ICEBERG_REST_S3_ENDPOINT", "http://s3:4566")
+                .withEnv("GRAVITINO_ICEBERG_REST_S3_ACCESS_KEY", "test")
+                .withEnv("GRAVITINO_ICEBERG_REST_S3_SECRET_KEY", "test")
+                .withEnv("GRAVITINO_ICEBERG_REST_S3_REGION", "us-east-1")
+                .withEnv("GRAVITINO_ICEBERG_REST_S3_PATH_STYLE_ACCESS", "true")
+        }
+
+        return BigDataServiceContainer(
+            BigDataService.ICEBERG_REST_CATALOG,
+            attachLogs(
+                "iceberg-rest-catalog",
+                applyContainerCustomizations(BigDataService.ICEBERG_REST_CATALOG, container),
+            ),
+        ) {
+            val tlsEndpoint = httpTlsEndpoint(
+                name = "iceberg-rest-catalog",
+                tls = catalog.tls,
+                backendHost = "iceberg-rest-catalog",
+                backendPort = 9001,
+                hostPort = tlsHostPort(options.portBindings.icebergRestCatalogTls),
+            )
+            val baseUrl = tlsEndpoint.url ?: "http://${container.host}:${container.getMappedPort(9001)}"
+            val catalogUri = "$baseUrl/iceberg"
+            BigDataEndpoint(
+                service = BigDataService.ICEBERG_REST_CATALOG,
+                host = tlsEndpoint.host ?: container.host,
+                ports = mapOf("http" to container.getMappedPort(9001)) + tlsEndpoint.port("https"),
+                properties = mapOf(
+                    "iceberg.rest.uri" to catalogUri,
+                    "spark.sql.catalog.rest.uri" to catalogUri,
+                    "bigdata.test.iceberg-rest-catalog.uri" to catalogUri,
+                    "bigdata.test.iceberg-rest-catalog.internal-uri" to
+                        "http://iceberg-rest-catalog:9001/iceberg",
+                ) + tlsEndpoint.jvmProperties(),
+            )
+        }
+    }
+
     private fun hiveMetastoreObjectStoreConfiguration(): Map<String, String> =
         buildMap {
             if (options.hdfs.enabled) {
@@ -1296,6 +1360,8 @@ internal class BigDataContainerFactory(
                 httpContainerProbe("http://localhost:4566/_floci/health")
             BigDataService.FAKE_GCS ->
                 "${httpContainerProbe("http://localhost:4588/_floci-gcp/health")} || ${httpContainerProbe("http://localhost:4443/storage/v1/b")}"
+            BigDataService.ICEBERG_REST_CATALOG ->
+                httpContainerProbe("http://localhost:9001/iceberg/v1/config")
         }
 
     private fun httpContainerProbe(url: String): String =

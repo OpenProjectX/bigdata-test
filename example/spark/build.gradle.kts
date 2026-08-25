@@ -101,10 +101,12 @@ dependencies {
     add(apacheSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-3.5_2.12:$icebergVersion")
     add(apacheSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-extensions-3.5_2.12:$icebergVersion")
     add(apacheSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-hive-metastore:$icebergVersion")
+    add(apacheSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-aws:$icebergVersion")
     add(apacheSparkRuntimeClasspath.name, "org.apache.logging.log4j:log4j-slf4j-impl:2.20.0")
     add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-3.3_2.12:$clouderaIcebergVersion")
     add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-spark-extensions-3.3_2.12:$clouderaIcebergVersion")
     add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-hive-metastore:$clouderaIcebergVersion")
+    add(clouderaSparkRuntimeClasspath.name, "org.apache.iceberg:iceberg-aws:$clouderaIcebergVersion")
 }
 
 fun Test.useSparkRuntimeClasspath(runtimeClasspath: Configuration, dependencyLine: String) {
@@ -132,7 +134,17 @@ tasks.named<Test>("test") {
 }
 
 val sparkBigDataTestClass = "org.openprojectx.bigdata.test.example.spark.SparkBigDataTestExample"
+val sparkIcebergRestS3TestClass = "org.openprojectx.bigdata.test.example.spark.SparkIcebergRestS3Example"
 val sparkCommonConfig = "classpath:spark-bigdata-test-common.toml"
+
+tasks.register<Test>("sparkIcebergRestS3Test") {
+    description = "Runs a Spark Iceberg end-to-end test using the REST catalog and S3-backed data storage."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    useSparkRuntimeClasspath(apacheSparkRuntimeClasspath, "apache")
+    useJUnitPlatform()
+    filter.includeTestsMatching(sparkIcebergRestS3TestClass)
+}
 
 fun registerSparkMatrixTest(
     name: String,
@@ -256,7 +268,7 @@ listOf(
 }
 
 tasks.register("sparkBigDataMatrixTest") {
-    description = "Runs all Spark dependency/HMS/Kerberos matrix combinations."
+    description = "Runs all Spark dependency/HMS/Kerberos combinations and the Iceberg REST/S3 smoke test."
     group = "verification"
     dependsOn(
         sparkApacheDepsApacheHmsTest,
@@ -267,6 +279,7 @@ tasks.register("sparkBigDataMatrixTest") {
         sparkClouderaDepsApacheHmsKerberosTest,
         sparkClouderaDepsClouderaHmsTest,
         sparkClouderaDepsClouderaHmsKerberosTest,
+        "sparkIcebergRestS3Test",
     )
 }
 

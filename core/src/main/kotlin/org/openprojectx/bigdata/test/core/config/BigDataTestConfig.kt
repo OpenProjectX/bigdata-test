@@ -25,6 +25,7 @@ data class BigDataTestConfig(
     val hiveMetastore: BigDataTestHiveMetastoreConfig = BigDataTestHiveMetastoreConfig(),
     val clouderaHms: BigDataTestClouderaHmsConfig = BigDataTestClouderaHmsConfig(),
     val kafka: BigDataTestKafkaConfig = BigDataTestKafkaConfig(),
+    val icebergRestCatalog: BigDataTestIcebergRestCatalogConfig = BigDataTestIcebergRestCatalogConfig(),
     val hdfsWebTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val hiveMetastoreTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val kafkaTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
@@ -32,6 +33,7 @@ data class BigDataTestConfig(
     val kafkaUiTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val s3Tls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val fakeGcsTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
+    val icebergRestCatalogTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val ports: BigDataTestPortConfig = BigDataTestPortConfig(),
     val containerLogs: BigDataTestContainerLogConfig = BigDataTestContainerLogConfig(),
     val containerLogLevels: Map<BigDataService, String> = emptyMap(),
@@ -49,6 +51,7 @@ data class BigDataTestConfig(
             hiveMetastore = hiveMetastore.merge(override.hiveMetastore),
             clouderaHms = clouderaHms.merge(override.clouderaHms),
             kafka = kafka.merge(override.kafka),
+            icebergRestCatalog = icebergRestCatalog.merge(override.icebergRestCatalog),
             hdfsWebTls = hdfsWebTls.merge(override.hdfsWebTls),
             hiveMetastoreTls = hiveMetastoreTls.merge(override.hiveMetastoreTls),
             kafkaTls = kafkaTls.merge(override.kafkaTls),
@@ -56,6 +59,7 @@ data class BigDataTestConfig(
             kafkaUiTls = kafkaUiTls.merge(override.kafkaUiTls),
             s3Tls = s3Tls.merge(override.s3Tls),
             fakeGcsTls = fakeGcsTls.merge(override.fakeGcsTls),
+            icebergRestCatalogTls = icebergRestCatalogTls.merge(override.icebergRestCatalogTls),
             ports = ports.merge(override.ports),
             containerLogs = containerLogs.merge(override.containerLogs),
             containerLogLevels = containerLogLevels + override.containerLogLevels,
@@ -152,6 +156,27 @@ data class BigDataTestKafkaConfig(
         )
 }
 
+data class BigDataTestIcebergRestCatalogConfig(
+    val warehouse: String? = null,
+    val catalogBackend: String? = null,
+    val uri: String? = null,
+    val jdbcDriver: String? = null,
+    val jdbcUser: String? = null,
+    val jdbcPassword: String? = null,
+    val ioImpl: String? = null,
+) {
+    fun merge(override: BigDataTestIcebergRestCatalogConfig): BigDataTestIcebergRestCatalogConfig =
+        BigDataTestIcebergRestCatalogConfig(
+            warehouse = override.warehouse ?: warehouse,
+            catalogBackend = override.catalogBackend ?: catalogBackend,
+            uri = override.uri ?: uri,
+            jdbcDriver = override.jdbcDriver ?: jdbcDriver,
+            jdbcUser = override.jdbcUser ?: jdbcUser,
+            jdbcPassword = override.jdbcPassword ?: jdbcPassword,
+            ioImpl = override.ioImpl ?: ioImpl,
+        )
+}
+
 data class BigDataTestKerberosConfig(
     val realm: String? = null,
     val domain: String? = null,
@@ -229,6 +254,7 @@ data class BigDataTestImageConfig(
     val kafkaUi: String? = null,
     val s3: String? = null,
     val fakeGcs: String? = null,
+    val icebergRestCatalog: String? = null,
 ) {
     fun merge(override: BigDataTestImageConfig): BigDataTestImageConfig =
         BigDataTestImageConfig(
@@ -244,6 +270,7 @@ data class BigDataTestImageConfig(
             kafkaUi = override.kafkaUi ?: kafkaUi,
             s3 = override.s3 ?: s3,
             fakeGcs = override.fakeGcs ?: fakeGcs,
+            icebergRestCatalog = override.icebergRestCatalog ?: icebergRestCatalog,
         )
 }
 
@@ -261,6 +288,7 @@ data class BigDataTestServiceConfig(
     val kafkaUiKerberos: Boolean? = null,
     val s3: Boolean? = null,
     val fakeGcs: Boolean? = null,
+    val icebergRestCatalog: Boolean? = null,
 ) {
     fun merge(override: BigDataTestServiceConfig): BigDataTestServiceConfig =
         BigDataTestServiceConfig(
@@ -277,6 +305,7 @@ data class BigDataTestServiceConfig(
             kafkaUiKerberos = override.kafkaUiKerberos ?: kafkaUiKerberos,
             s3 = override.s3 ?: s3,
             fakeGcs = override.fakeGcs ?: fakeGcs,
+            icebergRestCatalog = override.icebergRestCatalog ?: icebergRestCatalog,
         )
 }
 
@@ -297,6 +326,8 @@ data class BigDataTestPortConfig(
     val s3Tls: Int? = null,
     val fakeGcs: Int? = null,
     val fakeGcsTls: Int? = null,
+    val icebergRestCatalog: Int? = null,
+    val icebergRestCatalogTls: Int? = null,
 ) {
     fun merge(override: BigDataTestPortConfig): BigDataTestPortConfig =
         BigDataTestPortConfig(
@@ -316,6 +347,8 @@ data class BigDataTestPortConfig(
             s3Tls = override.s3Tls ?: s3Tls,
             fakeGcs = override.fakeGcs ?: fakeGcs,
             fakeGcsTls = override.fakeGcsTls ?: fakeGcsTls,
+            icebergRestCatalog = override.icebergRestCatalog ?: icebergRestCatalog,
+            icebergRestCatalogTls = override.icebergRestCatalogTls ?: icebergRestCatalogTls,
         )
 }
 
@@ -354,6 +387,7 @@ class BigDataTestConfigLoader(
         val hiveMetastore = tables["hiveMetastore"].orEmpty()
         val clouderaHms = tables["clouderaHms"].orEmpty()
         val kafka = tables["kafka"].orEmpty()
+        val icebergRestCatalog = tables["icebergRestCatalog"].orEmpty()
         val hdfsWebTls = tables["hdfsWebTls"].orEmpty()
         val hiveMetastoreTls = tables["hiveMetastoreTls"].orEmpty()
         val kafkaTls = tables["kafkaTls"].orEmpty()
@@ -361,6 +395,7 @@ class BigDataTestConfigLoader(
         val kafkaUiTls = tables["kafkaUiTls"].orEmpty()
         val s3Tls = tables["s3Tls"].orEmpty()
         val fakeGcsTls = tables["fakeGcsTls"].orEmpty()
+        val icebergRestCatalogTls = tables["icebergRestCatalogTls"].orEmpty()
         val ports = tables["ports"].orEmpty()
         val containerLogs = tables["containerLogs"].orEmpty()
         return BigDataTestConfig(
@@ -377,6 +412,7 @@ class BigDataTestConfigLoader(
                 kafkaUi = images.string("kafkaUi"),
                 s3 = images.string("s3"),
                 fakeGcs = images.string("fakeGcs"),
+                icebergRestCatalog = images.string("icebergRestCatalog"),
             ),
             services = BigDataTestServiceConfig(
                 kerberos = services.boolean("kerberos"),
@@ -392,6 +428,7 @@ class BigDataTestConfigLoader(
                 kafkaUiKerberos = services.boolean("kafkaUiKerberos"),
                 s3 = services.boolean("s3"),
                 fakeGcs = services.boolean("fakeGcs"),
+                icebergRestCatalog = services.boolean("icebergRestCatalog"),
             ),
             kerberos = BigDataTestKerberosConfig(
                 realm = kerberos.string("realm"),
@@ -442,6 +479,15 @@ class BigDataTestConfigLoader(
                 kafkaUiImage = kafka.string("kafkaUiImage"),
                 startupTimeoutSeconds = kafka.int("startupTimeoutSeconds"),
             ),
+            icebergRestCatalog = BigDataTestIcebergRestCatalogConfig(
+                warehouse = icebergRestCatalog.string("warehouse"),
+                catalogBackend = icebergRestCatalog.string("catalogBackend"),
+                uri = icebergRestCatalog.string("uri"),
+                jdbcDriver = icebergRestCatalog.string("jdbcDriver"),
+                jdbcUser = icebergRestCatalog.string("jdbcUser"),
+                jdbcPassword = icebergRestCatalog.string("jdbcPassword"),
+                ioImpl = icebergRestCatalog.string("ioImpl"),
+            ),
             hdfsWebTls = httpTls(hdfsWebTls),
             hiveMetastoreTls = httpTls(hiveMetastoreTls),
             kafkaTls = httpTls(kafkaTls),
@@ -449,6 +495,7 @@ class BigDataTestConfigLoader(
             kafkaUiTls = httpTls(kafkaUiTls),
             s3Tls = httpTls(s3Tls),
             fakeGcsTls = httpTls(fakeGcsTls),
+            icebergRestCatalogTls = httpTls(icebergRestCatalogTls),
             ports = BigDataTestPortConfig(
                 sameHostPorts = ports.boolean("sameHostPorts"),
                 kerberosKdc = ports.int("kerberosKdc"),
@@ -466,6 +513,8 @@ class BigDataTestConfigLoader(
                 s3Tls = ports.int("s3Tls"),
                 fakeGcs = ports.int("fakeGcs"),
                 fakeGcsTls = ports.int("fakeGcsTls"),
+                icebergRestCatalog = ports.int("icebergRestCatalog"),
+                icebergRestCatalogTls = ports.int("icebergRestCatalogTls"),
             ),
             containerLogs = BigDataTestContainerLogConfig(
                 mode = containerLogs.string("mode")?.let { ContainerLogMode.valueOf(it.uppercase()) },
@@ -670,6 +719,8 @@ class BigDataTestConfigLoader(
             "kafkaui" to BigDataService.KAFKA_UI,
             "s3" to BigDataService.S3,
             "fakegcs" to BigDataService.FAKE_GCS,
+            "icebergrestcatalog" to BigDataService.ICEBERG_REST_CATALOG,
+            "icebergrest" to BigDataService.ICEBERG_REST_CATALOG,
         )
     }
 }

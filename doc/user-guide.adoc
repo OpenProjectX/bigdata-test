@@ -18,6 +18,7 @@ The project currently provides containers and test integration for:
 * Kafka UI
 * Floci S3-compatible AWS emulator
 * Floci GCP-compatible GCS emulator
+* Gravitino Iceberg REST catalog server
 * Kerberos KDC and service principals
 
 The project is split so lightweight users can depend on `core` or `junit5` without pulling Spark, Hadoop client utilities, or storage SDKs. Heavier setup such as JCEKS creation, Kafka Avro seeding, and Spark SQL preparation lives in the `extensions` module.
@@ -461,6 +462,9 @@ The JUnit extension starts the kit before all tests in the class and closes it a
 
 |`fakeGcs`
 |Starts Floci GCP-compatible GCS emulation.
+
+|`icebergRestCatalog`
+|Starts a Gravitino Iceberg REST catalog server.
 |===
 
 === Service Image Configuration
@@ -482,7 +486,71 @@ schemaRegistry = "ghcr.io/openprojectx/dockerhub/confluentinc/cp-schema-registry
 kafkaUi = "ghcr.io/kafbat/kafka-ui:latest"
 s3 = "ghcr.io/openprojectx/dockerhub/floci/floci:1.5.32"
 fakeGcs = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:0.5.0"
+icebergRestCatalog = "ghcr.io/openprojectx/gravitino-iceberg-rest:0.1.1"
 ----
+
+=== Iceberg REST Catalog
+
+The catalog listens on container port `9001` and is ready when
+`/iceberg/v1/config` returns HTTP 200. The client URI is exposed through
+`iceberg.rest.uri`, `spark.sql.catalog.rest.uri`, and
+`bigdata.test.iceberg-rest-catalog.uri`.
+
+The default metadata store is in-memory SQLite and the default warehouse is
+container-local, so the minimal configuration has no storage dependency:
+
+[source,toml]
+----
+[services]
+icebergRestCatalog = true
+----
+
+For S3-backed tables, enable S3 and configure the warehouse and file IO. The
+framework supplies the catalog container with the same-instance internal S3
+endpoint (`http://s3:4566`), credentials, region, and path-style setting. The
+bucket must exist before a table is created.
+
+[source,toml]
+----
+[services]
+s3 = true
+icebergRestCatalog = true
+
+[icebergRestCatalog]
+warehouse = "s3://iceberg/warehouse"
+ioImpl = "org.apache.iceberg.aws.s3.S3FileIO"
+----
+
+Create the warehouse bucket from the extensions configuration before the test
+method creates tables:
+
+[source,toml]
+----
+[[s3Buckets]]
+id = "iceberg-rest-warehouse"
+bucket = "iceberg"
+----
+
+`example/junit/IcebergRestCatalogExampleTest` is an executable end-to-end
+example. It creates an Iceberg table through the REST API, loads the table
+again, and lists S3 objects to verify that Iceberg metadata was written below
+`s3://iceberg/warehouse/<namespace>/<table>/metadata`.
+
+`example/spark/SparkIcebergRestS3Example` is the full data-path smoke test. It
+configures Spark's Iceberg `SparkCatalog` with `type=rest`, inserts rows into an
+Iceberg table, reads the rows back through Spark, and verifies that both the
+Iceberg metadata and Parquet data files exist in S3. Run it with:
+
+[source,bash]
+----
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkIcebergRestS3Test
+----
+
+The table also accepts `catalogBackend`, `uri`, `jdbcDriver`, `jdbcUser`, and
+`jdbcPassword`. Programmatic users call
+`withIcebergRestCatalog(IcebergRestCatalogOptions(...))`. Advanced image-specific
+settings can be passed through `[containers.icebergRestCatalog.env]` or the
+general container customization API.
 
 Kafka and the open-source HMS database sidecar use typed Testcontainers classes instead of plain generic containers. When you override those images, `bigdata-test` marks the configured Kafka image as a compatible substitute for `apache/kafka`, PostgreSQL as a compatible substitute for `postgres`, and MySQL as a compatible substitute for `mysql`, so private mirrors or rebuilt images can still pass Testcontainers image checks.
 
@@ -594,7 +662,7 @@ File sources must use one of these prefixes:
 
 Mounts are useful for local debugging, but copied files are more reliable in CI because they do not depend on Docker host path sharing. Prefer copied files for certificates, keytabs, Hadoop XML, JAAS, and other test fixtures.
 
-Available service names in container TOML are `kerberos`, `hdfs`, `hiveMetastore`, `hms`, `kafka`, `schemaRegistry`, `kafkaUi`, `s3`, and `fakeGcs`.
+Available service names in container TOML are `kerberos`, `hdfs`, `hiveMetastore`, `hms`, `kafka`, `schemaRegistry`, `kafkaUi`, `s3`, `fakeGcs`, and `icebergRestCatalog`.
 
 ==== HDFS Environment Variable Names
 
@@ -982,7 +1050,7 @@ s3Tls = 443
 schemaRegistryTls = 8443
 ----
 
-Available TLS port fields are `hdfsWebTls`, `schemaRegistryTls`, `kafkaUiTls`, `s3Tls`, and `fakeGcsTls`.
+Available TLS port fields are `hdfsWebTls`, `schemaRegistryTls`, `kafkaUiTls`, `s3Tls`, `fakeGcsTls`, and `icebergRestCatalogTls`.
 
 Non-HTTP services use their native TLS implementation rather than HAProxy to avoid protocol compatibility issues. Kafka TLS is native broker TLS because Kafka clients depend on broker metadata and advertised listeners. Hive Metastore TLS is native Thrift TLS on the normal metastore port.
 
@@ -1188,6 +1256,16 @@ Available fixed host-port config:
 |`fakeGcsTls`
 |`fakeGcsTls`
 |`443` on the HAProxy gateway
+
+|Iceberg REST catalog HTTP
+|`icebergRestCatalog`
+|`icebergRestCatalogPort`
+|`9001`
+
+|Iceberg REST catalog TLS gateway
+|`icebergRestCatalogTls`
+|`icebergRestCatalogTls`
+|`443` on the HAProxy gateway
 |===
 
 There is no `[ports] clouderaHms` key. Cloudera HMS shares the Hive Metastore service endpoint, so its Thrift port is configured with `[ports] hiveMetastore = 9083`.
@@ -1261,6 +1339,11 @@ Each started service exposes a `BigDataEndpoint` with named ports and connection
 |`http`, `https`
 |`4588`, `443`
 |`bigdata.test.gcs.endpoint`, `google.cloud.storage.host`
+
+|`BigDataService.ICEBERG_REST_CATALOG`
+|`http`, `https`
+|`9001`, `443`
+|`iceberg.rest.uri`, `spark.sql.catalog.rest.uri`, `bigdata.test.iceberg-rest-catalog.uri`, `bigdata.test.iceberg-rest-catalog.internal-uri`
 |===
 
 The same reference data is exposed in code through `BigDataService.defaultPorts` and `BigDataService.endpointProperties`.

@@ -119,6 +119,7 @@ class BigDataTestKit private constructor(
         private var kafka = KafkaOptions()
         private var s3 = ObjectStoreOptions()
         private var fakeGcs = ObjectStoreOptions(image = DEFAULT_FAKE_GCS_IMAGE)
+        private var icebergRestCatalog = IcebergRestCatalogOptions()
         private var portBindings = PortBindingOptions()
         private var containerLogs = ContainerLogOptions()
         private var containerCustomizations = emptyMap<BigDataService, ContainerCustomizationOptions>()
@@ -155,6 +156,10 @@ class BigDataTestKit private constructor(
 
         fun withFakeGcs(options: ObjectStoreOptions = ObjectStoreOptions(enabled = true, image = DEFAULT_FAKE_GCS_IMAGE)): Builder =
             apply { fakeGcs = options.copy(enabled = true) }
+
+        fun withIcebergRestCatalog(
+            options: IcebergRestCatalogOptions = IcebergRestCatalogOptions(enabled = true),
+        ): Builder = apply { icebergRestCatalog = options.copy(enabled = true) }
 
         fun withPortBindings(options: PortBindingOptions): Builder = apply { portBindings = options }
 
@@ -236,6 +241,7 @@ class BigDataTestKit private constructor(
             kafka = kafka,
             s3 = s3,
             fakeGcs = fakeGcs,
+            icebergRestCatalog = icebergRestCatalog,
             portBindings = portBindings,
             containerLogs = containerLogs,
             containerCustomizations = containerCustomizations,
