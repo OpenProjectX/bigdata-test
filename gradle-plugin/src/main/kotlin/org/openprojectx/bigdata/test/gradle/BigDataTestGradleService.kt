@@ -29,6 +29,7 @@ import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.bigdata.test.core.ObjectStoreOptions
 import org.openprojectx.bigdata.test.core.PortBindingOptions
 import org.openprojectx.bigdata.test.core.TlsOptions
+import org.openprojectx.bigdata.test.core.TrinoOptions
 import org.openprojectx.bigdata.test.core.config.BigDataTestConfigLoader
 import org.openprojectx.bigdata.test.core.config.toTestKitOptions
 import java.nio.file.Path
@@ -58,6 +59,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val s3: Property<Boolean>
         val fakeGcs: Property<Boolean>
         val icebergRestCatalog: Property<Boolean>
+        val trino: Property<Boolean>
 
         val sameHostPorts: Property<Boolean>
         val kerberosKdcPort: Property<Int>
@@ -72,6 +74,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val fakeGcsPort: Property<Int>
         val icebergRestCatalogPort: Property<Int>
         val icebergRestCatalogTlsPort: Property<Int>
+        val trinoPort: Property<Int>
 
         val kerberosImage: Property<String>
         val kerberosRealm: Property<String>
@@ -139,6 +142,11 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val icebergRestCatalogIoImpl: Property<String>
         val icebergRestCatalogTlsEnabled: Property<Boolean>
         val icebergRestCatalogTlsDomain: Property<String>
+
+        val trinoImage: Property<String>
+        val trinoCatalogName: Property<String>
+        val trinoStartupTimeoutSeconds: Property<Int>
+        val trinoCatalogProperties: MapProperty<String, String>
 
         val containerLogMode: Property<ContainerLogMode>
         val containerLogDirectory: Property<String>
@@ -212,6 +220,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                     fakeGcs = parameters.fakeGcsPort.get(),
                     icebergRestCatalog = parameters.icebergRestCatalogPort.get(),
                     icebergRestCatalogTls = parameters.icebergRestCatalogTlsPort.get(),
+                    trino = parameters.trinoPort.get(),
                 ),
             )
             .withContainerLogs(
@@ -253,7 +262,7 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                 ),
             )
         }
-        if (parameters.hiveMetastore.get()) {
+        if (parameters.hiveMetastore.get() || (parameters.trino.get() && !parameters.clouderaHms.get())) {
             builder.withHiveMetastore(
                 HiveMetastoreOptions(
                     enabled = true,
@@ -343,6 +352,17 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                         enabled = parameters.icebergRestCatalogTlsEnabled.get(),
                         domain = parameters.icebergRestCatalogTlsDomain.get(),
                     ),
+                ),
+            )
+        }
+        if (parameters.trino.get()) {
+            builder.withTrino(
+                TrinoOptions(
+                    enabled = true,
+                    image = parameters.trinoImage.get(),
+                    catalogName = parameters.trinoCatalogName.get(),
+                    startupTimeoutSeconds = parameters.trinoStartupTimeoutSeconds.get().toLong(),
+                    catalogProperties = parameters.trinoCatalogProperties.get(),
                 ),
             )
         }

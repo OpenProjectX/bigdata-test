@@ -26,6 +26,7 @@ data class BigDataTestConfig(
     val clouderaHms: BigDataTestClouderaHmsConfig = BigDataTestClouderaHmsConfig(),
     val kafka: BigDataTestKafkaConfig = BigDataTestKafkaConfig(),
     val icebergRestCatalog: BigDataTestIcebergRestCatalogConfig = BigDataTestIcebergRestCatalogConfig(),
+    val trino: BigDataTestTrinoConfig = BigDataTestTrinoConfig(),
     val hdfsWebTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val hiveMetastoreTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
     val kafkaTls: BigDataTestHttpTlsConfig = BigDataTestHttpTlsConfig(),
@@ -52,6 +53,7 @@ data class BigDataTestConfig(
             clouderaHms = clouderaHms.merge(override.clouderaHms),
             kafka = kafka.merge(override.kafka),
             icebergRestCatalog = icebergRestCatalog.merge(override.icebergRestCatalog),
+            trino = trino.merge(override.trino),
             hdfsWebTls = hdfsWebTls.merge(override.hdfsWebTls),
             hiveMetastoreTls = hiveMetastoreTls.merge(override.hiveMetastoreTls),
             kafkaTls = kafkaTls.merge(override.kafkaTls),
@@ -185,6 +187,19 @@ data class BigDataTestIcebergRestCatalogConfig(
         )
 }
 
+data class BigDataTestTrinoConfig(
+    val catalogName: String? = null,
+    val startupTimeoutSeconds: Int? = null,
+    val catalogProperties: Map<String, String> = emptyMap(),
+) {
+    fun merge(override: BigDataTestTrinoConfig): BigDataTestTrinoConfig =
+        BigDataTestTrinoConfig(
+            catalogName = override.catalogName ?: catalogName,
+            startupTimeoutSeconds = override.startupTimeoutSeconds ?: startupTimeoutSeconds,
+            catalogProperties = catalogProperties + override.catalogProperties,
+        )
+}
+
 data class BigDataTestKerberosConfig(
     val realm: String? = null,
     val domain: String? = null,
@@ -263,6 +278,7 @@ data class BigDataTestImageConfig(
     val s3: String? = null,
     val fakeGcs: String? = null,
     val icebergRestCatalog: String? = null,
+    val trino: String? = null,
 ) {
     fun merge(override: BigDataTestImageConfig): BigDataTestImageConfig =
         BigDataTestImageConfig(
@@ -279,6 +295,7 @@ data class BigDataTestImageConfig(
             s3 = override.s3 ?: s3,
             fakeGcs = override.fakeGcs ?: fakeGcs,
             icebergRestCatalog = override.icebergRestCatalog ?: icebergRestCatalog,
+            trino = override.trino ?: trino,
         )
 }
 
@@ -297,6 +314,7 @@ data class BigDataTestServiceConfig(
     val s3: Boolean? = null,
     val fakeGcs: Boolean? = null,
     val icebergRestCatalog: Boolean? = null,
+    val trino: Boolean? = null,
 ) {
     fun merge(override: BigDataTestServiceConfig): BigDataTestServiceConfig =
         BigDataTestServiceConfig(
@@ -314,6 +332,7 @@ data class BigDataTestServiceConfig(
             s3 = override.s3 ?: s3,
             fakeGcs = override.fakeGcs ?: fakeGcs,
             icebergRestCatalog = override.icebergRestCatalog ?: icebergRestCatalog,
+            trino = override.trino ?: trino,
         )
 }
 
@@ -336,6 +355,7 @@ data class BigDataTestPortConfig(
     val fakeGcsTls: Int? = null,
     val icebergRestCatalog: Int? = null,
     val icebergRestCatalogTls: Int? = null,
+    val trino: Int? = null,
 ) {
     fun merge(override: BigDataTestPortConfig): BigDataTestPortConfig =
         BigDataTestPortConfig(
@@ -357,6 +377,7 @@ data class BigDataTestPortConfig(
             fakeGcsTls = override.fakeGcsTls ?: fakeGcsTls,
             icebergRestCatalog = override.icebergRestCatalog ?: icebergRestCatalog,
             icebergRestCatalogTls = override.icebergRestCatalogTls ?: icebergRestCatalogTls,
+            trino = override.trino ?: trino,
         )
 }
 
@@ -396,6 +417,7 @@ class BigDataTestConfigLoader(
         val clouderaHms = tables["clouderaHms"].orEmpty()
         val kafka = tables["kafka"].orEmpty()
         val icebergRestCatalog = tables["icebergRestCatalog"].orEmpty()
+        val trino = tables["trino"].orEmpty()
         val hdfsWebTls = tables["hdfsWebTls"].orEmpty()
         val hiveMetastoreTls = tables["hiveMetastoreTls"].orEmpty()
         val kafkaTls = tables["kafkaTls"].orEmpty()
@@ -421,6 +443,7 @@ class BigDataTestConfigLoader(
                 s3 = images.string("s3"),
                 fakeGcs = images.string("fakeGcs"),
                 icebergRestCatalog = images.string("icebergRestCatalog"),
+                trino = images.string("trino"),
             ),
             services = BigDataTestServiceConfig(
                 kerberos = services.boolean("kerberos"),
@@ -437,6 +460,7 @@ class BigDataTestConfigLoader(
                 s3 = services.boolean("s3"),
                 fakeGcs = services.boolean("fakeGcs"),
                 icebergRestCatalog = services.boolean("icebergRestCatalog"),
+                trino = services.boolean("trino"),
             ),
             kerberos = BigDataTestKerberosConfig(
                 realm = kerberos.string("realm"),
@@ -500,6 +524,13 @@ class BigDataTestConfigLoader(
                 s3ExternalId = icebergRestCatalog.string("s3ExternalId"),
                 s3TokenServiceEndpoint = icebergRestCatalog.string("s3TokenServiceEndpoint"),
             ),
+            trino = BigDataTestTrinoConfig(
+                catalogName = trino.string("catalogName"),
+                startupTimeoutSeconds = trino.int("startupTimeoutSeconds"),
+                catalogProperties = tables["trino.catalogProperties"].orEmpty().mapValues { (name, value) ->
+                    value.asString("trino.catalogProperties.$name")
+                },
+            ),
             hdfsWebTls = httpTls(hdfsWebTls),
             hiveMetastoreTls = httpTls(hiveMetastoreTls),
             kafkaTls = httpTls(kafkaTls),
@@ -527,6 +558,7 @@ class BigDataTestConfigLoader(
                 fakeGcsTls = ports.int("fakeGcsTls"),
                 icebergRestCatalog = ports.int("icebergRestCatalog"),
                 icebergRestCatalogTls = ports.int("icebergRestCatalogTls"),
+                trino = ports.int("trino"),
             ),
             containerLogs = BigDataTestContainerLogConfig(
                 mode = containerLogs.string("mode")?.let { ContainerLogMode.valueOf(it.uppercase()) },
@@ -733,6 +765,7 @@ class BigDataTestConfigLoader(
             "fakegcs" to BigDataService.FAKE_GCS,
             "icebergrestcatalog" to BigDataService.ICEBERG_REST_CATALOG,
             "icebergrest" to BigDataService.ICEBERG_REST_CATALOG,
+            "trino" to BigDataService.TRINO,
         )
     }
 }

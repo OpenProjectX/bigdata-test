@@ -178,6 +178,89 @@ val port = endpoint.ports["bootstrap"]
 
 `kit.springProperties()` flattens all endpoint properties into one map, which is useful for application context initializers and Spring Boot tests.
 
+=== Trino
+
+Trino is a built-in managed service. It starts after HMS, uses the stable `hive-metastore:9083` network address, and exposes `trino.url`, `trino.jdbc.url`, and `spring.bigdata.test.trino.url` to host-side clients. Enabling Trino automatically enables open-source HMS unless `clouderaHms` is selected.
+
+[source,toml]
+----
+[services]
+trino = true
+
+[images]
+trino = "ghcr.io/openprojectx/dockerhub/trinodb/trino:483"
+
+[ports]
+trino = 0 # random host port; container port remains 8080
+
+[trino]
+catalogName = "hive"
+startupTimeoutSeconds = 180
+
+[trino.catalogProperties]
+"hive.metastore.thrift.client.read-timeout" = "60s"
+----
+
+When S3 is enabled in the same instance, the generated Hive catalog automatically enables Trino native S3 support with `http://s3:4566`, test credentials, `us-east-1`, and path-style access. Entries in `[trino.catalogProperties]` are applied last and can override generated values or add HDFS/GCS/image-specific connector settings.
+
+Programmatic configuration uses `withTrino(TrinoOptions(...))`. JUnit can use `@BigDataTest(trino = true)`. The Gradle DSL uses `services.trino.set(true)` and `trino { ... }`; Spring Boot uses `bigdata.test.trino.enabled=true`. The executable `TrinoBigDataTestExample` sends `SHOW SCHEMAS FROM hive` through Trino's statement API and verifies the managed HMS catalog.
+
+=== User-Provided Containers
+
+Applications can attach any user-created `GenericContainer` to a test-kit service network. The core API does not inspect the image or contain product-specific integration logic. The user configures the container with the addresses returned by `containerEndpoint(...)`.
+
+`attachContainer(...)` only joins the selected network. The caller owns the container lifecycle:
+
+[source,kotlin]
+----
+val worker = GenericContainer<Nothing>(DockerImageName.parse("my-company/worker:latest"))
+kit.attachContainer(worker, aliases = arrayOf("worker"))
+worker.start()
+try {
+    // test
+} finally {
+    worker.stop()
+}
+----
+
+`startContainer(...)` joins and starts the container after the kit services are ready. The kit then stops it before closing the Docker network:
+
+[source,kotlin]
+----
+kit.start()
+
+val worker = GenericContainer<Nothing>(DockerImageName.parse("my-company/worker:latest"))
+    .withEnv(
+        "HMS_URI",
+        kit.containerEndpoint(BigDataService.HIVE_METASTORE).uri("thrift", "thrift"),
+    )
+
+kit.startContainer(worker, aliases = arrayOf("worker"))
+----
+
+The equivalent Java API retains the concrete container type:
+
+[source,java]
+----
+GenericContainer<?> worker = new GenericContainer<>(DockerImageName.parse("my-company/worker:latest"));
+BigDataContainerEndpoint hms = kit.containerEndpoint(BigDataService.HIVE_METASTORE);
+String metastoreUri = hms.uri("thrift", "thrift");
+worker.withEnv("HMS_URI", metastoreUri);
+kit.startContainer(worker, "default", "worker");
+----
+
+The container must not be running when it is first attached. A container can join one service-instance network only. For a named instance, use the same instance for both operations:
+
+[source,kotlin]
+----
+val hms = kit.containerEndpoint(BigDataService.HIVE_METASTORE, "analytics")
+kit.startContainer(worker, "analytics", "worker")
+----
+
+Each `BigDataContainerEndpoint` contains the stable Docker alias and container ports, not host-mapped ports. For example, HMS is `thrift://hive-metastore:9083`, S3 is `http://s3:4566`, and HDFS uses the configured NameNode port at host `hdfs`. Use `endpoint(...)` instead when code runs in the host JVM.
+
+User-provided containers do not automatically receive generated keytabs, truststores, or XML configuration. Copy the required material into the container and configure that product explicitly. Network attachment is incompatible with a service customized to Docker host network mode because that service is no longer on the instance bridge network.
+
 === Multiple Service Instances
 
 Every service can be repeated in a named instance. The existing configuration and APIs address the reserved `default` instance. Each additional instance is an independently configured service stack with its own Docker network, so fixed internal aliases such as `kafka`, `hdfs`, and `s3` do not collide. Host ports remain random unless that instance explicitly requests fixed ports.
@@ -465,6 +548,9 @@ The JUnit extension starts the kit before all tests in the class and closes it a
 
 |`icebergRestCatalog`
 |Starts a Gravitino Iceberg REST catalog server.
+
+|`trino`
+|Starts Trino with a generated Hive catalog connected to same-instance HMS.
 |===
 
 === Service Image Configuration
@@ -487,6 +573,7 @@ kafkaUi = "ghcr.io/kafbat/kafka-ui:latest"
 s3 = "ghcr.io/openprojectx/dockerhub/floci/floci:1.7.0"
 fakeGcs = "ghcr.io/openprojectx/dockerhub/floci/floci-gcp:0.5.0"
 icebergRestCatalog = "ghcr.io/openprojectx/gravitino-iceberg-rest:0.1.1"
+trino = "ghcr.io/openprojectx/dockerhub/trinodb/trino:483"
 ----
 
 === Iceberg REST Catalog
@@ -695,7 +782,7 @@ File sources must use one of these prefixes:
 
 Mounts are useful for local debugging, but copied files are more reliable in CI because they do not depend on Docker host path sharing. Prefer copied files for certificates, keytabs, Hadoop XML, JAAS, and other test fixtures.
 
-Available service names in container TOML are `kerberos`, `hdfs`, `hiveMetastore`, `hms`, `kafka`, `schemaRegistry`, `kafkaUi`, `s3`, `fakeGcs`, and `icebergRestCatalog`.
+Available service names in container TOML are `kerberos`, `hdfs`, `hiveMetastore`, `hms`, `kafka`, `schemaRegistry`, `kafkaUi`, `s3`, `fakeGcs`, `icebergRestCatalog`, and `trino`.
 
 ==== HDFS Environment Variable Names
 
@@ -1299,6 +1386,11 @@ Available fixed host-port config:
 |`icebergRestCatalogTls`
 |`icebergRestCatalogTls`
 |`443` on the HAProxy gateway
+
+|Trino HTTP
+|`trino`
+|`trinoPort`
+|`8080`
 |===
 
 There is no `[ports] clouderaHms` key. Cloudera HMS shares the Hive Metastore service endpoint, so its Thrift port is configured with `[ports] hiveMetastore = 9083`.

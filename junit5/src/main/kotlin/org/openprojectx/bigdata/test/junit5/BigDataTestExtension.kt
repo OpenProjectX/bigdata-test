@@ -29,12 +29,14 @@ import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_UI_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KERBEROS_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_S3_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_SCHEMA_REGISTRY_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_TRINO_IMAGE
 import org.openprojectx.bigdata.test.core.KafkaOptions
 import org.openprojectx.bigdata.test.core.KerberosAuthOptions
 import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.bigdata.test.core.ObjectStoreOptions
 import org.openprojectx.bigdata.test.core.PortBindingOptions
 import org.openprojectx.bigdata.test.core.TlsOptions
+import org.openprojectx.bigdata.test.core.TrinoOptions
 import org.openprojectx.bigdata.test.core.config.BigDataTestConfigLoader
 import org.openprojectx.bigdata.test.core.config.BigDataTestHttpTlsConfig
 import org.openprojectx.bigdata.test.core.config.toTestKitOptions
@@ -92,6 +94,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                         ?: ports.icebergRestCatalog ?: 0,
                     icebergRestCatalogTls = annotation.icebergRestCatalogTlsPort.takeIfPositive()
                         ?: ports.icebergRestCatalogTls ?: 0,
+                    trino = annotation.trinoPort.takeIfPositive() ?: ports.trino ?: 0,
                 ),
             )
         val containerLogMode = if (annotation.containerLogMode != ContainerLogMode.NONE) {
@@ -142,6 +145,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
             config.icebergRestCatalogTls.enabled == true
         val icebergRestCatalog = annotation.icebergRestCatalog ||
             services.icebergRestCatalog == true || icebergRestCatalogTls
+        val trino = annotation.trino || services.trino == true
         val defaultKerberos = KerberosOptions()
         val kerberosRealm = kerberosConfig.realm ?: defaultKerberos.realm
         val kerberosDomain = kerberosConfig.domain ?: defaultKerberos.domain
@@ -213,7 +217,7 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
         require(!(hiveMetastore && clouderaHms)) {
             "Use only one HMS implementation: hiveMetastore or clouderaHms"
         }
-        if (hiveMetastore || clouderaHms || hiveMetastoreKerberos || hiveMetastoreTls) {
+        if (hiveMetastore || clouderaHms || hiveMetastoreKerberos || hiveMetastoreTls || trino) {
             val distribution = if (clouderaHms) {
                 HiveMetastoreDistribution.CLOUDERA
             } else {
@@ -335,6 +339,19 @@ class BigDataTestExtension : BeforeAllCallback, AfterAllCallback, ParameterResol
                     s3ExternalId = config.icebergRestCatalog.s3ExternalId,
                     s3TokenServiceEndpoint = config.icebergRestCatalog.s3TokenServiceEndpoint,
                     tls = config.icebergRestCatalogTls.toHttpTls("localhost").copy(enabled = icebergRestCatalogTls),
+                ),
+            )
+        }
+        if (trino) {
+            val defaults = TrinoOptions()
+            builder.withTrino(
+                TrinoOptions(
+                    enabled = true,
+                    image = images.trino ?: DEFAULT_TRINO_IMAGE,
+                    catalogName = config.trino.catalogName ?: defaults.catalogName,
+                    startupTimeoutSeconds = config.trino.startupTimeoutSeconds?.toLong()
+                        ?: defaults.startupTimeoutSeconds,
+                    catalogProperties = config.trino.catalogProperties,
                 ),
             )
         }

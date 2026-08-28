@@ -14,6 +14,7 @@ import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_UI_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KERBEROS_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_S3_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_SCHEMA_REGISTRY_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_TRINO_IMAGE
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties("bigdata.test")
@@ -29,6 +30,7 @@ data class BigDataTestProperties(
     var s3: ObjectStore = ObjectStore(image = DEFAULT_S3_IMAGE),
     var fakeGcs: ObjectStore = ObjectStore(image = DEFAULT_FAKE_GCS_IMAGE),
     var icebergRestCatalog: IcebergRestCatalog = IcebergRestCatalog(),
+    var trino: Trino = Trino(),
     var containerLogs: ContainerLogs = ContainerLogs(),
     var containerLogLevels: Map<String, String> = emptyMap(),
     var instances: Map<String, BigDataTestProperties> = emptyMap(),
@@ -68,6 +70,7 @@ data class BigDataTestProperties(
         var hdfsWeb: Int = 0,
         var s3: Int = 0,
         var icebergRestCatalog: Int = 0,
+        var trino: Int = 0,
     )
 
     data class Hdfs(
@@ -136,6 +139,14 @@ data class BigDataTestProperties(
         var jdbcPassword: String = "iceberg",
         var ioImpl: String? = null,
         var tls: HttpTls = HttpTls(),
+    )
+
+    data class Trino(
+        var enabled: Boolean = false,
+        var image: String = DEFAULT_TRINO_IMAGE,
+        var catalogName: String = "hive",
+        var startupTimeoutSeconds: Long = 180,
+        var catalogProperties: Map<String, String> = emptyMap(),
     )
 
     data class ContainerLogs(

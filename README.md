@@ -124,6 +124,8 @@ HADOOP_OPTS = "-Dsun.security.krb5.debug=true"
 
 Programmatic tests can also call `customizeContainer(...)` for last-resort Testcontainers access.
 
+Trino is available as a managed service with automatic HMS and same-instance S3 wiring. User-provided `GenericContainer` instances can also join a kit network without framework-specific integration code: use `containerEndpoint(...)` for container-side service addresses, then choose `attachContainer(...)` for user-owned lifecycle or `startContainer(...)` for kit-owned lifecycle.
+
 For HDFS, avoid arbitrary env names whose second token is an Apache Hadoop image config format such as `ENV`, `CONF`, `XML`, or `SH`. For example, `TEST_ENV=TEST` is parsed by `ghcr.io/openprojectx/dockerhub/apache/hadoop:3.5.0` as an env-to-config instruction and fails before HDFS starts. Use a non-reserved name such as `TEST_VALUE`, or use the image convention intentionally, for example `CORE_XML_fs_defaultFS=...`.
 
 Optional CLI health checks can run after container startup:

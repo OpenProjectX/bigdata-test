@@ -14,6 +14,7 @@ import org.openprojectx.bigdata.test.core.ClouderaHmsDatabaseType
 import org.openprojectx.bigdata.test.core.DEFAULT_FAKE_GCS_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_ICEBERG_REST_CATALOG_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_S3_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_TRINO_IMAGE
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 
 class BigDataTestGradlePlugin : Plugin<Project> {
@@ -25,6 +26,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.s3.image.convention(DEFAULT_S3_IMAGE)
         extension.fakeGcs.image.convention(DEFAULT_FAKE_GCS_IMAGE)
         extension.icebergRestCatalog.image.convention(DEFAULT_ICEBERG_REST_CATALOG_IMAGE)
+        extension.trino.image.convention(DEFAULT_TRINO_IMAGE)
         extension.extensionRuntime.extensionsVersion.convention(pluginImplementationVersion())
         val extensionRuntimeClasspath = project.configurations.create("bigDataTestExtensionRuntime") { configuration ->
             configuration.isCanBeConsumed = false
@@ -74,6 +76,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.s3.set(extension.services.s3)
             spec.parameters.fakeGcs.set(extension.services.fakeGcs)
             spec.parameters.icebergRestCatalog.set(extension.services.icebergRestCatalog)
+            spec.parameters.trino.set(extension.services.trino)
 
             spec.parameters.sameHostPorts.set(extension.ports.sameHostPorts)
             spec.parameters.kerberosKdcPort.set(extension.ports.kerberosKdc)
@@ -88,6 +91,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.fakeGcsPort.set(extension.ports.fakeGcs)
             spec.parameters.icebergRestCatalogPort.set(extension.ports.icebergRestCatalog)
             spec.parameters.icebergRestCatalogTlsPort.set(extension.ports.icebergRestCatalogTls)
+            spec.parameters.trinoPort.set(extension.ports.trino)
 
             spec.parameters.kerberosImage.set(extension.kerberos.image)
             spec.parameters.kerberosRealm.set(extension.kerberos.realm)
@@ -155,6 +159,10 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             spec.parameters.icebergRestCatalogIoImpl.set(extension.icebergRestCatalog.ioImpl)
             spec.parameters.icebergRestCatalogTlsEnabled.set(extension.icebergRestCatalog.tlsEnabled)
             spec.parameters.icebergRestCatalogTlsDomain.set(extension.icebergRestCatalog.tlsDomain)
+            spec.parameters.trinoImage.set(extension.trino.image)
+            spec.parameters.trinoCatalogName.set(extension.trino.catalogName)
+            spec.parameters.trinoStartupTimeoutSeconds.set(extension.trino.startupTimeoutSeconds)
+            spec.parameters.trinoCatalogProperties.set(extension.trino.catalogProperties)
 
             spec.parameters.containerLogMode.set(extension.containerLogs.mode)
             spec.parameters.containerLogDirectory.set(extension.containerLogs.directory)
@@ -353,6 +361,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.s3.image.tomlConvention(config.images.s3)
         extension.fakeGcs.image.tomlConvention(config.images.fakeGcs)
         extension.icebergRestCatalog.image.tomlConvention(config.images.icebergRestCatalog)
+        extension.trino.image.tomlConvention(config.images.trino)
 
         extension.services.kerberos.tomlConvention(config.services.kerberos)
         extension.services.hdfs.tomlConvention(config.services.hdfs ?: config.services.hdfsKerberos)
@@ -369,6 +378,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.services.s3.tomlConvention(config.services.s3)
         extension.services.fakeGcs.tomlConvention(config.services.fakeGcs)
         extension.services.icebergRestCatalog.tomlConvention(config.services.icebergRestCatalog)
+        extension.services.trino.tomlConvention(config.services.trino)
 
         extension.kerberos.realm.tomlConvention(config.kerberos.realm)
         extension.kerberos.domain.tomlConvention(config.kerberos.domain)
@@ -408,6 +418,9 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.icebergRestCatalog.ioImpl.tomlConvention(config.icebergRestCatalog.ioImpl)
         extension.icebergRestCatalog.tlsEnabled.tomlConvention(config.icebergRestCatalogTls.enabled)
         extension.icebergRestCatalog.tlsDomain.tomlConvention(config.icebergRestCatalogTls.domain)
+        extension.trino.catalogName.tomlConvention(config.trino.catalogName)
+        extension.trino.startupTimeoutSeconds.tomlConvention(config.trino.startupTimeoutSeconds)
+        extension.trino.catalogProperties.tomlConvention(config.trino.catalogProperties.takeIf { it.isNotEmpty() })
 
         extension.ports.sameHostPorts.tomlConvention(config.ports.sameHostPorts)
         extension.ports.kerberosKdc.tomlConvention(config.ports.kerberosKdc)
@@ -422,6 +435,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         extension.ports.fakeGcs.tomlConvention(config.ports.fakeGcs)
         extension.ports.icebergRestCatalog.tomlConvention(config.ports.icebergRestCatalog)
         extension.ports.icebergRestCatalogTls.tomlConvention(config.ports.icebergRestCatalogTls)
+        extension.ports.trino.tomlConvention(config.ports.trino)
 
         extension.containerLogs.mode.tomlConvention(config.containerLogs.mode)
         extension.containerLogs.directory.tomlConvention(config.containerLogs.directory)

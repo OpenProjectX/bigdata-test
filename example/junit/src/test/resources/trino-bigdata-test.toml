@@ -1,0 +1,9 @@
+[services]
+trino = true
+
+[trino]
+catalogName = "hive"
+startupTimeoutSeconds = 180
+
+[trino.catalogProperties]
+"hive.metastore.thrift.client.read-timeout" = "60s"

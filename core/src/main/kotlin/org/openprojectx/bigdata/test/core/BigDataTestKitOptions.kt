@@ -12,6 +12,7 @@ const val DEFAULT_SCHEMA_REGISTRY_IMAGE =
     "ghcr.io/openprojectx/dockerhub/confluentinc/cp-schema-registry:7.8.0"
 const val DEFAULT_KAFKA_UI_IMAGE = "ghcr.io/kafbat/kafka-ui:latest"
 const val DEFAULT_ICEBERG_REST_CATALOG_IMAGE = "ghcr.io/openprojectx/gravitino-iceberg-rest:0.1.1"
+const val DEFAULT_TRINO_IMAGE = "ghcr.io/openprojectx/dockerhub/trinodb/trino:483"
 
 data class BigDataTestKitOptions(
     val kerberos: KerberosOptions = KerberosOptions(),
@@ -22,6 +23,7 @@ data class BigDataTestKitOptions(
     val s3: ObjectStoreOptions = ObjectStoreOptions(),
     val fakeGcs: ObjectStoreOptions = ObjectStoreOptions(image = DEFAULT_FAKE_GCS_IMAGE),
     val icebergRestCatalog: IcebergRestCatalogOptions = IcebergRestCatalogOptions(),
+    val trino: TrinoOptions = TrinoOptions(),
     val portBindings: PortBindingOptions = PortBindingOptions(),
     val containerLogs: ContainerLogOptions = ContainerLogOptions(),
     val containerCustomizations: Map<BigDataService, ContainerCustomizationOptions> = emptyMap(),
@@ -183,7 +185,13 @@ data class IcebergRestCatalogOptions(
     val tls: HttpTlsOptions = HttpTlsOptions(),
 )
 
-
+data class TrinoOptions(
+    val enabled: Boolean = false,
+    val image: String = DEFAULT_TRINO_IMAGE,
+    val catalogName: String = "hive",
+    val startupTimeoutSeconds: Long = 180,
+    val catalogProperties: Map<String, String> = emptyMap(),
+)
 
 data class PortBindingOptions(
     val sameHostPorts: Boolean = false,
@@ -204,6 +212,7 @@ data class PortBindingOptions(
     val fakeGcsTls: Int = 0,
     val icebergRestCatalog: Int = 0,
     val icebergRestCatalogTls: Int = 0,
+    val trino: Int = 0,
 ) {
     fun hostPort(containerPort: Int, configuredHostPort: Int): Int {
         require(configuredHostPort >= 0) { "Host port must be 0 for random binding or a positive fixed port" }

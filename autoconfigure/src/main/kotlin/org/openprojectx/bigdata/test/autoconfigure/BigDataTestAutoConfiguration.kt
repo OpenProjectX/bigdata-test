@@ -16,6 +16,7 @@ import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.bigdata.test.core.ObjectStoreOptions
 import org.openprojectx.bigdata.test.core.PortBindingOptions
 import org.openprojectx.bigdata.test.core.TlsOptions
+import org.openprojectx.bigdata.test.core.TrinoOptions
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -49,6 +50,7 @@ class BigDataTestAutoConfiguration {
                     hdfsWeb = properties.ports.hdfsWeb,
                     s3 = properties.ports.s3,
                     icebergRestCatalog = properties.ports.icebergRestCatalog,
+                    trino = properties.ports.trino,
                 ),
             )
             .withContainerLogs(
@@ -108,7 +110,7 @@ class BigDataTestAutoConfiguration {
         require(!(properties.hiveMetastore.enabled && properties.clouderaHms.enabled)) {
             "Use only one HMS implementation: bigdata.test.hive-metastore or bigdata.test.cloudera-hms"
         }
-        if (properties.hiveMetastore.enabled) {
+        if (properties.hiveMetastore.enabled || (properties.trino.enabled && !properties.clouderaHms.enabled)) {
             builder.withHiveMetastore(
                 HiveMetastoreOptions(
                     enabled = true,
@@ -212,6 +214,18 @@ class BigDataTestAutoConfiguration {
                     jdbcPassword = properties.icebergRestCatalog.jdbcPassword,
                     ioImpl = properties.icebergRestCatalog.ioImpl,
                     tls = properties.icebergRestCatalog.tls.toCore(),
+                ),
+            )
+        }
+
+        if (properties.trino.enabled) {
+            builder.withTrino(
+                TrinoOptions(
+                    enabled = true,
+                    image = properties.trino.image,
+                    catalogName = properties.trino.catalogName,
+                    startupTimeoutSeconds = properties.trino.startupTimeoutSeconds,
+                    catalogProperties = properties.trino.catalogProperties,
                 ),
             )
         }

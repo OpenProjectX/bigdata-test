@@ -37,6 +37,10 @@ object BigDataContainerLogLevels {
                 "The Gravitino Iceberg REST image does not expose an environment-based log-level setting; " +
                     "supply a log4j2.properties file with container customization instead",
             )
+            BigDataService.TRINO -> error(
+                "The official Trino image configures logging through /etc/trino/log.properties; " +
+                    "supply that file with container customization instead",
+            )
         }
     }
 

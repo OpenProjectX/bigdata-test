@@ -10,6 +10,7 @@ import org.openprojectx.bigdata.test.core.ContainerLogMode
 import org.openprojectx.bigdata.test.core.DEFAULT_HAPROXY_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_HDFS_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_ICEBERG_REST_CATALOG_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_TRINO_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_UI_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KERBEROS_IMAGE
@@ -49,6 +50,7 @@ abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFac
     val fakeGcs: BigDataTestGradleObjectStore = objects.newInstance(BigDataTestGradleObjectStore::class.java)
     val icebergRestCatalog: BigDataTestGradleIcebergRestCatalog =
         objects.newInstance(BigDataTestGradleIcebergRestCatalog::class.java)
+    val trino: BigDataTestGradleTrino = objects.newInstance(BigDataTestGradleTrino::class.java)
     val containerLogs: BigDataTestGradleContainerLogs = objects.newInstance(BigDataTestGradleContainerLogs::class.java)
 
     fun services(action: Action<in BigDataTestGradleServices>) {
@@ -95,6 +97,10 @@ abstract class BigDataTestGradleExtension @Inject constructor(objects: ObjectFac
         action.execute(icebergRestCatalog)
     }
 
+    fun trino(action: Action<in BigDataTestGradleTrino>) {
+        action.execute(trino)
+    }
+
     fun containerLogs(action: Action<in BigDataTestGradleContainerLogs>) {
         action.execute(containerLogs)
     }
@@ -132,6 +138,7 @@ abstract class BigDataTestGradleServices @Inject constructor(objects: ObjectFact
     val s3: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val fakeGcs: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val icebergRestCatalog: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+    val trino: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
 }
 
 abstract class BigDataTestGradlePorts @Inject constructor(objects: ObjectFactory) {
@@ -148,6 +155,15 @@ abstract class BigDataTestGradlePorts @Inject constructor(objects: ObjectFactory
     val fakeGcs: Property<Int> = objects.property(Int::class.java).convention(0)
     val icebergRestCatalog: Property<Int> = objects.property(Int::class.java).convention(0)
     val icebergRestCatalogTls: Property<Int> = objects.property(Int::class.java).convention(0)
+    val trino: Property<Int> = objects.property(Int::class.java).convention(0)
+}
+
+abstract class BigDataTestGradleTrino @Inject constructor(objects: ObjectFactory) {
+    val image: Property<String> = objects.property(String::class.java).convention(DEFAULT_TRINO_IMAGE)
+    val catalogName: Property<String> = objects.property(String::class.java).convention("hive")
+    val startupTimeoutSeconds: Property<Int> = objects.property(Int::class.java).convention(180)
+    val catalogProperties: MapProperty<String, String> =
+        objects.mapProperty(String::class.java, String::class.java).convention(emptyMap())
 }
 
 abstract class BigDataTestGradleIcebergRestCatalog @Inject constructor(objects: ObjectFactory) {

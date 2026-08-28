@@ -90,4 +90,12 @@ enum class BigDataService(
             "bigdata.test.iceberg-rest-catalog.internal-uri",
         ),
     ),
+    TRINO(
+        defaultPorts = mapOf("http" to 8080),
+        endpointProperties = setOf(
+            "trino.url",
+            "trino.jdbc.url",
+            "spring.bigdata.test.trino.url",
+        ),
+    ),
 }

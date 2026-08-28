@@ -14,6 +14,7 @@ import org.openprojectx.bigdata.test.core.DEFAULT_KAFKA_UI_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_KERBEROS_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_S3_IMAGE
 import org.openprojectx.bigdata.test.core.DEFAULT_SCHEMA_REGISTRY_IMAGE
+import org.openprojectx.bigdata.test.core.DEFAULT_TRINO_IMAGE
 import org.openprojectx.bigdata.test.core.HdfsOptions
 import org.openprojectx.bigdata.test.core.HiveMetastoreDatabaseType
 import org.openprojectx.bigdata.test.core.IcebergRestCatalogOptions
@@ -26,6 +27,7 @@ import org.openprojectx.bigdata.test.core.KerberosOptions
 import org.openprojectx.bigdata.test.core.ObjectStoreOptions
 import org.openprojectx.bigdata.test.core.PortBindingOptions
 import org.openprojectx.bigdata.test.core.TlsOptions
+import org.openprojectx.bigdata.test.core.TrinoOptions
 
 /** Converts a config-only stack to runtime options. Annotation and Gradle DSL overrides are applied separately. */
 fun BigDataTestConfig.toTestKitOptions(): BigDataTestKitOptions {
@@ -40,7 +42,8 @@ fun BigDataTestConfig.toTestKitOptions(): BigDataTestKitOptions {
     val openHms = services.hiveMetastore == true
     val clouderaHmsEnabled = services.clouderaHms == true
     require(!(openHms && clouderaHmsEnabled)) { "Use only one HMS implementation in an instance" }
-    val hmsEnabled = openHms || clouderaHmsEnabled || hmsKerberos || hiveMetastoreTls.enabled == true
+    val hmsEnabled = openHms || clouderaHmsEnabled || hmsKerberos || hiveMetastoreTls.enabled == true ||
+        services.trino == true
     val kafkaEnabled = services.kafka == true || kafkaKerberos || kafkaTls.enabled == true ||
         services.schemaRegistry == true || services.kafkaUi == true
     val kerberosEnabled = services.kerberos == true || hdfsKerberos || hmsKerberos || kafkaKerberos || kafkaUiKerberos
@@ -198,6 +201,14 @@ fun BigDataTestConfig.toTestKitOptions(): BigDataTestKitOptions {
             s3TokenServiceEndpoint = icebergRestCatalog.s3TokenServiceEndpoint,
             tls = icebergRestCatalogTls.toHttpTls("localhost"),
         ),
+        trino = TrinoOptions(
+            enabled = services.trino == true,
+            image = images.trino ?: DEFAULT_TRINO_IMAGE,
+            catalogName = trino.catalogName ?: TrinoOptions().catalogName,
+            startupTimeoutSeconds = trino.startupTimeoutSeconds?.toLong()
+                ?: TrinoOptions().startupTimeoutSeconds,
+            catalogProperties = trino.catalogProperties,
+        ),
         portBindings = ports.toPortBindings(),
         containerLogs = ContainerLogOptions(
             mode = containerLogs.mode ?: ContainerLogMode.NONE,
@@ -232,6 +243,7 @@ private fun BigDataTestPortConfig.toPortBindings(): PortBindingOptions = PortBin
     fakeGcsTls = fakeGcsTls ?: 0,
     icebergRestCatalog = icebergRestCatalog ?: 0,
     icebergRestCatalogTls = icebergRestCatalogTls ?: 0,
+    trino = trino ?: 0,
 )
 
 private fun BigDataTestConfig.clouderaHmsImage(type: ClouderaHmsDatabaseType): String =

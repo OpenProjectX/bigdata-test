@@ -1,6 +1,7 @@
 package org.openprojectx.bigdata.test.core.container
 
 import org.openprojectx.bigdata.test.core.BigDataEndpoint
+import org.openprojectx.bigdata.test.core.BigDataContainerEndpoint
 import org.openprojectx.bigdata.test.core.BigDataHealthCheckMode
 import org.openprojectx.bigdata.test.core.BigDataService
 import org.openprojectx.bigdata.test.core.BigDataTestKitOptions
@@ -71,6 +72,65 @@ internal class BigDataContainerFactory(
     }
     private val tlsMaterial: TlsMaterial by lazy { TlsMaterial(options.tls.copy(enabled = true)) }
 
+    fun attachContainer(container: GenericContainer<*>, aliases: Array<out String>) {
+        container.withNetwork(network)
+        if (aliases.isNotEmpty()) container.withNetworkAliases(*aliases)
+    }
+
+    fun containerEndpoint(service: BigDataService): BigDataContainerEndpoint {
+        check(serviceEnabled(service)) {
+            "Service ${service.name.lowercase()} is not enabled in instance '$instanceName'"
+        }
+        val host = when (service) {
+            BigDataService.KERBEROS -> "kerby-kdc"
+            BigDataService.HDFS -> "hdfs"
+            BigDataService.HIVE_METASTORE -> "hive-metastore"
+            BigDataService.KAFKA -> "kafka"
+            BigDataService.SCHEMA_REGISTRY -> "schema-registry"
+            BigDataService.KAFKA_UI -> "kafka-ui"
+            BigDataService.S3 -> "s3"
+            BigDataService.FAKE_GCS -> "fake-gcs"
+            BigDataService.ICEBERG_REST_CATALOG -> "iceberg-rest-catalog"
+            BigDataService.TRINO -> "trino"
+        }
+        val ports = when (service) {
+            BigDataService.KERBEROS -> mapOf("kdc" to 88)
+            BigDataService.HDFS -> mapOf(
+                "namenode" to options.hdfs.nameNodePort,
+                "datanode" to options.hdfs.dataNodePort,
+                "web" to options.hdfs.webPort,
+            )
+            BigDataService.HIVE_METASTORE -> mapOf("thrift" to 9083)
+            BigDataService.KAFKA -> mapOf(
+                "bootstrap" to when {
+                    options.kafka.kerberos.enabled -> 19092
+                    options.kafka.tls.enabled -> 9093
+                    else -> 19092
+                },
+            )
+            BigDataService.SCHEMA_REGISTRY -> mapOf("http" to 8085)
+            BigDataService.KAFKA_UI -> mapOf("http" to 8080)
+            BigDataService.S3 -> mapOf("http" to 4566)
+            BigDataService.FAKE_GCS -> mapOf("http" to fakeGcsServicePort())
+            BigDataService.ICEBERG_REST_CATALOG -> mapOf("http" to 9001)
+            BigDataService.TRINO -> mapOf("http" to 8080)
+        }
+        return BigDataContainerEndpoint(service, host, ports, instanceName)
+    }
+
+    private fun serviceEnabled(service: BigDataService): Boolean = when (service) {
+        BigDataService.KERBEROS -> kerberosRequired()
+        BigDataService.HDFS -> options.hdfs.enabled
+        BigDataService.HIVE_METASTORE -> options.hiveMetastore.enabled
+        BigDataService.KAFKA -> options.kafka.enabled
+        BigDataService.SCHEMA_REGISTRY -> options.kafka.enabled && options.kafka.schemaRegistryEnabled
+        BigDataService.KAFKA_UI -> options.kafka.enabled && options.kafka.kafkaUiEnabled
+        BigDataService.S3 -> options.s3.enabled
+        BigDataService.FAKE_GCS -> options.fakeGcs.enabled
+        BigDataService.ICEBERG_REST_CATALOG -> options.icebergRestCatalog.enabled
+        BigDataService.TRINO -> options.trino.enabled
+    }
+
     fun healthCheck(service: BigDataService, container: GenericContainer<*>, endpoint: BigDataEndpoint) {
         val healthCheck = options.healthChecks[service] ?: return
         when (healthCheck.mode) {
@@ -89,6 +149,7 @@ internal class BigDataContainerFactory(
         if (options.fakeGcs.enabled) containers += fakeGcs()
         if (options.icebergRestCatalog.enabled) containers += icebergRestCatalog()
         if (options.hiveMetastore.enabled) containers += hiveMetastore()
+        if (options.trino.enabled) containers += trino()
         if (options.kafka.enabled) {
             containers += kafka()
             if (options.kafka.schemaRegistryEnabled) containers += schemaRegistry()
@@ -955,6 +1016,75 @@ internal class BigDataContainerFactory(
         }
     }
 
+    private fun trino(): BigDataServiceContainer {
+        val trino = options.trino
+        require(options.hiveMetastore.enabled) {
+            "Trino requires hiveMetastore or clouderaHms in the same service instance"
+        }
+        require(trino.startupTimeoutSeconds > 0) { "Trino startupTimeoutSeconds must be positive" }
+        require(trino.catalogName.matches(Regex("[A-Za-z][A-Za-z0-9_-]*"))) {
+            "Trino catalogName must start with a letter and contain only letters, digits, '-' or '_'"
+        }
+
+        val catalogProperties = linkedMapOf(
+            "connector.name" to "hive",
+            "hive.metastore.uri" to "thrift://hive-metastore:9083",
+        )
+        if (options.s3.enabled) {
+            catalogProperties += mapOf(
+                "fs.native-s3.enabled" to "true",
+                "s3.endpoint" to "http://s3:4566",
+                "s3.region" to "us-east-1",
+                "s3.aws-access-key" to "test",
+                "s3.aws-secret-key" to "test",
+                "s3.path-style-access" to "true",
+            )
+        }
+        catalogProperties.putAll(trino.catalogProperties)
+        val catalogFile = catalogProperties.entries.joinToString("\n", postfix = "\n") { (name, value) ->
+            "$name=$value"
+        }
+
+        val container = GenericBigDataContainer(trino.image)
+            .withNetwork(network)
+            .withNetworkAliases("trino")
+            .withServicePort(
+                8080,
+                options.portBindings.hostPort(8080, options.portBindings.trino),
+            )
+            .withCopyToContainer(
+                Transferable.of(catalogFile),
+                "/etc/trino/catalog/${trino.catalogName}.properties",
+            )
+            .waitingFor(
+                WaitAllStrategy()
+                    .withStrategy(
+                        Wait.forHttp("/v1/info")
+                            .forPort(8080)
+                            .forStatusCode(200),
+                    )
+                    .withStrategy(Wait.forLogMessage(".*SERVER STARTED.*", 1))
+                    .withStartupTimeout(Duration.ofSeconds(trino.startupTimeoutSeconds)),
+            )
+
+        return BigDataServiceContainer(
+            BigDataService.TRINO,
+            attachLogs("trino", applyContainerCustomizations(BigDataService.TRINO, container)),
+        ) {
+            val baseUrl = "http://${container.host}:${container.getMappedPort(8080)}"
+            BigDataEndpoint(
+                service = BigDataService.TRINO,
+                host = container.host,
+                ports = mapOf("http" to container.getMappedPort(8080)),
+                properties = mapOf(
+                    "trino.url" to baseUrl,
+                    "trino.jdbc.url" to "jdbc:trino://${container.host}:${container.getMappedPort(8080)}",
+                    "spring.bigdata.test.trino.url" to baseUrl,
+                ),
+            )
+        }
+    }
+
     private fun internalNoProxyHosts(vararg hosts: String?): String =
         buildSet {
             System.getenv("NO_PROXY")?.split(',')?.mapTo(this) { it.trim() }
@@ -1391,6 +1521,8 @@ internal class BigDataContainerFactory(
                 "${httpContainerProbe("http://localhost:4588/_floci-gcp/health")} || ${httpContainerProbe("http://localhost:4443/storage/v1/b")}"
             BigDataService.ICEBERG_REST_CATALOG ->
                 httpContainerProbe("http://localhost:9001/iceberg/v1/config")
+            BigDataService.TRINO ->
+                httpContainerProbe("http://localhost:8080/v1/info")
         }
 
     private fun httpContainerProbe(url: String): String =

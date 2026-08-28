@@ -1,6 +1,7 @@
 package org.openprojectx.bigdata.test.core
 
 import java.util.function.Consumer
+import java.util.IdentityHashMap
 import org.openprojectx.bigdata.test.core.container.BigDataContainerFactory
 import org.openprojectx.bigdata.test.core.container.BigDataServiceContainer
 import org.testcontainers.containers.GenericContainer
@@ -29,6 +30,8 @@ class BigDataTestKit private constructor(
         }
     }
     private val endpoints = linkedMapOf<BigDataServiceId, BigDataEndpoint>()
+    private val attachedContainers = IdentityHashMap<GenericContainer<*>, String>()
+    private val managedContainers = mutableListOf<GenericContainer<*>>()
     private var started = false
 
     override fun start() {
@@ -50,6 +53,9 @@ class BigDataTestKit private constructor(
     }
 
     override fun close() {
+        managedContainers.asReversed().forEach { it.stop() }
+        managedContainers.clear()
+        attachedContainers.clear()
         stacks.asReversed().forEach { stack ->
             stack.containers.asReversed().forEach { it.container.stop() }
             stack.factory.close()
@@ -79,6 +85,61 @@ class BigDataTestKit private constructor(
 
     fun allEndpoints(): Map<BigDataServiceId, BigDataEndpoint> = endpoints.toMap()
 
+    /** Returns the stable address of a service from containers attached to the same instance network. */
+    fun containerEndpoint(service: BigDataService): BigDataContainerEndpoint =
+        containerEndpoint(service, DEFAULT_SERVICE_INSTANCE)
+
+    fun containerEndpoint(service: BigDataService, instance: String): BigDataContainerEndpoint =
+        stack(instance).factory.containerEndpoint(service)
+
+    /**
+     * Attaches a user-owned container to an instance network. The caller remains responsible for
+     * starting and stopping it. The container must not have been started yet.
+     */
+    @JvmOverloads
+    fun <T : GenericContainer<*>> attachContainer(
+        container: T,
+        instance: String = DEFAULT_SERVICE_INSTANCE,
+        vararg aliases: String,
+    ): T {
+        require(!container.isRunning) { "A running container cannot be attached to a test-kit network" }
+        val existingInstance = attachedContainers[container]
+        require(existingInstance == null || existingInstance == instance) {
+            "Container is already attached to service instance '$existingInstance'"
+        }
+        require(aliases.none(String::isBlank)) { "Container network aliases must not be blank" }
+        stack(instance).factory.attachContainer(container, aliases)
+        attachedContainers[container] = instance
+        return container
+    }
+
+    /**
+     * Attaches, starts, and owns an auxiliary container. Core services must already be running.
+     * Managed containers are stopped before their instance networks are closed.
+     */
+    @JvmOverloads
+    fun <T : GenericContainer<*>> startContainer(
+        container: T,
+        instance: String = DEFAULT_SERVICE_INSTANCE,
+        vararg aliases: String,
+    ): T {
+        check(started) { "BigDataTestKit must be started before an auxiliary container" }
+        if (!attachedContainers.containsKey(container)) {
+            attachContainer(container, instance, *aliases)
+        } else {
+            require(attachedContainers[container] == instance) {
+                "Container is attached to service instance '${attachedContainers[container]}', not '$instance'"
+            }
+            require(aliases.isEmpty()) {
+                "Network aliases must be supplied when the container is first attached"
+            }
+        }
+        require(!container.isRunning) { "Auxiliary container is already running" }
+        container.start()
+        managedContainers += container
+        return container
+    }
+
     /**
      * Keeps legacy client properties for the default instance and adds collision-free
      * `bigdata.test.instances.<instance>...` properties for every named instance.
@@ -96,6 +157,10 @@ class BigDataTestKit private constructor(
         val factory = BigDataContainerFactory(stackOptions, name)
         return ServiceStack(name, factory, factory.create())
     }
+
+    private fun stack(instance: String): ServiceStack =
+        stacks.firstOrNull { it.name == instance }
+            ?: error("Service instance '$instance' is not configured")
 
     private fun BigDataEndpoint.namespacedProperties(): Map<String, String> = buildMap {
         val prefix = "bigdata.test.instances.$instance.${service.propertyName()}"
@@ -120,6 +185,7 @@ class BigDataTestKit private constructor(
         private var s3 = ObjectStoreOptions()
         private var fakeGcs = ObjectStoreOptions(image = DEFAULT_FAKE_GCS_IMAGE)
         private var icebergRestCatalog = IcebergRestCatalogOptions()
+        private var trino = TrinoOptions()
         private var portBindings = PortBindingOptions()
         private var containerLogs = ContainerLogOptions()
         private var containerCustomizations = emptyMap<BigDataService, ContainerCustomizationOptions>()
@@ -160,6 +226,14 @@ class BigDataTestKit private constructor(
         fun withIcebergRestCatalog(
             options: IcebergRestCatalogOptions = IcebergRestCatalogOptions(enabled = true),
         ): Builder = apply { icebergRestCatalog = options.copy(enabled = true) }
+
+        fun withTrino(options: TrinoOptions = TrinoOptions(enabled = true)): Builder =
+            apply {
+                trino = options.copy(enabled = true)
+                if (!hiveMetastore.enabled) {
+                    hiveMetastore = HiveMetastoreOptions(enabled = true)
+                }
+            }
 
         fun withPortBindings(options: PortBindingOptions): Builder = apply { portBindings = options }
 
@@ -242,6 +316,7 @@ class BigDataTestKit private constructor(
             s3 = s3,
             fakeGcs = fakeGcs,
             icebergRestCatalog = icebergRestCatalog,
+            trino = trino,
             portBindings = portBindings,
             containerLogs = containerLogs,
             containerCustomizations = containerCustomizations,
