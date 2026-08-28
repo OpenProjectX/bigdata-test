@@ -251,6 +251,7 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         val includeHadoop = runtime.includeHadoop.get() || detected.hadoop
         val includeKafkaAvro = runtime.includeKafkaAvro.get() || detected.kafkaAvro
         val includeSpark = runtime.includeSpark.get() || detected.spark
+        val includeTrinoJdbc = runtime.includeTrinoJdbc.get() || detected.trinoJdbc
 
         if (includeHadoop || includeSpark) {
             dependencies.add(configuration.name, "org.apache.hadoop:hadoop-client-api:${runtime.hadoopVersion.get()}")
@@ -277,6 +278,9 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             dependencies.add(configuration.name, "org.apache.iceberg:iceberg-hive-metastore:${runtime.icebergVersion.get()}")
             dependencies.add(configuration.name, "org.apache.iceberg:iceberg-aws-bundle:${runtime.icebergVersion.get()}")
             dependencies.add(configuration.name, "javax.servlet:javax.servlet-api:4.0.1")
+        }
+        if (includeTrinoJdbc) {
+            dependencies.add(configuration.name, "io.trino:trino-jdbc:${runtime.trinoVersion.get()}")
         }
     }
 
@@ -320,6 +324,9 @@ class BigDataTestGradlePlugin : Plugin<Project> {
                 spark = needs.spark || text.contains("sparkSqlPreparation") ||
                     text.contains("type = \"spark-sql-prep\"") ||
                     text.contains("type = \"spark-sql-preparation\""),
+                trinoJdbc = needs.trinoJdbc || text.contains("trinoSqlPreparation") ||
+                    text.contains("type = \"trino-sql-prep\"") ||
+                    text.contains("type = \"trino-sql-preparation\""),
             )
         }
         return needs
@@ -492,5 +499,6 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         val hadoop: Boolean = false,
         val kafkaAvro: Boolean = false,
         val spark: Boolean = false,
+        val trinoJdbc: Boolean = false,
     )
 }

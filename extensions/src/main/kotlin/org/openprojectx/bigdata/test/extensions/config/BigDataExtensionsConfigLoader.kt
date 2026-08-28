@@ -25,6 +25,7 @@ import org.openprojectx.bigdata.test.extensions.objectstore.ObjectStoreUploadSou
 import org.openprojectx.bigdata.test.extensions.objectstore.S3BucketExtension
 import org.openprojectx.bigdata.test.extensions.objectstore.S3UploadExtension
 import org.openprojectx.bigdata.test.extensions.spark.SparkSqlPreparationExtensionProvider
+import org.openprojectx.bigdata.test.extensions.trino.TrinoSqlPreparationExtensionProvider
 import io.ous.jtoml.JToml
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -218,6 +219,7 @@ class BigDataExtensionsConfigLoader(
     private companion object {
         val builtInProviders = listOf<BigDataExtensionProvider>(
             SparkSqlPreparationExtensionProvider,
+            TrinoSqlPreparationExtensionProvider,
         )
     }
 }

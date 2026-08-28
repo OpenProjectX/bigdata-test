@@ -18,6 +18,8 @@ import org.openprojectx.bigdata.test.extensions.objectstore.S3BucketExtension
 import org.openprojectx.bigdata.test.extensions.objectstore.S3UploadExtension
 import org.openprojectx.bigdata.test.extensions.spark.SparkSqlPreparationExtension
 import org.openprojectx.bigdata.test.extensions.spark.SparkSqlPreparationStatement
+import org.openprojectx.bigdata.test.extensions.trino.TrinoSqlPreparationExtension
+import org.openprojectx.bigdata.test.extensions.trino.TrinoSqlPreparationStatement
 import java.util.function.Consumer
 
 class BigDataExtensionsBuilder {
@@ -106,6 +108,14 @@ class BigDataExtensionsBuilder {
 
     fun sparkSqlPreparation(configure: Consumer<SparkSqlPreparationBuilder>) {
         extensions += SparkSqlPreparationBuilder().also { configure.accept(it) }.build()
+    }
+
+    fun trinoSqlPreparation(configure: TrinoSqlPreparationBuilder.() -> Unit) {
+        extensions += TrinoSqlPreparationBuilder().apply(configure).build()
+    }
+
+    fun trinoSqlPreparation(configure: Consumer<TrinoSqlPreparationBuilder>) {
+        extensions += TrinoSqlPreparationBuilder().also { configure.accept(it) }.build()
     }
 
     internal fun build(): List<BigDataExtension> = extensions.toList()
@@ -348,6 +358,37 @@ class SparkSqlPreparationBuilder {
             closeHadoopFileSystems = closeHadoopFileSystems,
             useKitEndpoints = useKitEndpoints,
             configs = configs.toMap(),
+            sql = sql.toList(),
+        )
+}
+
+class TrinoSqlPreparationBuilder {
+    var id: String = "trino-sql-prep"
+    var instance: String = "default"
+    var user: String = "bigdata-test"
+    var catalog: String? = null
+    var schema: String? = null
+    var source: String = "bigdata-test"
+    var queryTimeoutSeconds: Int = 60
+    private val sql = mutableListOf<TrinoSqlPreparationStatement>()
+
+    fun statement(sql: String) {
+        this.sql += TrinoSqlPreparationStatement(statement = sql)
+    }
+
+    fun script(resource: String) {
+        sql += TrinoSqlPreparationStatement(resource = resource)
+    }
+
+    internal fun build(): TrinoSqlPreparationExtension =
+        TrinoSqlPreparationExtension(
+            id = id,
+            instance = instance,
+            user = user,
+            catalog = catalog,
+            schema = schema,
+            source = source,
+            queryTimeoutSeconds = queryTimeoutSeconds,
             sql = sql.toList(),
         )
 }

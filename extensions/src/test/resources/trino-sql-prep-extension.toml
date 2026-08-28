@@ -1,0 +1,14 @@
+[[extensions]]
+type = "trino-sql-prep"
+id = "prepare-trino-views"
+user = "integration-user"
+catalog = "iceberg"
+schema = "demo"
+source = "extension-test"
+queryTimeoutSeconds = 30
+statements = [
+  "CREATE VIEW events_view AS SELECT * FROM events",
+]
+scripts = [
+  "classpath:sql/create_trino_views.sql",
+]

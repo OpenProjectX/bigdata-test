@@ -47,6 +47,7 @@ dependencies {
     testImplementation(libs.junitJupiterApi)
     testRuntimeOnly(libs.junitJupiterEngine)
     testRuntimeOnly(libs.junitPlatformLauncher)
+    testRuntimeOnly(libs.trinoJdbc)
 }
 
 val apacheSparkVersion = libs.versions.spark.get()
@@ -131,10 +132,12 @@ javadns {
 
 tasks.named<Test>("test") {
     useSparkRuntimeClasspath(clouderaSparkRuntimeClasspath, "cloudera")
+    filter.excludeTestsMatching("org.openprojectx.bigdata.test.example.spark.SparkTrinoIcebergViewExample")
 }
 
 val sparkBigDataTestClass = "org.openprojectx.bigdata.test.example.spark.SparkBigDataTestExample"
 val sparkIcebergRestS3TestClass = "org.openprojectx.bigdata.test.example.spark.SparkIcebergRestS3Example"
+val sparkTrinoIcebergViewTestClass = "org.openprojectx.bigdata.test.example.spark.SparkTrinoIcebergViewExample"
 val sparkCommonConfig = "classpath:spark-bigdata-test-common.toml"
 
 tasks.register<Test>("sparkIcebergRestS3Test") {
@@ -144,6 +147,15 @@ tasks.register<Test>("sparkIcebergRestS3Test") {
     useSparkRuntimeClasspath(apacheSparkRuntimeClasspath, "apache")
     useJUnitPlatform()
     filter.includeTestsMatching(sparkIcebergRestS3TestClass)
+}
+
+tasks.register<Test>("sparkTrinoIcebergViewTest") {
+    description = "Runs Spark SQL preparation followed by a Trino view over an HMS-backed Iceberg table on S3."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    useSparkRuntimeClasspath(apacheSparkRuntimeClasspath, "apache")
+    useJUnitPlatform()
+    filter.includeTestsMatching(sparkTrinoIcebergViewTestClass)
 }
 
 fun registerSparkMatrixTest(
@@ -268,7 +280,7 @@ listOf(
 }
 
 tasks.register("sparkBigDataMatrixTest") {
-    description = "Runs all Spark dependency/HMS/Kerberos combinations and the Iceberg REST/S3 smoke test."
+    description = "Runs all Spark dependency/HMS/Kerberos combinations and the Iceberg REST/S3/Trino smoke tests."
     group = "verification"
     dependsOn(
         sparkApacheDepsApacheHmsTest,
@@ -280,6 +292,7 @@ tasks.register("sparkBigDataMatrixTest") {
         sparkClouderaDepsClouderaHmsTest,
         sparkClouderaDepsClouderaHmsKerberosTest,
         "sparkIcebergRestS3Test",
+        "sparkTrinoIcebergViewTest",
     )
 }
 

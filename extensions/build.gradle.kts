@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
-description = "Config-driven bigdata-test extensions for Hadoop credential providers, Kafka, and Avro"
+description = "Config-driven bigdata-test extensions for data, credentials, Spark SQL, and Trino SQL"
 
 val shadedRuntime by configurations.creating {
     isCanBeConsumed = false
@@ -71,6 +71,7 @@ dependencies {
     shadedRuntime(libs.icebergHiveMetastore)
     shadedRuntime(libs.icebergAwsBundle)
     shadedRuntime(libs.servletApi)
+    shadedRuntime(libs.trinoJdbc)
     shadedRuntime(libs.kotlinxSerialization)
     shadedRuntime(libs.jtoml)
 
@@ -84,6 +85,7 @@ dependencies {
     testImplementation(libs.googleCloudStorage)
     testImplementation(libs.sparkSql)
     testImplementation(libs.sparkHive)
+    testRuntimeOnly(libs.trinoJdbc)
     testRuntimeOnly(libs.junitJupiterEngine)
     testRuntimeOnly(libs.junitPlatformLauncher)
     testRuntimeOnly(libs.slf4jSimple)

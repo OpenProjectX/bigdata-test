@@ -30,6 +30,7 @@ awsSdk = "2.41.5"
 mysqlConnector = "8.4.0"
 servletApi = "4.0.1"
 jtoml = "2.0.0"
+trino = "483"
 
 [libraries]
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -79,6 +80,7 @@ awsSdkS3TransferManager = { module = "software.amazon.awssdk:s3-transfer-manager
 servletApi = { module = "javax.servlet:javax.servlet-api", version.ref = "servletApi" }
 mysqlConnector = { module = "com.mysql:mysql-connector-j", version.ref = "mysqlConnector" }
 jtoml = { module = "io.ous:jtoml", version.ref = "jtoml" }
+trinoJdbc = { module = "io.trino:trino-jdbc", version.ref = "trino" }
 
 # Libraries can be bundled together for easier import
 [bundles]

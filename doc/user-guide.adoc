@@ -2088,6 +2088,70 @@ Outputs:
 
 The cleanup defaults are intentionally conservative for user application isolation: `stopAfterRun = true`, `clearSparkSessions = true`, and `closeHadoopFileSystems = true`. They reduce pollution of the test JVM, but in-process Spark is still less isolated than a separate Spark container because Spark, Hadoop, and connector libraries share the same JVM classpath as the test.
 
+=== Trino SQL Preparation Extension
+
+The `trino-sql-prep` extension connects to the managed Trino service through its JDBC endpoint after all containers have started. It executes statements and classpath SQL scripts in declaration order. This makes it suitable for work that should follow Spark preparation, such as creating Trino views over Iceberg tables that Spark registered in the shared HMS.
+
+[source,toml]
+----
+[[extensions]]
+type = "spark-sql-prep"
+id = "create-iceberg-table"
+statements = [
+  "CREATE TABLE demo.events USING iceberg AS SELECT 1 AS id",
+]
+
+[[extensions]]
+type = "trino-sql-prep"
+id = "create-trino-view"
+user = "integration-user"
+catalog = "iceberg"
+schema = "demo"
+source = "bigdata-test"
+queryTimeoutSeconds = 60
+statements = [
+  "CREATE OR REPLACE VIEW events_view AS SELECT * FROM events",
+]
+scripts = [
+  "classpath:sql/create_trino_views.sql",
+]
+----
+
+The matching Trino service catalog must point at the same HMS and object store used by Spark. The built-in Trino service wires its catalog to the selected HMS and adds native S3 settings when S3 is enabled. Extension declaration order matters: the Spark extension must appear before the Trino extension when Trino SQL depends on Spark-created metadata.
+
+Programmatic configuration supports values generated for a test run:
+
+[source,kotlin]
+----
+extensions.trinoSqlPreparation {
+    id = "create-trino-view"
+    catalog = "iceberg"
+    schema = "demo_$suffix"
+    statement("CREATE VIEW events_view AS SELECT * FROM events")
+}
+----
+
+[source,java]
+----
+extensions.trinoSqlPreparation(trino -> {
+    trino.setId("create-trino-view");
+    trino.setCatalog("iceberg");
+    trino.setSchema("demo");
+    trino.statement("CREATE VIEW events_view AS SELECT * FROM events");
+});
+----
+
+The extension publishes `<id>.engine = trino-jdbc` and `<id>.executed-statements`. `TrinoSqlClient` is also public for assertions and ad hoc SQL; construct it from `kit.endpoint(BigDataService.TRINO).property("trino.jdbc.url")` and close it after use.
+
+Direct JUnit users of the thin `extensions` artifact must provide the JDBC driver on the test runtime, for example `testRuntimeOnly("io.trino:trino-jdbc:483")`. The Gradle plugin detects `trino-sql-prep` and supplies the driver on its isolated extension runtime; its shaded runtime artifact already contains the driver.
+
+The executable example creates an HMS-backed Iceberg table and data on S3 with Spark, creates a Trino view, then queries that view through JDBC:
+
+[source,shell]
+----
+GRADLE_USER_HOME=/data/.gradle ./gradlew :example:spark:sparkTrinoIcebergViewTest
+----
+
 === Extension Lifecycle
 
 Extensions implement `BigDataExtension` and receive lifecycle events:
@@ -2329,6 +2393,7 @@ If you need to debug or override individual runtime dependencies, disable the sh
 * `[s3Jceks]` enables Hadoop client/runtime/AWS dependencies.
 * `[kafkaAvro]` enables Confluent Schema Registry, Kafka Avro, and Avro dependencies.
 * `sparkSqlPreparation` enables Spark SQL, Spark Hive, and Hadoop dependencies.
+* `trinoSqlPreparation` or `type = "trino-sql-prep"` enables the Trino JDBC driver.
 
 Override dependency versions with the DSL:
 
@@ -2343,6 +2408,7 @@ bigDataTest {
         avroVersion.set("1.12.1")
         lz4Version.set("1.10.1")
         awsSdkVersion.set("2.41.5")
+        trinoVersion.set("483")
     }
 }
 ----
@@ -2370,6 +2436,7 @@ bigDataTest {
         includeHadoop.set(true)
         includeKafkaAvro.set(true)
         includeSpark.set(true)
+        includeTrinoJdbc.set(true)
     }
 }
 ----
@@ -2388,7 +2455,7 @@ bigDataTest {
 
 With `useShadedArtifact = true`, the plugin resolves `org.openprojectx.bigdata.test.core:extensions:<version>:runtime@jar` into `bigDataTestExtensionRuntime` and skips adding separate Hadoop, Spark, Iceberg, Kafka, and Avro extension runtime dependencies.
 
-The normal `extensions` artifact does not package Spark, Hadoop, Kafka, Log4j, or SLF4J implementations; those dependencies are supplied by the plugin-owned runtime configuration when needed. The shaded `extensions:<version>:runtime` artifact does package extension runtime dependencies, including logging libraries pulled in transitively by Spark such as `slf4j-api`, `log4j-api`, `log4j-core`, and `log4j-slf4j2-impl`. Jackson is relocated inside this shaded artifact to avoid collisions with Jackson versions used by the application or Gradle build logic.
+The normal `extensions` artifact does not package Spark, Hadoop, Kafka, Trino JDBC, Log4j, or SLF4J implementations; those dependencies are supplied by the plugin-owned runtime configuration when needed. The shaded `extensions:<version>:runtime` artifact does package extension runtime dependencies, including the Trino JDBC driver and logging libraries pulled in transitively by Spark such as `slf4j-api`, `log4j-api`, `log4j-core`, and `log4j-slf4j2-impl`. Jackson is relocated inside this shaded artifact to avoid collisions with Jackson versions used by the application or Gradle build logic.
 
 === Gradle Plugin Customization Surface
 
@@ -2403,7 +2470,7 @@ The Gradle plugin has three separate classpath/resource concepts:
 |These dependencies are used by the app and tests. They are not added to `bigDataTestRun` or extension provisioning.
 
 |Extension runtime classpath
-|Use the `bigDataTestExtensionRuntime` configuration, or set `extensionRuntime.useShadedArtifact.set(false)` and configure `hadoopVersion`, `sparkVersion`, `icebergVersion`, `confluentVersion`, `avroVersion`, `awsSdkVersion`, and `lz4Version`.
+|Use the `bigDataTestExtensionRuntime` configuration, or set `extensionRuntime.useShadedArtifact.set(false)` and configure `hadoopVersion`, `sparkVersion`, `icebergVersion`, `confluentVersion`, `avroVersion`, `awsSdkVersion`, `trinoVersion`, and `lz4Version`.
 |This classpath is used only by bigdata-test extension execution. Dependencies added here can affect `spark-sql-prep`, JCEKS generation, Kafka Avro seeding, and other extensions.
 
 |Extension config and SQL/resource lookup

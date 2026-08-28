@@ -1,0 +1,16 @@
+[services]
+hiveMetastore = true
+s3 = true
+trino = true
+
+[trino]
+catalogName = "iceberg"
+
+[trino.catalogProperties]
+"connector.name" = "iceberg"
+"iceberg.catalog.type" = "hive_metastore"
+
+[containerLogs]
+mode = "FILE"
+directory = "build/bigdata-test-container-logs"
+append = false
