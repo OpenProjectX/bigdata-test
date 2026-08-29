@@ -3,5 +3,6 @@ s3 = true
 icebergRestCatalog = true
 
 [icebergRestCatalog]
+catalogName = "example_catalog"
 warehouse = "s3://iceberg-rest-example/warehouse"
-ioImpl = "org.apache.iceberg.aws.s3.S3FileIO"
+s3RoleArn = "arn:aws:iam::000000000000:role/iceberg-rest"

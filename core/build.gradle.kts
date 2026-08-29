@@ -7,6 +7,7 @@ dependencies {
     implementation(libs.bouncycastlePkix)
     implementation(libs.bouncycastleProvider)
     implementation(libs.jtoml)
+    implementation(libs.kotlinxSerialization)
     api(libs.testcontainers)
     api(libs.testcontainersPostgresql)
     api(libs.testcontainersMysql)

@@ -159,31 +159,27 @@ data class BigDataTestKafkaConfig(
 }
 
 data class BigDataTestIcebergRestCatalogConfig(
+    val catalogName: String? = null,
     val warehouse: String? = null,
-    val catalogBackend: String? = null,
-    val uri: String? = null,
-    val jdbcDriver: String? = null,
-    val jdbcUser: String? = null,
-    val jdbcPassword: String? = null,
-    val ioImpl: String? = null,
-    val credentialProviders: String? = null,
+    val realm: String? = null,
+    val clientId: String? = null,
+    val clientSecret: String? = null,
+    val scope: String? = null,
     val s3RoleArn: String? = null,
     val s3ExternalId: String? = null,
-    val s3TokenServiceEndpoint: String? = null,
+    val startupTimeoutSeconds: Int? = null,
 ) {
     fun merge(override: BigDataTestIcebergRestCatalogConfig): BigDataTestIcebergRestCatalogConfig =
         BigDataTestIcebergRestCatalogConfig(
+            catalogName = override.catalogName ?: catalogName,
             warehouse = override.warehouse ?: warehouse,
-            catalogBackend = override.catalogBackend ?: catalogBackend,
-            uri = override.uri ?: uri,
-            jdbcDriver = override.jdbcDriver ?: jdbcDriver,
-            jdbcUser = override.jdbcUser ?: jdbcUser,
-            jdbcPassword = override.jdbcPassword ?: jdbcPassword,
-            ioImpl = override.ioImpl ?: ioImpl,
-            credentialProviders = override.credentialProviders ?: credentialProviders,
+            realm = override.realm ?: realm,
+            clientId = override.clientId ?: clientId,
+            clientSecret = override.clientSecret ?: clientSecret,
+            scope = override.scope ?: scope,
             s3RoleArn = override.s3RoleArn ?: s3RoleArn,
             s3ExternalId = override.s3ExternalId ?: s3ExternalId,
-            s3TokenServiceEndpoint = override.s3TokenServiceEndpoint ?: s3TokenServiceEndpoint,
+            startupTimeoutSeconds = override.startupTimeoutSeconds ?: startupTimeoutSeconds,
         )
 }
 
@@ -512,17 +508,15 @@ class BigDataTestConfigLoader(
                 startupTimeoutSeconds = kafka.int("startupTimeoutSeconds"),
             ),
             icebergRestCatalog = BigDataTestIcebergRestCatalogConfig(
+                catalogName = icebergRestCatalog.string("catalogName"),
                 warehouse = icebergRestCatalog.string("warehouse"),
-                catalogBackend = icebergRestCatalog.string("catalogBackend"),
-                uri = icebergRestCatalog.string("uri"),
-                jdbcDriver = icebergRestCatalog.string("jdbcDriver"),
-                jdbcUser = icebergRestCatalog.string("jdbcUser"),
-                jdbcPassword = icebergRestCatalog.string("jdbcPassword"),
-                ioImpl = icebergRestCatalog.string("ioImpl"),
-                credentialProviders = icebergRestCatalog.string("credentialProviders"),
+                realm = icebergRestCatalog.string("realm"),
+                clientId = icebergRestCatalog.string("clientId"),
+                clientSecret = icebergRestCatalog.string("clientSecret"),
+                scope = icebergRestCatalog.string("scope"),
                 s3RoleArn = icebergRestCatalog.string("s3RoleArn"),
                 s3ExternalId = icebergRestCatalog.string("s3ExternalId"),
-                s3TokenServiceEndpoint = icebergRestCatalog.string("s3TokenServiceEndpoint"),
+                startupTimeoutSeconds = icebergRestCatalog.int("startupTimeoutSeconds"),
             ),
             trino = BigDataTestTrinoConfig(
                 catalogName = trino.string("catalogName"),

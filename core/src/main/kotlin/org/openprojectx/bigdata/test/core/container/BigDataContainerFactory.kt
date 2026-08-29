@@ -1,5 +1,12 @@
 package org.openprojectx.bigdata.test.core.container
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.openprojectx.bigdata.test.core.BigDataEndpoint
 import org.openprojectx.bigdata.test.core.BigDataContainerEndpoint
 import org.openprojectx.bigdata.test.core.BigDataHealthCheckMode
@@ -34,6 +41,10 @@ import org.testcontainers.utility.MountableFile
 import java.io.OutputStreamWriter
 import java.io.Closeable
 import java.net.URI
+import java.net.URLEncoder
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
@@ -71,6 +82,7 @@ internal class BigDataContainerFactory(
             ?: Files.createTempDirectory("bigdata-test-hms-client-")
     }
     private val tlsMaterial: TlsMaterial by lazy { TlsMaterial(options.tls.copy(enabled = true)) }
+    private var s3HostEndpoint: String? = null
 
     fun attachContainer(container: GenericContainer<*>, aliases: Array<out String>) {
         container.withNetwork(network)
@@ -112,7 +124,7 @@ internal class BigDataContainerFactory(
             BigDataService.KAFKA_UI -> mapOf("http" to 8080)
             BigDataService.S3 -> mapOf("http" to 4566)
             BigDataService.FAKE_GCS -> mapOf("http" to fakeGcsServicePort())
-            BigDataService.ICEBERG_REST_CATALOG -> mapOf("http" to 9001)
+            BigDataService.ICEBERG_REST_CATALOG -> mapOf("http" to 8181, "management" to 8182)
             BigDataService.TRINO -> mapOf("http" to 8080)
         }
         return BigDataContainerEndpoint(service, host, ports, instanceName)
@@ -872,6 +884,7 @@ internal class BigDataContainerFactory(
                 hostPort = tlsHostPort(options.portBindings.s3Tls),
             )
             val endpoint = tlsEndpoint.url ?: "http://${container.host}:${container.getMappedPort(4566)}"
+            s3HostEndpoint = endpoint
             BigDataEndpoint(
                 service = BigDataService.S3,
                 host = tlsEndpoint.host ?: container.host,
@@ -936,54 +949,38 @@ internal class BigDataContainerFactory(
 
     private fun icebergRestCatalog(): BigDataServiceContainer {
         val catalog = options.icebergRestCatalog
-        val internalNoProxy = internalNoProxyHosts(
-            "iceberg-rest-catalog",
-            if (options.s3.enabled) "s3" else null,
-            catalog.s3TokenServiceEndpoint?.let { runCatching { URI.create(it).host }.getOrNull() },
-        )
+        require(catalog.startupTimeoutSeconds > 0) { "Iceberg REST catalog startupTimeoutSeconds must be positive" }
+        require(catalog.catalogName.matches(Regex("[A-Za-z][A-Za-z0-9_-]*"))) {
+            "Polaris catalogName must start with a letter and contain only letters, digits, '-' or '_'"
+        }
+        require(catalog.realm.isNotBlank()) { "Polaris realm must not be blank" }
+        require(catalog.clientId.isNotBlank()) { "Polaris clientId must not be blank" }
+        require(catalog.clientSecret.isNotBlank()) { "Polaris clientSecret must not be blank" }
+        require(catalog.scope.isNotBlank()) { "Polaris scope must not be blank" }
+        val internalNoProxy = internalNoProxyHosts("iceberg-rest-catalog", if (options.s3.enabled) "s3" else null)
         val container = GenericBigDataContainer(catalog.image)
             .withNetwork(network)
             .withNetworkAliases("iceberg-rest-catalog")
-            .withServicePort(9001, options.portBindings.hostPort(9001, options.portBindings.icebergRestCatalog))
-            .withEnv("GRAVITINO_ICEBERG_REST_HOST", "0.0.0.0")
-            .withEnv("GRAVITINO_ICEBERG_REST_HTTP_PORT", "9001")
-            .withEnv("GRAVITINO_ICEBERG_REST_WAREHOUSE", catalog.warehouse)
-            .withEnv("GRAVITINO_ICEBERG_REST_CATALOG_BACKEND", catalog.catalogBackend)
-            .withEnv("GRAVITINO_ICEBERG_REST_URI", catalog.uri)
-            .withEnv("GRAVITINO_ICEBERG_REST_JDBC_DRIVER", catalog.jdbcDriver)
-            .withEnv("GRAVITINO_ICEBERG_REST_JDBC_USER", catalog.jdbcUser)
-            .withEnv("GRAVITINO_ICEBERG_REST_JDBC_PASSWORD", catalog.jdbcPassword)
+            .withServicePort(8181, options.portBindings.hostPort(8181, options.portBindings.icebergRestCatalog))
+            .apply { addExposedPort(8182) }
+            .withEnv("POLARIS_BOOTSTRAP_CREDENTIALS", "${catalog.realm},${catalog.clientId},${catalog.clientSecret}")
+            .withEnv("POLARIS_REALM_CONTEXT_REALMS", catalog.realm)
+            .withEnv("QUARKUS_OTEL_SDK_DISABLED", "true")
+            .withEnv("polaris.features.\"ALLOW_INSECURE_STORAGE_TYPES\"", "true")
+            .withEnv("polaris.features.\"SUPPORTED_CATALOG_STORAGE_TYPES\"", "[\"FILE\",\"S3\",\"GCS\",\"AZURE\"]")
+            .withEnv("polaris.readiness.ignore-severe-issues", "true")
+            .withEnv("AWS_REGION", "us-east-1")
+            .withEnv("AWS_ACCESS_KEY_ID", "test")
+            .withEnv("AWS_SECRET_ACCESS_KEY", "test")
             .withEnv("NO_PROXY", internalNoProxy)
             .withEnv("no_proxy", internalNoProxy)
             .waitingFor(
-                Wait.forHttp("/iceberg/v1/config")
-                    .forPort(9001)
+                Wait.forHttp("/q/health")
+                    .forPort(8182)
                     .forStatusCode(200)
-                    .withStartupTimeout(Duration.ofMinutes(3)),
+                    .withStartupTimeout(Duration.ofSeconds(catalog.startupTimeoutSeconds)),
             )
-        catalog.ioImpl?.takeIf(String::isNotBlank)?.let {
-            container.withEnv("GRAVITINO_ICEBERG_REST_IO_IMPL", it)
-        }
-        catalog.credentialProviders?.takeIf(String::isNotBlank)?.let {
-            container.withEnv("GRAVITINO_ICEBERG_REST_CREDENTIAL_PROVIDERS", it)
-        }
-        catalog.s3RoleArn?.takeIf(String::isNotBlank)?.let {
-            container.withEnv("GRAVITINO_ICEBERG_REST_S3_ROLE_ARN", it)
-        }
-        catalog.s3ExternalId?.takeIf(String::isNotBlank)?.let {
-            container.withEnv("GRAVITINO_ICEBERG_REST_S3_EXTERNAL_ID", it)
-        }
-        catalog.s3TokenServiceEndpoint?.takeIf(String::isNotBlank)?.let {
-            container.withEnv("GRAVITINO_ICEBERG_REST_S3_TOKEN_SERVICE_ENDPOINT", it)
-        }
-        if (options.s3.enabled) {
-            container
-                .withEnv("GRAVITINO_ICEBERG_REST_S3_ENDPOINT", "http://s3:4566")
-                .withEnv("GRAVITINO_ICEBERG_REST_S3_ACCESS_KEY", "test")
-                .withEnv("GRAVITINO_ICEBERG_REST_S3_SECRET_KEY", "test")
-                .withEnv("GRAVITINO_ICEBERG_REST_S3_REGION", "us-east-1")
-                .withEnv("GRAVITINO_ICEBERG_REST_S3_PATH_STYLE_ACCESS", "true")
-        }
+        var rootToken: String? = null
 
         return BigDataServiceContainer(
             BigDataService.ICEBERG_REST_CATALOG,
@@ -991,28 +988,136 @@ internal class BigDataContainerFactory(
                 "iceberg-rest-catalog",
                 applyContainerCustomizations(BigDataService.ICEBERG_REST_CATALOG, container),
             ),
+            afterStart = {
+                val apiBaseUrl = "http://${container.host}:${container.getMappedPort(8181)}"
+                rootToken = obtainPolarisToken(apiBaseUrl, catalog)
+                createPolarisCatalog(apiBaseUrl, rootToken!!, catalog)
+            },
         ) {
             val tlsEndpoint = httpTlsEndpoint(
                 name = "iceberg-rest-catalog",
                 tls = catalog.tls,
                 backendHost = "iceberg-rest-catalog",
-                backendPort = 9001,
+                backendPort = 8181,
                 hostPort = tlsHostPort(options.portBindings.icebergRestCatalogTls),
             )
-            val baseUrl = tlsEndpoint.url ?: "http://${container.host}:${container.getMappedPort(9001)}"
-            val catalogUri = "$baseUrl/iceberg"
+            val baseUrl = tlsEndpoint.url ?: "http://${container.host}:${container.getMappedPort(8181)}"
+            val catalogUri = "$baseUrl/api/catalog"
+            val tokenUri = "$baseUrl/api/catalog/v1/oauth/tokens"
+            val credential = "${catalog.clientId}:${catalog.clientSecret}"
             BigDataEndpoint(
                 service = BigDataService.ICEBERG_REST_CATALOG,
                 host = tlsEndpoint.host ?: container.host,
-                ports = mapOf("http" to container.getMappedPort(9001)) + tlsEndpoint.port("https"),
+                ports = mapOf(
+                    "http" to container.getMappedPort(8181),
+                    "management" to container.getMappedPort(8182),
+                ) + tlsEndpoint.port("https"),
                 properties = mapOf(
                     "iceberg.rest.uri" to catalogUri,
+                    "iceberg.rest.warehouse" to catalog.catalogName,
+                    "iceberg.rest.credential" to credential,
+                    "iceberg.rest.scope" to catalog.scope,
+                    "iceberg.rest.oauth2-server-uri" to tokenUri,
+                    "iceberg.rest.token" to checkNotNull(rootToken),
+                    "iceberg.rest.realm" to catalog.realm,
                     "spark.sql.catalog.rest.uri" to catalogUri,
+                    "spark.sql.catalog.rest.warehouse" to catalog.catalogName,
+                    "spark.sql.catalog.rest.credential" to credential,
+                    "spark.sql.catalog.rest.scope" to catalog.scope,
+                    "spark.sql.catalog.rest.oauth2-server-uri" to tokenUri,
+                    "spark.sql.catalog.rest.header.Polaris-Realm" to catalog.realm,
+                    "spark.sql.catalog.rest.header.X-Iceberg-Access-Delegation" to "vended-credentials",
                     "bigdata.test.iceberg-rest-catalog.uri" to catalogUri,
+                    "bigdata.test.iceberg-rest-catalog.catalog-name" to catalog.catalogName,
                     "bigdata.test.iceberg-rest-catalog.internal-uri" to
-                        "http://iceberg-rest-catalog:9001/iceberg",
+                        "http://iceberg-rest-catalog:8181/api/catalog",
                 ) + tlsEndpoint.jvmProperties(),
             )
+        }
+    }
+
+    private fun obtainPolarisToken(baseUrl: String, catalog: org.openprojectx.bigdata.test.core.IcebergRestCatalogOptions): String {
+        val form = mapOf(
+            "grant_type" to "client_credentials",
+            "client_id" to catalog.clientId,
+            "client_secret" to catalog.clientSecret,
+            "scope" to catalog.scope,
+        ).entries.joinToString("&") { (key, value) ->
+            "${URLEncoder.encode(key, StandardCharsets.UTF_8)}=${URLEncoder.encode(value, StandardCharsets.UTF_8)}"
+        }
+        val request = HttpRequest.newBuilder(URI.create("$baseUrl/api/catalog/v1/oauth/tokens"))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .POST(HttpRequest.BodyPublishers.ofString(form))
+            .build()
+        val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
+        check(response.statusCode() in 200..299) {
+            "Polaris token request failed with HTTP ${response.statusCode()}: ${response.body()}"
+        }
+        return Json.parseToJsonElement(response.body()).jsonObject["access_token"]?.jsonPrimitive?.content
+            ?: error("Polaris token response did not contain access_token: ${response.body()}")
+    }
+
+    private fun createPolarisCatalog(
+        baseUrl: String,
+        token: String,
+        catalog: org.openprojectx.bigdata.test.core.IcebergRestCatalogOptions,
+    ) {
+        val warehouse = catalog.warehouse.trimEnd('/')
+        val storage = buildJsonObject {
+            when {
+                warehouse.startsWith("s3://") -> {
+                    require(options.s3.enabled) { "A Polaris S3 warehouse requires the s3 service" }
+                    put("storageType", "S3")
+                    put("endpoint", checkNotNull(s3HostEndpoint) { "S3 host endpoint is not available" })
+                    put("endpointInternal", "http://s3:4566")
+                    put("stsEndpoint", "http://s3:4566")
+                    put("pathStyleAccess", true)
+                    put("region", "us-east-1")
+                    put("kmsUnavailable", true)
+                    catalog.s3RoleArn?.takeIf(String::isNotBlank)?.let { put("roleArn", it) }
+                    catalog.s3ExternalId?.takeIf(String::isNotBlank)?.let { put("externalId", it) }
+                }
+                warehouse.startsWith("file:") -> put("storageType", "FILE")
+                else -> error("Polaris warehouse must use a supported file: or s3:// URI: $warehouse")
+            }
+            put("allowedLocations", JsonArray(listOf(JsonPrimitive(warehouse))))
+        }
+        val payload = buildJsonObject {
+            put("catalog", buildJsonObject {
+                put("name", catalog.catalogName)
+                put("type", "INTERNAL")
+                put("readOnly", false)
+                put("properties", buildJsonObject { put("default-base-location", warehouse) })
+                put("storageConfigInfo", storage)
+            })
+        }
+        val request = HttpRequest.newBuilder(URI.create("$baseUrl/api/management/v1/catalogs"))
+            .header("Authorization", "Bearer $token")
+            .header("Polaris-Realm", catalog.realm)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(payload.toString()))
+            .build()
+        val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
+        check(response.statusCode() in 200..299) {
+            "Polaris catalog creation failed with HTTP ${response.statusCode()}: ${response.body()}"
+        }
+
+        val grant = buildJsonObject {
+            put("type", "catalog")
+            put("privilege", "CATALOG_MANAGE_CONTENT")
+        }
+        val grantRequest = HttpRequest.newBuilder(
+            URI.create("$baseUrl/api/management/v1/catalogs/${catalog.catalogName}/catalog-roles/catalog_admin/grants"),
+        )
+            .header("Authorization", "Bearer $token")
+            .header("Polaris-Realm", catalog.realm)
+            .header("Content-Type", "application/json")
+            .PUT(HttpRequest.BodyPublishers.ofString(grant.toString()))
+            .build()
+        val grantResponse = HttpClient.newHttpClient().send(grantRequest, HttpResponse.BodyHandlers.ofString())
+        check(grantResponse.statusCode() in 200..299) {
+            "Polaris catalog privilege grant failed with HTTP ${grantResponse.statusCode()}: ${grantResponse.body()}"
         }
     }
 
@@ -1520,7 +1625,7 @@ internal class BigDataContainerFactory(
             BigDataService.FAKE_GCS ->
                 "${httpContainerProbe("http://localhost:4588/_floci-gcp/health")} || ${httpContainerProbe("http://localhost:4443/storage/v1/b")}"
             BigDataService.ICEBERG_REST_CATALOG ->
-                httpContainerProbe("http://localhost:9001/iceberg/v1/config")
+                httpContainerProbe("http://localhost:8182/q/health")
             BigDataService.TRINO ->
                 httpContainerProbe("http://localhost:8080/v1/info")
         }

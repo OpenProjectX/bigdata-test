@@ -133,13 +133,15 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
         val s3Image: Property<String>
         val fakeGcsImage: Property<String>
         val icebergRestCatalogImage: Property<String>
+        val icebergRestCatalogCatalogName: Property<String>
         val icebergRestCatalogWarehouse: Property<String>
-        val icebergRestCatalogBackend: Property<String>
-        val icebergRestCatalogUri: Property<String>
-        val icebergRestCatalogJdbcDriver: Property<String>
-        val icebergRestCatalogJdbcUser: Property<String>
-        val icebergRestCatalogJdbcPassword: Property<String>
-        val icebergRestCatalogIoImpl: Property<String>
+        val icebergRestCatalogRealm: Property<String>
+        val icebergRestCatalogClientId: Property<String>
+        val icebergRestCatalogClientSecret: Property<String>
+        val icebergRestCatalogScope: Property<String>
+        val icebergRestCatalogS3RoleArn: Property<String>
+        val icebergRestCatalogS3ExternalId: Property<String>
+        val icebergRestCatalogStartupTimeoutSeconds: Property<Int>
         val icebergRestCatalogTlsEnabled: Property<Boolean>
         val icebergRestCatalogTlsDomain: Property<String>
 
@@ -341,13 +343,15 @@ abstract class BigDataTestGradleService : BuildService<BigDataTestGradleService.
                 IcebergRestCatalogOptions(
                     enabled = true,
                     image = parameters.icebergRestCatalogImage.get(),
+                    catalogName = parameters.icebergRestCatalogCatalogName.get(),
                     warehouse = parameters.icebergRestCatalogWarehouse.get(),
-                    catalogBackend = parameters.icebergRestCatalogBackend.get(),
-                    uri = parameters.icebergRestCatalogUri.get(),
-                    jdbcDriver = parameters.icebergRestCatalogJdbcDriver.get(),
-                    jdbcUser = parameters.icebergRestCatalogJdbcUser.get(),
-                    jdbcPassword = parameters.icebergRestCatalogJdbcPassword.get(),
-                    ioImpl = parameters.icebergRestCatalogIoImpl.get().ifBlank { null },
+                    realm = parameters.icebergRestCatalogRealm.get(),
+                    clientId = parameters.icebergRestCatalogClientId.get(),
+                    clientSecret = parameters.icebergRestCatalogClientSecret.get(),
+                    scope = parameters.icebergRestCatalogScope.get(),
+                    s3RoleArn = parameters.icebergRestCatalogS3RoleArn.get().ifBlank { null },
+                    s3ExternalId = parameters.icebergRestCatalogS3ExternalId.get().ifBlank { null },
+                    startupTimeoutSeconds = parameters.icebergRestCatalogStartupTimeoutSeconds.get().toLong(),
                     tls = HttpTlsOptions(
                         enabled = parameters.icebergRestCatalogTlsEnabled.get(),
                         domain = parameters.icebergRestCatalogTlsDomain.get(),

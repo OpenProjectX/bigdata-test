@@ -25,9 +25,16 @@ import software.amazon.awssdk.services.sts.StsClient
 class SparkIcebergRestS3Example {
     @Test
     fun `writes and reads Iceberg data through REST catalog on S3`(kit: BigDataTestKit) {
-        val restUri = kit.endpoint(BigDataService.ICEBERG_REST_CATALOG).property("iceberg.rest.uri")
+        val restEndpoint = kit.endpoint(BigDataService.ICEBERG_REST_CATALOG)
+        val restUri = restEndpoint.property("iceberg.rest.uri")
+        val catalogName = restEndpoint.property("iceberg.rest.warehouse")
+        val credential = restEndpoint.property("iceberg.rest.credential")
+        val scope = restEndpoint.property("iceberg.rest.scope")
+        val oauthUri = restEndpoint.property("iceberg.rest.oauth2-server-uri")
+        val token = restEndpoint.property("iceberg.rest.token")
+        val realm = restEndpoint.property("iceberg.rest.realm")
         val s3Endpoint = kit.endpoint(BigDataService.S3).property("aws.endpoint-url.s3")
-        val spark = createSparkSession(restUri, s3Endpoint)
+        val spark = createSparkSession(restUri, catalogName, credential, scope, oauthUri, realm)
 
         try {
             spark.sql("CREATE NAMESPACE IF NOT EXISTS rest.demo")
@@ -52,7 +59,7 @@ class SparkIcebergRestS3Example {
             assertEquals(3, rows.size)
             assertEquals(listOf("alpha", "beta", "gamma"), rows.map { it.getString(1) })
 
-            verifyVendedCredentials(restUri, s3Endpoint)
+            verifyVendedCredentials(restUri, catalogName, token, realm, s3Endpoint)
 
             val objects = listS3Objects(s3Endpoint)
             assertTrue(objects.contains("warehouse/demo/events/metadata/"), objects)
@@ -65,7 +72,14 @@ class SparkIcebergRestS3Example {
         }
     }
 
-    private fun createSparkSession(restUri: String, s3Endpoint: String): SparkSession =
+    private fun createSparkSession(
+        restUri: String,
+        catalogName: String,
+        credential: String,
+        scope: String,
+        oauthUri: String,
+        realm: String,
+    ): SparkSession =
         SparkSession.builder()
             .appName("bigdata-test-iceberg-rest-s3-example")
             .master("local[2]")
@@ -74,19 +88,27 @@ class SparkIcebergRestS3Example {
             .config("spark.sql.catalog.rest", "org.apache.iceberg.spark.SparkCatalog")
             .config("spark.sql.catalog.rest.type", "rest")
             .config("spark.sql.catalog.rest.uri", restUri)
-            .config("spark.sql.catalog.rest.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
-            .config("spark.sql.catalog.rest.s3.endpoint", s3Endpoint)
-            .config("spark.sql.catalog.rest.s3.region", "us-east-1")
-            .config("spark.sql.catalog.rest.s3.path-style-access", "true")
-            .config("spark.sql.catalog.rest.s3.access-key-id", "test")
-            .config("spark.sql.catalog.rest.s3.secret-access-key", "test")
+            .config("spark.sql.catalog.rest.warehouse", catalogName)
+            .config("spark.sql.catalog.rest.credential", credential)
+            .config("spark.sql.catalog.rest.scope", scope)
+            .config("spark.sql.catalog.rest.oauth2-server-uri", oauthUri)
+            .config("spark.sql.catalog.rest.header.Polaris-Realm", realm)
+            .config("spark.sql.catalog.rest.header.X-Iceberg-Access-Delegation", "vended-credentials")
             .config("spark.sql.defaultCatalog", "rest")
             .config("spark.sql.warehouse.dir", "file:${System.getProperty("java.io.tmpdir")}/spark-iceberg-rest")
             .getOrCreate()
 
-    private fun verifyVendedCredentials(restUri: String, s3Endpoint: String) {
+    private fun verifyVendedCredentials(
+        restUri: String,
+        catalogName: String,
+        token: String,
+        realm: String,
+        s3Endpoint: String,
+    ) {
         val response = HttpClient.newHttpClient().send(
-            HttpRequest.newBuilder(URI.create("$restUri/v1/namespaces/demo/tables/events"))
+            HttpRequest.newBuilder(URI.create("$restUri/v1/$catalogName/namespaces/demo/tables/events"))
+                .header("Authorization", "Bearer $token")
+                .header("Polaris-Realm", realm)
                 .header("X-Iceberg-Access-Delegation", "vended-credentials")
                 .GET()
                 .build(),

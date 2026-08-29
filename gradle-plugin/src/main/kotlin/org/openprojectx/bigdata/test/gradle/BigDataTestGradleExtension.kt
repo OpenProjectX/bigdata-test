@@ -170,13 +170,15 @@ abstract class BigDataTestGradleTrino @Inject constructor(objects: ObjectFactory
 
 abstract class BigDataTestGradleIcebergRestCatalog @Inject constructor(objects: ObjectFactory) {
     val image: Property<String> = objects.property(String::class.java).convention(DEFAULT_ICEBERG_REST_CATALOG_IMAGE)
-    val warehouse: Property<String> = objects.property(String::class.java).convention("/tmp/iceberg/warehouse")
-    val catalogBackend: Property<String> = objects.property(String::class.java).convention("jdbc")
-    val uri: Property<String> = objects.property(String::class.java).convention("jdbc:sqlite::memory:")
-    val jdbcDriver: Property<String> = objects.property(String::class.java).convention("org.sqlite.JDBC")
-    val jdbcUser: Property<String> = objects.property(String::class.java).convention("iceberg")
-    val jdbcPassword: Property<String> = objects.property(String::class.java).convention("iceberg")
-    val ioImpl: Property<String> = objects.property(String::class.java).convention("")
+    val catalogName: Property<String> = objects.property(String::class.java).convention("bigdata_test")
+    val warehouse: Property<String> = objects.property(String::class.java).convention("file:///tmp/iceberg/warehouse")
+    val realm: Property<String> = objects.property(String::class.java).convention("POLARIS")
+    val clientId: Property<String> = objects.property(String::class.java).convention("root")
+    val clientSecret: Property<String> = objects.property(String::class.java).convention("s3cr3t")
+    val scope: Property<String> = objects.property(String::class.java).convention("PRINCIPAL_ROLE:ALL")
+    val s3RoleArn: Property<String> = objects.property(String::class.java).convention("")
+    val s3ExternalId: Property<String> = objects.property(String::class.java).convention("")
+    val startupTimeoutSeconds: Property<Int> = objects.property(Int::class.java).convention(180)
     val tlsEnabled: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val tlsDomain: Property<String> = objects.property(String::class.java).convention("localhost")
 }

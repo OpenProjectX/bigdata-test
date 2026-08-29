@@ -17,10 +17,14 @@ import org.openprojectx.bigdata.test.junit5.BigDataTest
 class IcebergRestCatalogExampleTest {
     @Test
     fun `creates an Iceberg table in an S3 warehouse through the REST catalog`(kit: BigDataTestKit) {
-        val uri = kit.endpoint(BigDataService.ICEBERG_REST_CATALOG).property("iceberg.rest.uri")
+        val endpoint = kit.endpoint(BigDataService.ICEBERG_REST_CATALOG)
+        val uri = endpoint.property("iceberg.rest.uri")
+        val catalog = endpoint.property("iceberg.rest.warehouse")
+        val token = endpoint.property("iceberg.rest.token")
+        val realm = endpoint.property("iceberg.rest.realm")
         val client = HttpClient.newHttpClient()
         val response = client.send(
-            HttpRequest.newBuilder(URI.create("$uri/v1/config")).GET().build(),
+            authorizedRequest("$uri/v1/config?warehouse=$catalog", token, realm).GET().build(),
             HttpResponse.BodyHandlers.ofString(),
         )
 
@@ -28,7 +32,7 @@ class IcebergRestCatalogExampleTest {
         assertTrue(response.body().contains("defaults"))
 
         val create = client.send(
-            HttpRequest.newBuilder(URI.create("$uri/v1/namespaces"))
+            authorizedRequest("$uri/v1/$catalog/namespaces", token, realm)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString("""{"namespace":["smoke"]}"""))
                 .build(),
@@ -37,14 +41,14 @@ class IcebergRestCatalogExampleTest {
         assertEquals(200, create.statusCode(), create.body())
 
         val namespaces = client.send(
-            HttpRequest.newBuilder(URI.create("$uri/v1/namespaces")).GET().build(),
+            authorizedRequest("$uri/v1/$catalog/namespaces", token, realm).GET().build(),
             HttpResponse.BodyHandlers.ofString(),
         )
         assertEquals(200, namespaces.statusCode())
         assertTrue(namespaces.body().contains("smoke"))
 
         val createTable = client.send(
-            HttpRequest.newBuilder(URI.create("$uri/v1/namespaces/smoke/tables"))
+            authorizedRequest("$uri/v1/$catalog/namespaces/smoke/tables", token, realm)
                 .header("Content-Type", "application/json")
                 .POST(
                     HttpRequest.BodyPublishers.ofString(
@@ -74,7 +78,7 @@ class IcebergRestCatalogExampleTest {
         assertTrue(createTable.body().contains("s3://iceberg-rest-example/warehouse/smoke/events"))
 
         val loadTable = client.send(
-            HttpRequest.newBuilder(URI.create("$uri/v1/namespaces/smoke/tables/events")).GET().build(),
+            authorizedRequest("$uri/v1/$catalog/namespaces/smoke/tables/events", token, realm).GET().build(),
             HttpResponse.BodyHandlers.ofString(),
         )
         assertEquals(200, loadTable.statusCode(), loadTable.body())
@@ -90,4 +94,9 @@ class IcebergRestCatalogExampleTest {
         assertEquals(200, objects.statusCode(), objects.body())
         assertTrue(objects.body().contains("metadata"), objects.body())
     }
+
+    private fun authorizedRequest(uri: String, token: String, realm: String): HttpRequest.Builder =
+        HttpRequest.newBuilder(URI.create(uri))
+            .header("Authorization", "Bearer $token")
+            .header("Polaris-Realm", realm)
 }

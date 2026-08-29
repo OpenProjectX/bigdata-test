@@ -131,13 +131,15 @@ data class BigDataTestProperties(
     data class IcebergRestCatalog(
         var enabled: Boolean = false,
         var image: String = DEFAULT_ICEBERG_REST_CATALOG_IMAGE,
-        var warehouse: String = "/tmp/iceberg/warehouse",
-        var catalogBackend: String = "jdbc",
-        var uri: String = "jdbc:sqlite::memory:",
-        var jdbcDriver: String = "org.sqlite.JDBC",
-        var jdbcUser: String = "iceberg",
-        var jdbcPassword: String = "iceberg",
-        var ioImpl: String? = null,
+        var catalogName: String = "bigdata_test",
+        var warehouse: String = "file:///tmp/iceberg/warehouse",
+        var realm: String = "POLARIS",
+        var clientId: String = "root",
+        var clientSecret: String = "s3cr3t",
+        var scope: String = "PRINCIPAL_ROLE:ALL",
+        var s3RoleArn: String? = null,
+        var s3ExternalId: String? = null,
+        var startupTimeoutSeconds: Long = 180,
         var tls: HttpTls = HttpTls(),
     )
 

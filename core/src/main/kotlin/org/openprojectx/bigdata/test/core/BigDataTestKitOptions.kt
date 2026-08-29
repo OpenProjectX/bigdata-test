@@ -11,7 +11,7 @@ const val DEFAULT_KAFKA_IMAGE = "ghcr.io/openprojectx/dockerhub/apache/kafka:4.1
 const val DEFAULT_SCHEMA_REGISTRY_IMAGE =
     "ghcr.io/openprojectx/dockerhub/confluentinc/cp-schema-registry:7.8.0"
 const val DEFAULT_KAFKA_UI_IMAGE = "ghcr.io/kafbat/kafka-ui:latest"
-const val DEFAULT_ICEBERG_REST_CATALOG_IMAGE = "ghcr.io/openprojectx/gravitino-iceberg-rest:0.1.1"
+const val DEFAULT_ICEBERG_REST_CATALOG_IMAGE = "ghcr.io/openprojectx/dockerhub/apache/polaris:1.7.0"
 const val DEFAULT_TRINO_IMAGE = "ghcr.io/openprojectx/dockerhub/trinodb/trino:483"
 
 data class BigDataTestKitOptions(
@@ -171,17 +171,15 @@ data class ObjectStoreOptions(
 data class IcebergRestCatalogOptions(
     val enabled: Boolean = false,
     val image: String = DEFAULT_ICEBERG_REST_CATALOG_IMAGE,
-    val warehouse: String = "/tmp/iceberg/warehouse",
-    val catalogBackend: String = "jdbc",
-    val uri: String = "jdbc:sqlite::memory:",
-    val jdbcDriver: String = "org.sqlite.JDBC",
-    val jdbcUser: String = "iceberg",
-    val jdbcPassword: String = "iceberg",
-    val ioImpl: String? = null,
-    val credentialProviders: String? = null,
+    val catalogName: String = "bigdata_test",
+    val warehouse: String = "file:///tmp/iceberg/warehouse",
+    val realm: String = "POLARIS",
+    val clientId: String = "root",
+    val clientSecret: String = "s3cr3t",
+    val scope: String = "PRINCIPAL_ROLE:ALL",
     val s3RoleArn: String? = null,
     val s3ExternalId: String? = null,
-    val s3TokenServiceEndpoint: String? = null,
+    val startupTimeoutSeconds: Long = 180,
     val tls: HttpTlsOptions = HttpTlsOptions(),
 )
 

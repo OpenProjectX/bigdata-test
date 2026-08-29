@@ -3,11 +3,9 @@ s3 = true
 icebergRestCatalog = true
 
 [icebergRestCatalog]
+catalogName = "spark_catalog"
 warehouse = "s3://spark-iceberg-rest/warehouse"
-ioImpl = "org.apache.iceberg.aws.s3.S3FileIO"
-credentialProviders = "s3-token"
 s3RoleArn = "arn:aws:iam::000000000000:role/iceberg-rest"
-s3TokenServiceEndpoint = "http://s3:4566"
 
 [containerLogs]
 mode = "FILE"

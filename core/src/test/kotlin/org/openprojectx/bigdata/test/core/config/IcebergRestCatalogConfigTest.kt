@@ -18,12 +18,15 @@ class IcebergRestCatalogConfigTest {
             icebergRestCatalog = true
 
             [icebergRestCatalog]
+            catalogName = "catalog_test"
             warehouse = "s3://catalog/warehouse"
-            ioImpl = "org.apache.iceberg.aws.s3.S3FileIO"
-            credentialProviders = "s3-token"
+            realm = "TEST_REALM"
+            clientId = "test-client"
+            clientSecret = "test-secret"
+            scope = "PRINCIPAL_ROLE:ALL"
             s3RoleArn = "arn:aws:iam::000000000000:role/iceberg"
             s3ExternalId = "catalog-test"
-            s3TokenServiceEndpoint = "http://s3:4566"
+            startupTimeoutSeconds = 240
 
             [ports]
             icebergRestCatalog = 19001
@@ -37,12 +40,15 @@ class IcebergRestCatalogConfigTest {
 
         assertTrue(options.icebergRestCatalog.enabled)
         assertEquals(DEFAULT_ICEBERG_REST_CATALOG_IMAGE, options.icebergRestCatalog.image)
+        assertEquals("catalog_test", options.icebergRestCatalog.catalogName)
         assertEquals("s3://catalog/warehouse", options.icebergRestCatalog.warehouse)
-        assertEquals("org.apache.iceberg.aws.s3.S3FileIO", options.icebergRestCatalog.ioImpl)
-        assertEquals("s3-token", options.icebergRestCatalog.credentialProviders)
+        assertEquals("TEST_REALM", options.icebergRestCatalog.realm)
+        assertEquals("test-client", options.icebergRestCatalog.clientId)
+        assertEquals("test-secret", options.icebergRestCatalog.clientSecret)
+        assertEquals("PRINCIPAL_ROLE:ALL", options.icebergRestCatalog.scope)
         assertEquals("arn:aws:iam::000000000000:role/iceberg", options.icebergRestCatalog.s3RoleArn)
         assertEquals("catalog-test", options.icebergRestCatalog.s3ExternalId)
-        assertEquals("http://s3:4566", options.icebergRestCatalog.s3TokenServiceEndpoint)
+        assertEquals(240, options.icebergRestCatalog.startupTimeoutSeconds)
         assertEquals(19001, options.portBindings.icebergRestCatalog)
         assertEquals(
             "enabled",
