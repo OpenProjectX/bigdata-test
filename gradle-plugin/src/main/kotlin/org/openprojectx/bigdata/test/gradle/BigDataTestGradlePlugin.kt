@@ -232,19 +232,32 @@ class BigDataTestGradlePlugin : Plugin<Project> {
         if (!extension.extensionRuntime.enabled.get()) return
 
         val runtime = extension.extensionRuntime
+        val sparkRuntime = sparkRuntime(runtime.sparkVersion.get(), runtime.scalaBinaryVersion.get())
         configuration.resolutionStrategy.capabilitiesResolution.withCapability("org.lz4:lz4-java") { details ->
             details.select("at.yawk.lz4:lz4-java:${runtime.lz4Version.get()}")
             details.because("Kafka/Confluent and Spark publish different providers for the same lz4 capability.")
         }
         configuration.resolutionStrategy.eachDependency { details ->
             if (details.requested.group.startsWith("com.fasterxml.jackson")) {
-                details.useVersion("2.15.2")
-                details.because("The bigdata-test extension runtime executes Spark 3.5.x and keeps Jackson aligned independently from application dependency management.")
+                val version = if (details.requested.name == "jackson-annotations") {
+                    sparkRuntime.jacksonAnnotationsVersion
+                } else {
+                    sparkRuntime.jacksonVersion
+                }
+                details.useVersion(version)
+                details.because(
+                    "The bigdata-test extension runtime aligns Jackson with Spark ${sparkRuntime.sparkLine}.",
+                )
             }
         }
         val extensionVersion = runtime.extensionsVersion.get()
         if (runtime.useShadedArtifact.get()) {
-            dependencies.add(configuration.name, "org.openprojectx.bigdata.test.core:extensions:$extensionVersion:runtime@jar")
+            val artifact = if (sparkRuntime.sparkLine == "4.1") {
+                "org.openprojectx.bigdata.test.core:extensions-spark-4:$extensionVersion:runtime@jar"
+            } else {
+                "org.openprojectx.bigdata.test.core:extensions:$extensionVersion:runtime@jar"
+            }
+            dependencies.add(configuration.name, artifact)
             return
         }
 
@@ -273,13 +286,22 @@ class BigDataTestGradlePlugin : Plugin<Project> {
             dependencies.add(configuration.name, "org.apache.avro:avro:${runtime.avroVersion.get()}")
         }
         if (includeSpark) {
-            dependencies.add(configuration.name, "org.apache.spark:spark-sql_2.12:${runtime.sparkVersion.get()}")
-            dependencies.add(configuration.name, "org.apache.spark:spark-hive_2.12:${runtime.sparkVersion.get()}")
-            dependencies.add(configuration.name, "org.apache.iceberg:iceberg-spark-3.5_2.12:${runtime.icebergVersion.get()}")
-            dependencies.add(configuration.name, "org.apache.iceberg:iceberg-spark-extensions-3.5_2.12:${runtime.icebergVersion.get()}")
+            val scala = sparkRuntime.scalaBinaryVersion
+            dependencies.add(configuration.name, "org.apache.spark:spark-sql_$scala:${runtime.sparkVersion.get()}")
+            dependencies.add(configuration.name, "org.apache.spark:spark-hive_$scala:${runtime.sparkVersion.get()}")
+            dependencies.add(
+                configuration.name,
+                "org.apache.iceberg:iceberg-spark-${sparkRuntime.sparkLine}_$scala:${runtime.icebergVersion.get()}",
+            )
+            dependencies.add(
+                configuration.name,
+                "org.apache.iceberg:iceberg-spark-extensions-${sparkRuntime.sparkLine}_$scala:${runtime.icebergVersion.get()}",
+            )
             dependencies.add(configuration.name, "org.apache.iceberg:iceberg-hive-metastore:${runtime.icebergVersion.get()}")
             dependencies.add(configuration.name, "org.apache.iceberg:iceberg-aws-bundle:${runtime.icebergVersion.get()}")
-            dependencies.add(configuration.name, "javax.servlet:javax.servlet-api:4.0.1")
+            if (sparkRuntime.sparkLine == "3.5") {
+                dependencies.add(configuration.name, "javax.servlet:javax.servlet-api:4.0.1")
+            }
         }
         if (includeTrinoJdbc) {
             dependencies.add(configuration.name, "io.trino:trino-jdbc:${runtime.trinoVersion.get()}")
@@ -498,6 +520,28 @@ class BigDataTestGradlePlugin : Plugin<Project> {
     private fun <T : Any> ListProperty<T>.tomlConvention(value: List<T>?) {
         if (value != null) convention(value)
     }
+
+    private fun sparkRuntime(version: String, scalaBinaryVersion: String): SparkRuntime {
+        val runtime = when {
+            version.startsWith("3.5.") -> SparkRuntime("3.5", "2.12", "2.15.2", "2.15.2")
+            version.startsWith("4.1.") -> SparkRuntime("4.1", "2.13", "2.20.0", "2.20")
+            else -> error(
+                "Unsupported Spark version '$version'. Supported lines are Spark 3.5 with Scala 2.12 " +
+                    "and Spark 4.1 with Scala 2.13.",
+            )
+        }
+        require(scalaBinaryVersion == runtime.scalaBinaryVersion) {
+            "Spark $version requires Scala ${runtime.scalaBinaryVersion}, but scalaBinaryVersion was '$scalaBinaryVersion'."
+        }
+        return runtime
+    }
+
+    private data class SparkRuntime(
+        val sparkLine: String,
+        val scalaBinaryVersion: String,
+        val jacksonVersion: String,
+        val jacksonAnnotationsVersion: String,
+    )
 
     private data class ExtensionRuntimeNeeds(
         val hadoop: Boolean = false,

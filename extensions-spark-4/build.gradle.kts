@@ -1,19 +1,19 @@
 plugins {
     id("buildsrc.convention.kotlin-jvm")
-    alias(libs.plugins.kotlinPluginSerialization)
-    alias(libs.plugins.javaDns)
     alias(libs.plugins.shadow)
 }
 
-description = "Config-driven bigdata-test extensions for data, credentials, Spark SQL, and Trino SQL"
+description = "Isolated Spark 4.1 runtime for bigdata-test extensions"
 
 val shadedRuntime by configurations.creating {
     isCanBeConsumed = false
     isCanBeResolved = true
     resolutionStrategy.eachDependency {
         if (requested.group.startsWith("com.fasterxml.jackson")) {
-            useVersion("2.15.2")
-            because("Spark 3.5.x expects Jackson 2.15.x at runtime.")
+            useVersion(
+                if (requested.name == "jackson-annotations") "2.20" else "2.20.0",
+            )
+            because("Spark 4.1 uses Jackson 2.20.x.")
         }
     }
     resolutionStrategy.capabilitiesResolution.withCapability("org.lz4:lz4-java") {
@@ -23,31 +23,9 @@ val shadedRuntime by configurations.creating {
 }
 
 dependencies {
-    api(project(":junit5"))
+    api(project(":extensions"))
 
-    val bootBom = platform("org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}")
-
-    compileOnly(bootBom)
-    testImplementation(bootBom)
-
-    compileOnly("org.springframework.boot:spring-boot")
-    compileOnly("org.springframework.boot:spring-boot-autoconfigure")
-    compileOnly("org.springframework:spring-context")
-    compileOnly("org.springframework:spring-beans")
-    compileOnly("org.springframework:spring-core")
-    compileOnly(libs.hadoopClientApi)
-    compileOnly(libs.hadoopClientRuntime)
-    compileOnly(libs.kafkaAvroSerializer)
-    compileOnly(libs.kafkaSchemaRegistryClient)
-    compileOnly(libs.avro)
-    compileOnly(libs.awsSdkS3)
-    compileOnly(libs.googleCloudStorage)
-    compileOnly(libs.sparkSql)
-    compileOnly(libs.sparkHive)
-    compileOnly(libs.servletApi)
-    implementation(libs.kotlinxSerialization)
-    implementation(libs.jtoml)
-
+    shadedRuntime(project(":extensions"))
     shadedRuntime(libs.hadoopClientApi)
     shadedRuntime(libs.hadoopClientRuntime)
     shadedRuntime(libs.hadoopAws) {
@@ -60,39 +38,27 @@ dependencies {
     shadedRuntime(libs.kafkaSchemaRegistryClient)
     shadedRuntime(libs.lz4Java)
     shadedRuntime(libs.avro)
-    shadedRuntime(libs.sparkSql) {
+    shadedRuntime(libs.spark4Sql) {
         exclude(group = "org.rocksdb", module = "rocksdbjni")
     }
-    shadedRuntime(libs.sparkHive) {
+    shadedRuntime(libs.spark4Hive) {
         exclude(group = "org.rocksdb", module = "rocksdbjni")
     }
-    shadedRuntime(libs.icebergSpark)
-    shadedRuntime(libs.icebergSparkExtensions)
+    shadedRuntime(libs.icebergSpark4)
+    shadedRuntime(libs.icebergSpark4Extensions)
     shadedRuntime(libs.icebergHiveMetastore)
     shadedRuntime(libs.icebergAwsBundle)
-    shadedRuntime(libs.servletApi)
     shadedRuntime(libs.trinoJdbc)
-    shadedRuntime(libs.kotlinxSerialization)
-    shadedRuntime(libs.jtoml)
 
     testImplementation(libs.junitJupiterApi)
-    testImplementation(libs.hadoopClientApi)
-    testImplementation(libs.hadoopClientRuntime)
-    testImplementation(libs.kafkaAvroSerializer)
-    testImplementation(libs.kafkaSchemaRegistryClient)
-    testImplementation(libs.avro)
-    testImplementation(libs.awsSdkS3)
-    testImplementation(libs.googleCloudStorage)
-    testImplementation(libs.sparkSql)
-    testImplementation(libs.sparkHive)
-    testRuntimeOnly(libs.trinoJdbc)
+    testImplementation(libs.spark4Sql)
+    testImplementation(libs.spark4Hive)
     testRuntimeOnly(libs.junitJupiterEngine)
     testRuntimeOnly(libs.junitPlatformLauncher)
     testRuntimeOnly(libs.slf4jSimple)
-    testRuntimeOnly(libs.servletApi)
 }
 
-val runtimeShadowJar = tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
     archiveClassifier.set("runtime")
     configurations = listOf(shadedRuntime)
     isZip64 = true
@@ -101,18 +67,14 @@ val runtimeShadowJar = tasks.named<com.github.jengelman.gradle.plugins.shadow.ta
 }
 
 tasks.withType<GenerateModuleMetadata>().configureEach {
-    dependsOn(runtimeShadowJar)
+    dependsOn(tasks.named("shadowJar"))
 }
 
 configurations.matching { it.name.startsWith("test") }.configureEach {
     resolutionStrategy.eachDependency {
         if (requested.group.startsWith("com.fasterxml.jackson")) {
-            useVersion("2.15.2")
+            useVersion(if (requested.name == "jackson-annotations") "2.20" else "2.20.0")
         }
-    }
-    resolutionStrategy.capabilitiesResolution.withCapability("org.lz4:lz4-java") {
-        select("at.yawk.lz4:lz4-java:${libs.versions.lz4.get()}")
-        because("Kafka/Confluent and Spark publish different providers for the same lz4 capability.")
     }
 }
 
@@ -134,10 +96,4 @@ tasks.withType<Test>().configureEach {
         "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
         "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
     )
-}
-
-javadns {
-    hosts.put("hdfs.test.local", "127.0.0.1")
-    hosts.put("hdfs", "127.0.0.1")
-
 }

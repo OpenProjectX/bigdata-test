@@ -47,7 +47,11 @@ bigDataTest {
     extensionConfig.add("classpath:spring-bigdata-extensions.toml")
     extensionRuntime {
         hadoopVersion.set("3.4.2")
-        sparkVersion.set("3.5.7")
+        sparkVersion.set(
+            providers.gradleProperty("bigDataTestSparkVersion")
+                .orElse(providers.environmentVariable("BIGDATA_TEST_SPARK_VERSION"))
+                .orElse("3.5.7"),
+        )
     }
 }
 

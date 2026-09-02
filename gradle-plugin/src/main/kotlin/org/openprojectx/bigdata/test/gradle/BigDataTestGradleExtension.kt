@@ -116,6 +116,9 @@ abstract class BigDataTestGradleExtensionRuntime @Inject constructor(objects: Ob
     val useShadedArtifact: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
     val extensionsVersion: Property<String> = objects.property(String::class.java)
     val sparkVersion: Property<String> = objects.property(String::class.java).convention("3.5.7")
+    val scalaBinaryVersion: Property<String> = objects.property(String::class.java).convention(
+        sparkVersion.map { version -> if (version.startsWith("4.")) "2.13" else "2.12" },
+    )
     val icebergVersion: Property<String> = objects.property(String::class.java).convention("1.11.0")
     val hadoopVersion: Property<String> = objects.property(String::class.java).convention("3.4.2")
     val confluentVersion: Property<String> = objects.property(String::class.java).convention("8.2.1")

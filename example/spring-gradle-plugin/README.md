@@ -16,6 +16,12 @@ cd example/spring-gradle-plugin
 GRADLE_USER_HOME=/data/.gradle ../../gradlew bootRunLocal
 ```
 
+Run the same Gradle-managed Spark SQL preparation with Spark 4.1.1:
+
+```bash
+GRADLE_USER_HOME=/data/.gradle ../../gradlew -PbigDataTestSparkVersion=4.1.1 bootRunLocal
+```
+
 For manual troubleshooting without starting the Spring app, keep the containers running with:
 
 ```bash

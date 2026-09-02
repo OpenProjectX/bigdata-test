@@ -11,6 +11,7 @@ springBoot = "4.0.5"
 testcontainers = "2.0.4"
 hiveDockerTestcontainers = "0.1.5"
 spark = "3.5.7"
+spark4 = "4.1.1"
 hadoop = "3.4.2"
 kafka = "4.1.2"
 javaDns = "0.1.1"
@@ -51,6 +52,10 @@ hiveDockerTestcontainers = { module = "org.openprojectx.hive.docker.core:hive-do
 sparkSql = { module = "org.apache.spark:spark-sql_2.12", version.ref = "spark" }
 sparkHive = { module = "org.apache.spark:spark-hive_2.12", version.ref = "spark" }
 sparkSqlKafka = { module = "org.apache.spark:spark-sql-kafka-0-10_2.12", version.ref = "spark" }
+spark4Sql = { module = "org.apache.spark:spark-sql_2.13", version.ref = "spark4" }
+spark4Hive = { module = "org.apache.spark:spark-hive_2.13", version.ref = "spark4" }
+icebergSpark4 = { module = "org.apache.iceberg:iceberg-spark-4.1_2.13", version.ref = "iceberg" }
+icebergSpark4Extensions = { module = "org.apache.iceberg:iceberg-spark-extensions-4.1_2.13", version.ref = "iceberg" }
 hadoopAws = { module = "org.apache.hadoop:hadoop-aws", version.ref = "hadoop" }
 hadoopClientApi = { module = "org.apache.hadoop:hadoop-client-api", version.ref = "hadoop" }
 hadoopClientRuntime = { module = "org.apache.hadoop:hadoop-client-runtime", version.ref = "hadoop" }

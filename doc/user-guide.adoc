@@ -2327,6 +2327,32 @@ bigDataTest {
 }
 ----
 
+The Gradle plugin supports two isolated Spark runtime lines:
+
+[cols="1,1,1,2",options="header"]
+|===
+|Spark |Scala |Jackson |Shaded runtime
+
+|3.5.x
+|2.12
+|2.15.2
+|`extensions:<version>:runtime`
+
+|4.1.x
+|2.13
+|2.20.x
+|`extensions-spark-4:<version>:runtime`
+|===
+
+Select Spark 4.1.1 with:
+
+[source,kotlin]
+----
+bigDataTest.extensionRuntime.sparkVersion.set("4.1.1")
+----
+
+`scalaBinaryVersion` defaults to `2.12` for Spark 3 and `2.13` for Spark 4. The plugin rejects unsupported Spark lines and mismatched Spark/Scala combinations during configuration.
+
 `config` loads startup TOML using the same table names as JUnit startup config where the Gradle plugin has matching fields. `classpath:` locations are resolved from Gradle source-set resources, including `src/main/resources` and `src/test/resources`. It is applied as Gradle property conventions, so explicit DSL values win over TOML values:
 
 [source,toml]
@@ -2376,7 +2402,10 @@ bigDataTest {
 
 Extension provisioning dependencies are resolved into the plugin-owned `bigDataTestExtensionRuntime` configuration. They are not added to the application `implementation`, `runtimeClasspath`, `testImplementation`, or `testRuntimeClasspath` configurations.
 
-By default the plugin uses the shaded `extensions:<version>:runtime` artifact. This keeps Spark, Hadoop, Kafka, Avro, thin Iceberg Spark/Hive catalog modules, and their transitive runtime dependencies managed by bigdata-test instead of letting the application dependency graph choose those versions. The extension runtime classloader prefers its own jars and delegates shared bigdata-test core types to the Gradle plugin parent classloader.
+By default the plugin uses a shaded runtime selected from `sparkVersion`:
+`extensions:<version>:runtime` for Spark 3.5 or
+`extensions-spark-4:<version>:runtime` for Spark 4.1. This keeps the two Spark
+dependency graphs isolated from the application and from each other.
 
 Application dependencies such as `implementation`, `runtimeOnly`, `testImplementation`, and `testRuntimeOnly` are not added to the bigdata-test extension runtime. Dependencies explicitly added to `bigDataTestExtensionRuntime` are different: they are intentionally part of the extension runtime and can affect extension execution. Use that configuration only for optional extension-only libraries that bigdata-test does not already provide.
 
@@ -2395,7 +2424,8 @@ bigDataTest {
     extensionRuntime {
         useShadedArtifact.set(false)
         hadoopVersion.set("3.4.2")
-        sparkVersion.set("3.5.7")
+        sparkVersion.set("4.1.1")
+        scalaBinaryVersion.set("2.13") // optional; inferred from sparkVersion
         confluentVersion.set("8.2.1")
         avroVersion.set("1.12.1")
         lz4Version.set("1.10.1")
@@ -2413,10 +2443,16 @@ When `spark-sql-prep` is used by `bigDataTestStart` or `bigDataTestRun`, Spark s
 
 [source,properties]
 ----
-org.gradle.jvmargs=-Xmx4096M -Dfile.encoding=UTF-8 --add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED
+org.gradle.jvmargs=-Xmx4096M -Dfile.encoding=UTF-8 --add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED
 ----
 
 These flags cannot be applied after the Gradle daemon has already started. If a daemon was already running without them, stop it with `./gradlew --stop` or run the next command with `--no-daemon`.
+
+Errors naming an inaccessible JDK class or saying that `java.base` does not
+`open` or `export` a package indicate that the daemon was started without the
+required module access. `spark.executor.extraJavaOptions` does not fix the
+driver in this case because `spark-sql-prep` creates its Spark driver inside
+the Gradle daemon.
 
 When auto-detection is not enough, force dependency groups explicitly:
 
@@ -2433,7 +2469,7 @@ bigDataTest {
 }
 ----
 
-The `extensions` module publishes the shaded runtime artifact with classifier `runtime`. This is the default plugin mode:
+The `extensions` and `extensions-spark-4` modules publish shaded runtime artifacts with classifier `runtime`. This is the default plugin mode:
 
 [source,kotlin]
 ----
@@ -2445,9 +2481,14 @@ bigDataTest {
 }
 ----
 
-With `useShadedArtifact = true`, the plugin resolves `org.openprojectx.bigdata.test.core:extensions:<version>:runtime@jar` into `bigDataTestExtensionRuntime` and skips adding separate Hadoop, Spark, Iceberg, Kafka, and Avro extension runtime dependencies.
+With `useShadedArtifact = true`, the plugin resolves one of these artifacts
+into `bigDataTestExtensionRuntime` and skips adding separate Hadoop, Spark,
+Iceberg, Kafka, and Avro extension runtime dependencies:
 
-The normal `extensions` artifact does not package Spark, Hadoop, Kafka, Trino JDBC, Log4j, or SLF4J implementations; those dependencies are supplied by the plugin-owned runtime configuration when needed. The shaded `extensions:<version>:runtime` artifact does package extension runtime dependencies, including the Trino JDBC driver and logging libraries pulled in transitively by Spark such as `slf4j-api`, `log4j-api`, `log4j-core`, and `log4j-slf4j2-impl`. Jackson is relocated inside this shaded artifact to avoid collisions with Jackson versions used by the application or Gradle build logic.
+* Spark 3.5: `org.openprojectx.bigdata.test.core:extensions:<version>:runtime@jar`
+* Spark 4.1: `org.openprojectx.bigdata.test.core:extensions-spark-4:<version>:runtime@jar`
+
+The normal `extensions` artifact does not package Spark, Hadoop, Kafka, Trino JDBC, Log4j, or SLF4J implementations; those dependencies are supplied by the plugin-owned runtime configuration when needed. Both shaded artifacts package extension runtime dependencies. Jackson is aligned with the selected Spark line and relocated inside the shaded artifact to avoid collisions with Jackson versions used by the application or Gradle build logic. Spark 3 and Spark 4 are never packaged together.
 
 === Gradle Plugin Customization Surface
 
@@ -2462,7 +2503,7 @@ The Gradle plugin has three separate classpath/resource concepts:
 |These dependencies are used by the app and tests. They are not added to `bigDataTestRun` or extension provisioning.
 
 |Extension runtime classpath
-|Use the `bigDataTestExtensionRuntime` configuration, or set `extensionRuntime.useShadedArtifact.set(false)` and configure `hadoopVersion`, `sparkVersion`, `icebergVersion`, `confluentVersion`, `avroVersion`, `awsSdkVersion`, `trinoVersion`, and `lz4Version`.
+|Use the `bigDataTestExtensionRuntime` configuration, or set `extensionRuntime.useShadedArtifact.set(false)` and configure `hadoopVersion`, `sparkVersion`, `scalaBinaryVersion`, `icebergVersion`, `confluentVersion`, `avroVersion`, `awsSdkVersion`, `trinoVersion`, and `lz4Version`.
 |This classpath is used only by bigdata-test extension execution. Dependencies added here can affect `spark-sql-prep`, JCEKS generation, Kafka Avro seeding, and other extensions.
 
 |Extension config and SQL/resource lookup

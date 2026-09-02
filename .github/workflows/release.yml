@@ -194,7 +194,7 @@ jobs:
             "ghcr.io/openprojectx/dockerhub/confluentinc/cp-schema-registry:7.8.0" \
             "ghcr.io/openprojectx/cloudera-hms:0.1.16" \
             "ghcr.io/openprojectx/directory-kerby/kerby-kdc:latest" \
-            "ghcr.io/openprojectx/gravitino-iceberg-rest:0.1.1" \
+            "ghcr.io/openprojectx/dockerhub/apache/polaris:1.7.0" \
             "ghcr.io/openprojectx/hive:3.1.3-hadoop-3.4.2-gcs-4.0.4-jdk17-0.1.4" \
             "ghcr.io/openprojectx/dockerhub/library/postgres:16-alpine"
           ls -lh "$DOCKER_IMAGE_CACHE_FILE"
@@ -203,6 +203,12 @@ jobs:
         if: env.SKIP_TESTS != 'true' && env.RUN_SPARK_MATRIX_TESTS == 'true'
         run: |
           ./gradlew --no-configuration-cache :example:spark:sparkBigDataMatrixTest --stacktrace "--$GRADLE_LOG_LEVEL"
+
+      - name: Run Spark extension runtime tests
+        if: env.SKIP_TESTS != 'true' && env.RUN_SPRING_GRADLE_PLUGIN_SMOKE == 'true'
+        run: |
+          ./gradlew --no-configuration-cache :extensions:test :extensions-spark-4:test \
+            --stacktrace "--$GRADLE_LOG_LEVEL"
 
       - name: Publish local artifacts for standalone examples
         if: env.SKIP_TESTS != 'true' && env.RUN_SPRING_GRADLE_PLUGIN_SMOKE == 'true'
@@ -233,7 +239,8 @@ jobs:
 
           (
             cd example/spring-gradle-plugin
-            BIGDATA_TEST_PLUGIN_VERSION="$release_version" ../../gradlew bootRunLocal --stacktrace "--$GRADLE_LOG_LEVEL"
+            BIGDATA_TEST_PLUGIN_VERSION="$release_version" BIGDATA_TEST_SPARK_VERSION="4.1.1" \
+              ../../gradlew bootRunLocal --stacktrace "--$GRADLE_LOG_LEVEL"
           ) > "$log_file" 2>&1 &
           boot_pid=$!
 
