@@ -150,7 +150,7 @@ tasks.register<Test>("sparkIcebergRestS3Test") {
 }
 
 tasks.register<Test>("sparkTrinoIcebergViewTest") {
-    description = "Runs Spark SQL preparation followed by a Trino view over an HMS-backed Iceberg table on S3."
+    description = "Runs Trino views over Spark-created Iceberg and Hive tables in HMS with S3 and GCS storage."
     group = "verification"
     testClassesDirs = sourceSets.test.get().output.classesDirs
     useSparkRuntimeClasspath(apacheSparkRuntimeClasspath, "apache")

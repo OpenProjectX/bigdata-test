@@ -1145,6 +1145,14 @@ internal class BigDataContainerFactory(
                 "s3.path-style-access" to "true",
             )
         }
+        if (options.fakeGcs.enabled) {
+            catalogProperties += mapOf(
+                "fs.gcs.enabled" to "true",
+                "gcs.endpoint" to "http://fake-gcs:${fakeGcsServicePort()}",
+                "gcs.project-id" to "bigdata-test",
+                "gcs.auth-type" to "APPLICATION_DEFAULT",
+            )
+        }
         catalogProperties.putAll(trino.catalogProperties)
         val catalogFile = catalogProperties.entries.joinToString("\n", postfix = "\n") { (name, value) ->
             "$name=$value"

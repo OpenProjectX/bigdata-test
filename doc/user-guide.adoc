@@ -201,7 +201,35 @@ startupTimeoutSeconds = 180
 "hive.metastore.thrift.client.read-timeout" = "60s"
 ----
 
-When S3 is enabled in the same instance, the generated Hive catalog automatically enables Trino native S3 support with `http://s3:4566`, test credentials, `us-east-1`, and path-style access. Entries in `[trino.catalogProperties]` are applied last and can override generated values or add HDFS/GCS/image-specific connector settings.
+When S3 is enabled in the same instance, the generated catalog automatically enables Trino native S3 support with `http://s3:4566`, test credentials, `us-east-1`, and path-style access.
+
+When `fakeGcs` is enabled in the same instance, the generated catalog also enables
+native GCS support with `fs.gcs.enabled=true`, project `bigdata-test`, and
+`gcs.endpoint=http://fake-gcs:4588` for Floci GCP (`4443` for fake-gcs-server).
+`gcs.auth-type=APPLICATION_DEFAULT` allows Trino 483 to fall back to
+unauthenticated access when no application default credentials are present in
+the container. No service account file is required for the emulator.
+These settings work with either the Hive or Iceberg connector. Entries in
+`[trino.catalogProperties]` are applied last and override generated values.
+Catalog files supplied through container customization must include their own
+storage configuration.
+
+[source,toml]
+----
+[services]
+trino = true
+fakeGcs = true
+
+[trino]
+catalogName = "iceberg"
+
+[trino.catalogProperties]
+"connector.name" = "iceberg"
+"iceberg.catalog.type" = "hive_metastore"
+----
+
+The native GCS properties follow the
+https://github.com/trinodb/trino/blob/483/docs/src/main/sphinx/object-storage/file-system-gcs.md[Trino 483 GCS configuration].
 
 Programmatic configuration uses `withTrino(TrinoOptions(...))`. JUnit can use `@BigDataTest(trino = true)`. The Gradle DSL uses `services.trino.set(true)` and `trino { ... }`; Spring Boot uses `bigdata.test.trino.enabled=true`. The executable `TrinoBigDataTestExample` sends `SHOW SCHEMAS FROM hive` through Trino's statement API and verifies the managed HMS catalog.
 
@@ -2088,9 +2116,11 @@ The `trino-sql-prep` extension connects to the managed Trino service through its
 ----
 [[extensions]]
 type = "spark-sql-prep"
-id = "create-iceberg-table"
+id = "create-source-tables"
 statements = [
-  "CREATE TABLE demo.events USING iceberg AS SELECT 1 AS id",
+  "CREATE TABLE demo.events_iceberg USING iceberg AS SELECT 1 AS id, 'iceberg' AS storage",
+  "CREATE EXTERNAL TABLE demo.events_hive (id BIGINT, storage STRING) STORED AS PARQUET LOCATION 's3a://tables/demo/events_hive'",
+  "INSERT INTO demo.events_hive VALUES (2, 'hive')",
 ]
 
 [[extensions]]
@@ -2102,14 +2132,32 @@ schema = "demo"
 source = "bigdata-test"
 queryTimeoutSeconds = 60
 statements = [
-  "CREATE OR REPLACE VIEW events_view AS SELECT * FROM events",
+  "CREATE OR REPLACE VIEW events_view AS SELECT * FROM iceberg.demo.events_iceberg UNION ALL SELECT * FROM hive.demo.events_hive",
 ]
 scripts = [
   "classpath:sql/create_trino_views.sql",
 ]
 ----
 
-The matching Trino service catalog must point at the same HMS and object store used by Spark. The built-in Trino service wires its catalog to the selected HMS and adds native S3 settings when S3 is enabled. Extension declaration order matters: the Spark extension must appear before the Trino extension when Trino SQL depends on Spark-created metadata.
+The matching Trino service catalogs must point at the same HMS and object store used by Spark. The built-in Trino service wires its primary catalog to the selected HMS and adds native S3 settings when S3 is enabled. A cross-format query needs separate Iceberg and Hive connectors. Add the second catalog through the public container file-transfer configuration:
+
+[source,toml]
+----
+[trino]
+catalogName = "iceberg"
+
+[trino.catalogProperties]
+"connector.name" = "iceberg"
+"iceberg.catalog.type" = "hive_metastore"
+
+[containers.trino.files]
+"/etc/trino/catalog/hive.properties" = "classpath:trino/hive.properties"
+----
+
+The transferred `hive.properties` configures `connector.name=hive`, the same
+`hive.metastore.uri`, and the same S3 endpoint and credentials. Extension
+declaration order matters: the Spark extension must appear before the Trino
+extension when Trino SQL depends on Spark-created metadata.
 
 Programmatic configuration supports values generated for a test run:
 
@@ -2137,7 +2185,13 @@ The extension publishes `<id>.engine = trino-jdbc` and `<id>.executed-statements
 
 Direct JUnit users of the thin `extensions` artifact must provide the JDBC driver on the test runtime, for example `testRuntimeOnly("io.trino:trino-jdbc:483")`. The Gradle plugin detects `trino-sql-prep` and supplies the driver on its isolated extension runtime; its shaded runtime artifact already contains the driver.
 
-The executable example creates an HMS-backed Iceberg table and data on S3 with Spark, creates a Trino view, then queries that view through JDBC:
+The executable example uses Spark to create both an HMS-backed Iceberg table and
+a native Hive external Parquet table on S3. Trino receives separate `iceberg`
+and `hive` catalogs backed by the same HMS, creates a cross-catalog `UNION ALL`
+view over both tables, and verifies all rows through JDBC. It also creates a
+second Iceberg table at an explicit `gs://` location, creates and queries a
+Trino view over that table, and checks Iceberg's `$files` metadata table to
+verify the data files reside on GCS:
 
 [source,shell]
 ----

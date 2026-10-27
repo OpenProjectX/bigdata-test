@@ -1,6 +1,7 @@
 [services]
 hiveMetastore = true
 s3 = true
+fakeGcs = true
 trino = true
 
 [trino]
@@ -9,6 +10,9 @@ catalogName = "iceberg"
 [trino.catalogProperties]
 "connector.name" = "iceberg"
 "iceberg.catalog.type" = "hive_metastore"
+
+[containers.trino.files]
+"/etc/trino/catalog/hive.properties" = "classpath:trino/hive.properties"
 
 [containerLogs]
 mode = "FILE"
